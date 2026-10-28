@@ -1,0 +1,154 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/attempt.schema.json",
+    "title": "Attempt, version 1",
+    "description": "One execution of a scenario by one implementation on one input. Capability and execution outcome are separate dependent observations; an unavailable input is never an implementation failure.",
+    "type": "object",
+    "required": ["schema", "id", "run_id", "scenario_id", "implementation", "input", "capability", "execution", "output"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/attempt.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "implementation": {
+            "type": "object",
+            "required": ["id", "revision"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "revision": { "$ref": "common.schema.json#/$defs/revision" }
+            }
+        },
+        "input": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["status", "source_id", "sha256", "byte_size"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "status": { "const": "available" },
+                        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                        "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                        "byte_size": { "type": "integer", "minimum": 0 }
+                    }
+                },
+                {
+                    "type": "object",
+                    "required": ["status", "source_id", "reason", "expected_sha256", "message"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "status": { "const": "unavailable" },
+                        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                        "reason": { "enum": ["missing_upstream", "hash_mismatch"] },
+                        "expected_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                        "observed_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                        "message": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                    },
+                    "if": { "properties": { "reason": { "const": "hash_mismatch" } } },
+                    "then": { "required": ["observed_sha256"] }
+                }
+            ]
+        },
+        "capability": { "enum": ["supported", "unsupported", "expected_rejection", "not_evaluated"] },
+        "execution": {
+            "type": "object",
+            "required": ["outcome", "exit_code", "started_at", "finished_at", "error"],
+            "additionalProperties": false,
+            "properties": {
+                "outcome": { "enum": ["succeeded", "failed", "timed_out", "not_run"] },
+                "exit_code": { "type": ["integer", "null"] },
+                "started_at": {
+                    "oneOf": [{ "$ref": "common.schema.json#/$defs/utcTimestamp" }, { "type": "null" }]
+                },
+                "finished_at": {
+                    "oneOf": [{ "$ref": "common.schema.json#/$defs/utcTimestamp" }, { "type": "null" }]
+                },
+                "error": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["message"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "message": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        },
+                        { "type": "null" }
+                    ]
+                }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "outcome": { "enum": ["failed", "timed_out"] } } },
+                    "then": { "properties": { "error": { "type": "object" } } }
+                },
+                {
+                    "if": { "properties": { "outcome": { "const": "succeeded" } } },
+                    "then": {
+                        "properties": {
+                            "exit_code": { "const": 0 },
+                            "error": { "type": "null" }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "outcome": { "const": "not_run" } } },
+                    "then": {
+                        "properties": {
+                            "exit_code": { "type": "null" },
+                            "started_at": { "type": "null" },
+                            "finished_at": { "type": "null" },
+                            "error": { "type": "null" }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "outcome": { "enum": ["succeeded", "failed", "timed_out"] } } },
+                    "then": {
+                        "properties": {
+                            "started_at": { "type": "string" },
+                            "finished_at": { "type": "string" }
+                        }
+                    }
+                }
+            ]
+        },
+        "output": {
+            "oneOf": [{ "$ref": "common.schema.json#/$defs/artifact" }, { "type": "null" }]
+        }
+    },
+    "allOf": [
+        {
+            "if": { "properties": { "input": { "properties": { "status": { "const": "unavailable" } } } } },
+            "then": {
+                "properties": {
+                    "capability": { "const": "not_evaluated" },
+                    "execution": { "properties": { "outcome": { "const": "not_run" } } },
+                    "output": { "type": "null" }
+                }
+            }
+        },
+        {
+            "if": { "properties": { "capability": { "const": "not_evaluated" } } },
+            "then": { "properties": { "input": { "properties": { "status": { "const": "unavailable" } } } } }
+        },
+        {
+            "if": {
+                "properties": {
+                    "input": { "properties": { "status": { "const": "available" } } },
+                    "execution": { "properties": { "outcome": { "const": "not_run" } } }
+                }
+            },
+            "then": { "properties": { "capability": { "const": "unsupported" } } }
+        },
+        {
+            "if": { "properties": { "execution": { "properties": { "outcome": { "const": "succeeded" } } } } },
+            "then": { "properties": { "output": { "type": "object" } } }
+        },
+        {
+            "if": { "properties": { "execution": { "properties": { "outcome": { "const": "not_run" } } } } },
+            "then": { "properties": { "output": { "type": "null" } } }
+        }
+    ]
+}

@@ -1,0 +1,71 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/observation.schema.json",
+    "title": "Validator observation, version 1",
+    "description": "The judgement of one analyzer, under one policy, about one property of one attempt. Observations from different analyzers are kept side by side and never merged into a single verdict.",
+    "type": "object",
+    "required": ["schema", "id", "attempt_id", "analyzer", "policy", "property", "input_artifact", "output_artifact", "verdict", "evidence", "observed_at"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/observation.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "attempt_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "analyzer": {
+            "type": "object",
+            "required": ["id", "revision"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "revision": { "$ref": "common.schema.json#/$defs/revision" }
+            }
+        },
+        "policy": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "description": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "parameters": { "type": "object" }
+            }
+        },
+        "property": {
+            "enum": [
+                "structure",
+                "byte_range",
+                "cms_signature",
+                "prior_signatures",
+                "certificate_trust",
+                "timestamp",
+                "profile",
+                "visual"
+            ]
+        },
+        "input_artifact": {
+            "oneOf": [{ "$ref": "common.schema.json#/$defs/artifact" }, { "type": "null" }]
+        },
+        "output_artifact": {
+            "oneOf": [{ "$ref": "common.schema.json#/$defs/artifact" }, { "type": "null" }]
+        },
+        "verdict": { "$ref": "common.schema.json#/$defs/verdict" },
+        "evidence": {
+            "type": "object",
+            "required": ["summary"],
+            "additionalProperties": false,
+            "properties": {
+                "summary": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "exit_code": { "type": ["integer", "null"] },
+                "raw_output": { "type": "string" },
+                "details": { "type": "object" }
+            }
+        },
+        "observed_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" }
+    },
+    "if": { "properties": { "verdict": { "enum": ["valid", "invalid", "inconclusive"] } } },
+    "then": {
+        "properties": {
+            "input_artifact": { "type": "object" },
+            "output_artifact": { "type": "object" }
+        }
+    }
+}

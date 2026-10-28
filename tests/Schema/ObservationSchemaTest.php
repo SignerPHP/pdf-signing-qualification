@@ -19,7 +19,7 @@ final class ObservationSchemaTest extends SchemaTestCase
             'schema' => self::schemaId(),
             'id' => 'run-20261028T120000Z/pdfjs-issue17069/basic-invisible-sha256/pdf-signer/1/pdfsig',
             'attempt_id' => 'run-20261028T120000Z/pdfjs-issue17069/basic-invisible-sha256/pdf-signer/1',
-            'analyzer' => ['id' => 'pdfsig', 'version' => '22.02.0'],
+            'analyzer' => ['id' => 'pdfsig', 'revision' => ['kind' => 'version', 'value' => '22.02.0']],
             'policy' => [
                 'id' => 'pdfsig-no-ocsp',
                 'description' => 'Signature and ByteRange check without certificate revocation lookup',
@@ -74,6 +74,18 @@ final class ObservationSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_observation_without_input_is_accepted_when_the_input_was_unavailable(): void
+    {
+        self::assertValid(self::mutate(function (array $observation): array {
+            $observation['input_artifact'] = null;
+            $observation['output_artifact'] = null;
+            $observation['verdict'] = 'not_evaluated';
+            $observation['evidence'] = ['summary' => 'The input could not be acquired'];
+
+            return $observation;
+        }));
+    }
+
     public static function invalidObservations(): iterable
     {
         foreach (['analyzer', 'policy', 'input_artifact', 'output_artifact', 'verdict', 'evidence'] as $field) {
@@ -83,18 +95,28 @@ final class ObservationSchemaTest extends SchemaTestCase
                 return $observation;
             })];
         }
-        yield 'analyzer without version' => [self::mutate(function (array $observation): array {
-            unset($observation['analyzer']['version']);
+        yield 'analyzer without revision' => [self::mutate(function (array $observation): array {
+            unset($observation['analyzer']['revision']);
 
             return $observation;
         })];
+        foreach (['latest', 'main', 'system'] as $movingVersion) {
+            yield 'analyzer version '.$movingVersion => [self::mutate(function (array $observation) use ($movingVersion): array {
+                $observation['analyzer']['revision']['value'] = $movingVersion;
+
+                return $observation;
+            })];
+        }
         yield 'verdict outside the defined set' => [self::mutate(function (array $observation): array {
             $observation['verdict'] = 'passed';
 
             return $observation;
         })];
         yield 'majority verdict over several analyzers' => [self::mutate(function (array $observation): array {
-            $observation['analyzer'] = [['id' => 'pdfsig', 'version' => '22.02.0'], ['id' => 'pyhanko', 'version' => '0.29.1']];
+            $observation['analyzer'] = [
+                ['id' => 'pdfsig', 'revision' => ['kind' => 'version', 'value' => '22.02.0']],
+                ['id' => 'pyhanko', 'revision' => ['kind' => 'version', 'value' => '0.29.1']],
+            ];
 
             return $observation;
         })];
@@ -105,6 +127,11 @@ final class ObservationSchemaTest extends SchemaTestCase
         })];
         yield 'valid verdict without an output artifact' => [self::mutate(function (array $observation): array {
             $observation['output_artifact'] = null;
+
+            return $observation;
+        })];
+        yield 'valid verdict without an input artifact' => [self::mutate(function (array $observation): array {
+            $observation['input_artifact'] = null;
 
             return $observation;
         })];

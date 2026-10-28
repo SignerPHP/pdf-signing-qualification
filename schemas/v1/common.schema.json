@@ -5,8 +5,12 @@
     "$defs": {
         "identifier": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+-]*$",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]*(/[A-Za-z0-9][A-Za-z0-9._:+-]*)*$",
             "maxLength": 512
+        },
+        "scenarioId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
         },
         "nonEmptyString": {
             "type": "string",

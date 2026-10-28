@@ -12,11 +12,11 @@
         "attempt_id": { "$ref": "common.schema.json#/$defs/identifier" },
         "analyzer": {
             "type": "object",
-            "required": ["id", "version"],
+            "required": ["id", "revision"],
             "additionalProperties": false,
             "properties": {
                 "id": { "$ref": "common.schema.json#/$defs/identifier" },
-                "version": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                "revision": { "$ref": "common.schema.json#/$defs/revision" }
             }
         },
         "policy": {
@@ -41,7 +41,9 @@
                 "visual"
             ]
         },
-        "input_artifact": { "$ref": "common.schema.json#/$defs/artifact" },
+        "input_artifact": {
+            "oneOf": [{ "$ref": "common.schema.json#/$defs/artifact" }, { "type": "null" }]
+        },
         "output_artifact": {
             "oneOf": [{ "$ref": "common.schema.json#/$defs/artifact" }, { "type": "null" }]
         },
@@ -60,5 +62,10 @@
         "observed_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" }
     },
     "if": { "properties": { "verdict": { "enum": ["valid", "invalid", "inconclusive"] } } },
-    "then": { "properties": { "output_artifact": { "type": "object" } } }
+    "then": {
+        "properties": {
+            "input_artifact": { "type": "object" },
+            "output_artifact": { "type": "object" }
+        }
+    }
 }

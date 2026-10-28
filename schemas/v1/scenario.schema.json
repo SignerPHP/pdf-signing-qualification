@@ -8,7 +8,7 @@
     "additionalProperties": false,
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/scenario.schema.json" },
-        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "id": { "$ref": "common.schema.json#/$defs/scenarioId" },
         "description": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "operation": { "enum": ["sign"] },
         "signing": {

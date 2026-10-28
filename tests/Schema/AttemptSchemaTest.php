@@ -120,6 +120,11 @@ final class AttemptSchemaTest extends SchemaTestCase
 
             return $attempt;
         }, self::failedAttempt())];
+        yield 'expected rejection that succeeded kept as an observed result' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'expected_rejection';
+
+            return $attempt;
+        })];
         yield 'released version as revision' => [self::mutate(function (array $attempt): array {
             $attempt['implementation']['revision'] = ['kind' => 'version', 'value' => '1.4.0'];
 
@@ -205,6 +210,113 @@ final class AttemptSchemaTest extends SchemaTestCase
         })];
         yield 'start time without UTC designator' => [self::mutate(function (array $attempt): array {
             $attempt['execution']['started_at'] = '2026-10-28T12:00:01-03:00';
+
+            return $attempt;
+        })];
+        yield 'successful execution with a nonzero exit code' => [self::mutate(function (array $attempt): array {
+            $attempt['execution']['exit_code'] = 139;
+
+            return $attempt;
+        })];
+        yield 'successful execution with an error' => [self::mutate(function (array $attempt): array {
+            $attempt['execution']['error'] = ['message' => 'Unexpected warning'];
+
+            return $attempt;
+        })];
+        yield 'failed execution without finish time' => [self::mutate(function (array $attempt): array {
+            $attempt['execution']['finished_at'] = null;
+
+            return $attempt;
+        }, self::failedAttempt())];
+        yield 'supported attempt that was not run' => [self::mutate(function (array $attempt): array {
+            $attempt['execution'] = [
+                'outcome' => 'not_run',
+                'exit_code' => null,
+                'started_at' => null,
+                'finished_at' => null,
+                'error' => null,
+            ];
+            $attempt['output'] = null;
+
+            return $attempt;
+        })];
+        yield 'attempt that was not run but has an output' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'unsupported';
+            $attempt['execution'] = [
+                'outcome' => 'not_run',
+                'exit_code' => null,
+                'started_at' => null,
+                'finished_at' => null,
+                'error' => null,
+            ];
+
+            return $attempt;
+        })];
+        yield 'attempt that was not run but has an exit code' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'unsupported';
+            $attempt['execution'] = [
+                'outcome' => 'not_run',
+                'exit_code' => null,
+                'started_at' => null,
+                'finished_at' => null,
+                'error' => null,
+            ];
+            $attempt['execution']['exit_code'] = 139;
+            $attempt['output'] = null;
+
+            return $attempt;
+        })];
+        yield 'attempt that was not run but has timestamps' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'unsupported';
+            $attempt['execution'] = [
+                'outcome' => 'not_run',
+                'exit_code' => null,
+                'started_at' => null,
+                'finished_at' => null,
+                'error' => null,
+            ];
+            $attempt['execution']['started_at'] = '2026-10-28T12:00:01Z';
+            $attempt['execution']['finished_at'] = '2026-10-28T12:00:02Z';
+            $attempt['output'] = null;
+
+            return $attempt;
+        })];
+        yield 'attempt that was not run but has an error' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'unsupported';
+            $attempt['execution'] = [
+                'outcome' => 'not_run',
+                'exit_code' => null,
+                'started_at' => null,
+                'finished_at' => null,
+                'error' => null,
+            ];
+            $attempt['execution']['error'] = ['message' => 'Segmentation fault'];
+            $attempt['output'] = null;
+
+            return $attempt;
+        })];
+        yield 'capability not evaluated for an available input' => [self::mutate(function (array $attempt): array {
+            $attempt['capability'] = 'not_evaluated';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1/../../etc/x' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1/../../etc/x';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1/./x' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1/./x';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1//x' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1//x';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1/' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1/';
 
             return $attempt;
         })];

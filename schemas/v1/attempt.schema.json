@@ -10,7 +10,7 @@
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/attempt.schema.json" },
         "id": { "$ref": "common.schema.json#/$defs/identifier" },
         "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
-        "scenario_id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
         "implementation": {
             "type": "object",
             "required": ["id", "revision"],
@@ -85,7 +85,23 @@
                 },
                 {
                     "if": { "properties": { "outcome": { "const": "succeeded" } } },
-                    "then": { "properties": { "error": { "type": "null" } } }
+                    "then": {
+                        "properties": {
+                            "exit_code": { "const": 0 },
+                            "error": { "type": "null" }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "outcome": { "const": "not_run" } } },
+                    "then": {
+                        "properties": {
+                            "exit_code": { "type": "null" },
+                            "started_at": { "type": "null" },
+                            "finished_at": { "type": "null" },
+                            "error": { "type": "null" }
+                        }
+                    }
                 },
                 {
                     "if": { "properties": { "outcome": { "enum": ["succeeded", "failed", "timed_out"] } } },
@@ -112,6 +128,19 @@
                     "output": { "type": "null" }
                 }
             }
+        },
+        {
+            "if": { "properties": { "capability": { "const": "not_evaluated" } } },
+            "then": { "properties": { "input": { "properties": { "status": { "const": "unavailable" } } } } }
+        },
+        {
+            "if": {
+                "properties": {
+                    "input": { "properties": { "status": { "const": "available" } } },
+                    "execution": { "properties": { "outcome": { "const": "not_run" } } }
+                }
+            },
+            "then": { "properties": { "capability": { "const": "unsupported" } } }
         },
         {
             "if": { "properties": { "execution": { "properties": { "outcome": { "const": "succeeded" } } } } },

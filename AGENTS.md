@@ -29,6 +29,7 @@ All commands run as `docker compose run --rm app composer <script>`.
 | Path | Contents |
 | ---- | -------- |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
+| `schemas/` | Versioned JSON Schemas for scenarios, attempts, observations and measurements; see its README |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |

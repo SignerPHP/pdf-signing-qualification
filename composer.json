@@ -29,6 +29,7 @@
         "pint:check": "vendor/bin/pint --test",
         "psalm": "vendor/bin/psalm --no-progress",
         "check": [
+            "@composer validate --strict",
             "@pint:check",
             "@psalm",
             "@tests"

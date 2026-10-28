@@ -22,7 +22,7 @@ All commands run as `docker compose run --rm app composer <script>`.
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |
-| `check` | Everything CI runs: style, static analysis, tests |
+| `check` | Everything CI runs: `composer validate --strict`, style, static analysis, tests |
 
 ## Layout
 
@@ -30,7 +30,6 @@ All commands run as `docker compose run --rm app composer <script>`.
 | ---- | -------- |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
-| `tests/Policy/` | Repository policy checks |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |
 | `var/runs/` | Run outputs; ignored |

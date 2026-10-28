@@ -1,26 +1,29 @@
-name: CI
+name: PHPUnit
 
 on:
   pull_request:
   push:
     branches:
       - main
-  workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: phpunit-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
-  quality:
-    name: Lint, static analysis and tests
+  phpunit:
     runs-on: ubuntu-latest
+
+    name: phpunit
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Map runner user into the container
         run: |
@@ -30,17 +33,8 @@ jobs:
       - name: Build image
         run: docker compose build
 
-      - name: Validate composer
-        run: docker compose run --rm app composer validate --strict
-
       - name: Install dependencies
         run: docker compose run --rm app composer install --prefer-dist --no-interaction --no-progress
 
-      - name: Pint check
-        run: docker compose run --rm app composer pint:check
-
-      - name: Psalm
-        run: docker compose run --rm app composer psalm
-
-      - name: Tests
+      - name: Run PHPUnit
         run: docker compose run --rm app composer tests

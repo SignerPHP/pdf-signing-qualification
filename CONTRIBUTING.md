@@ -14,7 +14,7 @@ This repository versions acquisition code, configuration, schemas and analysis l
 - **Synthetic fixtures have documented ownership.** They live in [`tests/Fixtures/Synthetic/`](tests/Fixtures/Synthetic/) and each one is listed in that directory's README with its owner, how it was produced and its purpose.
 - **Private keys and passwords are never committed.** Signing credentials for tests are generated at run time.
 
-`tests/Policy/RepositoryPolicyTest.php` enforces the parts of this policy that can be checked mechanically: PDFs only under `tests/Fixtures/Synthetic/`, every synthetic fixture listed in its README, and no private key files. Passing it does not prove compliance; reviewers still check the origin of every fixture.
+Reviewers check the origin of every committed fixture against this policy.
 
 ## Pull requests
 

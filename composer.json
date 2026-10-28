@@ -1,0 +1,41 @@
+{
+    "name": "signerphp/pdf-signing-qualification",
+    "description": "Reproducible, implementation-neutral qualification and benchmarking of PDF signing solutions",
+    "type": "project",
+    "license": "MIT",
+    "homepage": "https://github.com/SignerPHP/pdf-signing-qualification",
+    "require": {
+        "php": "^8.4"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.27",
+        "phpunit/phpunit": "^11.5",
+        "vimeo/psalm": "^6.15"
+    },
+    "autoload": {
+        "psr-4": {
+            "SignerPHP\\PdfSigningQualification\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SignerPHP\\PdfSigningQualification\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "scripts": {
+        "tests": "vendor/bin/phpunit",
+        "pint:fix": "vendor/bin/pint",
+        "pint:check": "vendor/bin/pint --test",
+        "psalm": "vendor/bin/psalm --no-progress",
+        "check": [
+            "@composer validate --strict",
+            "@pint:check",
+            "@psalm",
+            "@tests"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

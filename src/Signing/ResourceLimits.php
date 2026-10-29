@@ -10,6 +10,7 @@ final class ResourceLimits
         public readonly float $timeoutSeconds = 120.0,
         public readonly int $memoryBytes = 1024 * 1024 * 1024,
         public readonly int $fileSizeBytes = 256 * 1024 * 1024,
+        public readonly int $storageBytes = 512 * 1024 * 1024,
         public readonly int $openFiles = 256,
     ) {}
 

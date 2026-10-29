@@ -9,9 +9,11 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
+use Throwable;
 
 final class AttemptRunner
 {
@@ -62,7 +64,9 @@ final class AttemptRunner
         }
 
         $this->networkIsolation->assertIsolated();
+        $this->assertBoundedStorage();
         $attemptDirectory = $this->createAttemptDirectory();
+        $stagedOutputPath = null;
         try {
             $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $this->credential, $scenario['signing']);
 
@@ -70,19 +74,32 @@ final class AttemptRunner
             $result = $this->runner->run($this->sandboxed($implementation->command($request), $attemptDirectory), $this->limits->timeoutSeconds);
             $finishedAt = $this->now();
 
-            $outputPath = null;
             [$outcome, $error] = match (true) {
                 $result->timedOut => ['timed_out', "{$implementation->id()} did not finish within {$this->limits->timeoutSeconds} seconds"],
-                $result->exitCode !== 0 => ['failed', self::failure($implementation, $result)],
-                ! is_file($request->outputPath) => ['failed', "{$implementation->id()} exited with code 0 without writing an output"],
+                $result->exitCode !== 0 => ['failed', $this->failure($implementation, $result)],
+                ! file_exists($request->outputPath) && ! is_link($request->outputPath) => ['failed', "{$implementation->id()} exited with code 0 without writing an output"],
+                is_link($request->outputPath) || ! is_file($request->outputPath) => ['failed', "{$implementation->id()} did not write its output as a regular file"],
                 default => ['succeeded', null],
             };
             if ($outcome === 'succeeded') {
-                $outputPath = $this->keepOutput($request->outputPath);
+                $stagedOutputPath = $this->stageOutput($request->outputPath);
             }
-        } finally {
-            $this->removeDirectory($attemptDirectory);
+        } catch (Throwable $exception) {
+            $this->removeDirectory($attemptDirectory, $exception);
+
+            throw $exception;
         }
+
+        try {
+            $this->removeDirectory($attemptDirectory);
+        } catch (RuntimeException $exception) {
+            if ($stagedOutputPath !== null) {
+                @unlink($stagedOutputPath);
+            }
+
+            throw $exception;
+        }
+        $outputPath = $stagedOutputPath === null ? null : $this->keepOutput($stagedOutputPath);
 
         return self::result($record + [
             'capability' => 'supported',
@@ -93,7 +110,7 @@ final class AttemptRunner
                 'finished_at' => $finishedAt,
                 'error' => $error === null ? null : ['message' => $error],
             ],
-            'output' => $outputPath === null ? null : self::artifact($outputPath),
+            'output' => $outputPath === null ? null : Artifact::describe($outputPath),
         ], $outputPath);
     }
 
@@ -125,9 +142,9 @@ final class AttemptRunner
         return $input + ['message' => $acquisition['message']];
     }
 
-    private static function failure(SigningImplementation $implementation, CommandResult $result): string
+    private function failure(SigningImplementation $implementation, CommandResult $result): string
     {
-        $output = trim(mb_scrub(substr($result->output, -self::ERROR_OUTPUT_BYTES), 'UTF-8'));
+        $output = trim(mb_scrub(substr(str_replace($this->credential->password, '[redacted]', $result->output), -self::ERROR_OUTPUT_BYTES), 'UTF-8'));
 
         return "{$implementation->id()} {$result->describe()}".($output === '' ? '' : ": {$output}");
     }
@@ -148,46 +165,54 @@ final class AttemptRunner
         if (! copy($inputPath, $copyPath) || ! chmod($copyPath, 0400)) {
             throw new RuntimeException("Unable to copy the input {$inputPath} into the attempt directory");
         }
-        if (self::artifact($copyPath) !== ['sha256' => $acquisition['sha256'], 'byte_size' => $acquisition['byte_size']]) {
+        if (Artifact::describe($copyPath) !== ['sha256' => $acquisition['sha256'], 'byte_size' => $acquisition['byte_size']]) {
             throw new RuntimeException("The input {$inputPath} does not match its acquisition record for {$acquisition['source_id']}");
         }
 
         return $copyPath;
     }
 
-    private function keepOutput(string $outputPath): string
+    private function assertBoundedStorage(): void
+    {
+        $totalBytes = disk_total_space($this->workDirectory);
+        if ($totalBytes === false) {
+            throw new RuntimeException("Unable to read the size of the filesystem of {$this->workDirectory}");
+        }
+        if ($totalBytes > $this->limits->storageBytes) {
+            throw new RuntimeException("The work directory {$this->workDirectory} is on a filesystem of {$totalBytes} bytes, larger than the storage limit of {$this->limits->storageBytes} bytes. Use the sandbox tmpfs.");
+        }
+    }
+
+    private function stageOutput(string $outputPath): string
     {
         if (! is_dir($this->outputDirectory) && ! mkdir($this->outputDirectory, 0777, true) && ! is_dir($this->outputDirectory)) {
             throw new RuntimeException("Unable to create the output directory {$this->outputDirectory}");
         }
 
-        $keptPath = $this->outputDirectory.'/'.self::artifact($outputPath)['sha256'].'.pdf';
-        if (! rename($outputPath, $keptPath)) {
-            throw new RuntimeException("Unable to keep the output {$outputPath}");
+        $stagedPath = $this->outputDirectory.'/.staged-'.bin2hex(random_bytes(8));
+        if (! copy($outputPath, $stagedPath)) {
+            throw new RuntimeException("Unable to copy the output {$outputPath}");
+        }
+
+        return $stagedPath;
+    }
+
+    private function keepOutput(string $stagedPath): string
+    {
+        $keptPath = $this->outputDirectory.'/'.Artifact::describe($stagedPath)['sha256'].'.pdf';
+        if (! rename($stagedPath, $keptPath)) {
+            throw new RuntimeException("Unable to keep the output {$stagedPath}");
         }
 
         return $keptPath;
     }
 
-    /**
-     * @return array{sha256: string, byte_size: int}
-     */
-    private static function artifact(string $path): array
+    private function removeDirectory(string $directory, ?Throwable $previous = null): void
     {
-        $sha256 = hash_file('sha256', $path);
-        $byteSize = filesize($path);
-        if ($sha256 === false || $byteSize === false) {
-            throw new RuntimeException("Unable to read {$path}");
-        }
-
-        return ['sha256' => $sha256, 'byte_size' => $byteSize];
-    }
-
-    private function removeDirectory(string $directory): void
-    {
+        $this->runner->run(['chmod', '-R', 'u+rwx', '--', $directory], 60.0);
         $result = $this->runner->run(['rm', '-rf', '--', $directory], 60.0);
         if ($result->exitCode !== 0 || file_exists($directory)) {
-            throw new RuntimeException("Unable to remove the attempt directory {$directory}: {$result->output}");
+            throw new RuntimeException("Unable to remove the attempt directory {$directory}: {$result->output}", previous: $previous);
         }
     }
 

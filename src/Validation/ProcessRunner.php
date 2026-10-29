@@ -8,6 +8,10 @@ use RuntimeException;
 
 final class ProcessRunner implements CommandRunner
 {
+    private const int POLL_MICROSECONDS = 50_000;
+
+    private const int DRAIN_NANOSECONDS = 1_000_000_000;
+
     public function run(array $command, float $timeoutSeconds): CommandResult
     {
         $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
@@ -21,25 +25,37 @@ final class ProcessRunner implements CommandRunner
         $deadline = hrtime(true) + (int) ($timeoutSeconds * 1e9);
         $output = '';
         $timedOut = false;
+        $exitStatus = null;
+        $readDeadline = $deadline;
 
         while (! feof($stdout)) {
-            $remainingMicroseconds = intdiv($deadline - hrtime(true), 1000);
+            if ($exitStatus === null) {
+                $status = proc_get_status($process);
+                if (! $status['running']) {
+                    $exitStatus = $status;
+                    @posix_kill(-$processId, 9);
+                    $readDeadline = min($deadline, hrtime(true) + self::DRAIN_NANOSECONDS);
+                }
+            }
+
+            $remainingMicroseconds = intdiv($readDeadline - hrtime(true), 1000);
             if ($remainingMicroseconds <= 0) {
-                $timedOut = true;
+                $timedOut = $exitStatus === null;
                 break;
             }
 
+            $waitMicroseconds = min($remainingMicroseconds, self::POLL_MICROSECONDS);
             $read = [$stdout];
             $write = null;
             $except = null;
-            if (stream_select($read, $write, $except, intdiv($remainingMicroseconds, 1_000_000), $remainingMicroseconds % 1_000_000) > 0) {
+            if (stream_select($read, $write, $except, 0, $waitMicroseconds) > 0) {
                 $output .= (string) fread($stdout, 65_536);
             }
         }
 
         fclose($stdout);
 
-        $status = proc_get_status($process);
+        $status = $exitStatus ?? proc_get_status($process);
         while ($status['running']) {
             if (! $timedOut && hrtime(true) >= $deadline) {
                 $timedOut = true;

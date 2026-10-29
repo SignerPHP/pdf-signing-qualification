@@ -18,6 +18,8 @@ use SignerPHP\PdfSigningQualification\Signing\SigningRequest;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Tests\Validation\ProcessStatus;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
@@ -31,6 +33,8 @@ final class AttemptRunnerTest extends TestCase
     private const string RUN_ID = 'run-20261029T120000Z';
 
     private const string SCENARIO_PATH = __DIR__.'/../../config/scenarios/basic-invisible-sha256.json';
+
+    private const string SANDBOX_DIRECTORY = '/sandbox';
 
     private static string $directory;
 
@@ -59,15 +63,20 @@ final class AttemptRunnerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->workDirectory = self::$directory.'/work-'.bin2hex(random_bytes(4));
+        $this->workDirectory = self::SANDBOX_DIRECTORY.'/work-'.bin2hex(random_bytes(4));
         $this->outputDirectory = self::$directory.'/outputs-'.bin2hex(random_bytes(4));
         mkdir($this->workDirectory);
     }
 
-    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null): AttemptRunner
+    protected function tearDown(): void
+    {
+        exec('chmod -R u+rwx '.escapeshellarg($this->workDirectory).' 2>/dev/null; rm -rf '.escapeshellarg($this->workDirectory));
+    }
+
+    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null): AttemptRunner
     {
         return new AttemptRunner(
-            new ProcessRunner,
+            $commandRunner ?? new ProcessRunner,
             $networkIsolation ?? new NetworkIsolation,
             self::$credential,
             $this->workDirectory,
@@ -324,5 +333,99 @@ final class AttemptRunnerTest extends TestCase
 
         $credential->remove();
         self::assertFileDoesNotExist($credential->pkcs12Path);
+    }
+
+    public function test_output_written_as_a_symbolic_link_is_a_failed_attempt(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['ln', '-s', self::$unsignedPath, $request->outputPath]);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSchemaValid($result);
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertSame('command-signer did not write its output as a regular file', $result->record['execution']['error']['message']);
+        self::assertNull($result->record['output']);
+        self::assertDirectoryDoesNotExist($this->outputDirectory);
+    }
+
+    public function test_attempt_directory_is_removed_even_when_the_attempt_locks_a_subdirectory(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'mkdir locked && touch locked/file && chmod 000 locked && cp input.pdf output.pdf']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    private static function runnerThatCannotRemove(): CommandRunner
+    {
+        return new class implements CommandRunner
+        {
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return $command[0] === 'rm' ? new CommandResult(1, 'rm: refused') : (new ProcessRunner)->run($command, $timeoutSeconds);
+            }
+        };
+    }
+
+    public function test_output_is_not_kept_when_the_attempt_directory_cannot_be_removed(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['cp', 'input.pdf', 'output.pdf']);
+
+        try {
+            $this->runner(commandRunner: self::runnerThatCannotRemove())->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+            self::fail('The attempt was recorded although its directory was not removed');
+        } catch (RuntimeException $exception) {
+            self::assertStringContainsString('Unable to remove the attempt directory', $exception->getMessage());
+        }
+
+        self::assertSame([], glob($this->outputDirectory.'/*') ?: []);
+    }
+
+    public function test_harness_error_is_kept_when_the_attempt_directory_cannot_be_removed(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): never => throw new RuntimeException('Adapter could not build its command'));
+
+        try {
+            $this->runner(commandRunner: self::runnerThatCannotRemove())->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+            self::fail('The adapter error was not raised');
+        } catch (RuntimeException $exception) {
+            self::assertStringContainsString('Unable to remove the attempt directory', $exception->getMessage());
+            self::assertInstanceOf(RuntimeException::class, $exception->getPrevious());
+            self::assertSame('Adapter could not build its command', $exception->getPrevious()->getMessage());
+        }
+    }
+
+    public function test_work_directory_on_a_filesystem_larger_than_the_storage_limit_is_refused(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('larger than the storage limit');
+
+        $this->runner(new ResourceLimits(storageBytes: 1024 * 1024))->run(self::RUN_ID, self::scenario(), self::command(static fn (SigningRequest $request): array => ['true']), self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+    }
+
+    public function test_credential_password_printed_by_an_implementation_is_redacted(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'echo "arguments: $*"; exit 1', 'sh', '--password='.$request->credential->password]);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertStringNotContainsString(self::$credential->password, json_encode($result->record, JSON_THROW_ON_ERROR));
+        self::assertStringContainsString('--password=[redacted]', $result->record['execution']['error']['message']);
+    }
+
+    public function test_child_left_holding_the_output_stream_does_not_turn_a_success_into_a_timeout(): void
+    {
+        $childPidPath = self::$directory.'/lingering-child.pid';
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'cp input.pdf output.pdf; sleep 30 & echo $! > "$1"; exit 0', 'sh', $childPidPath]);
+
+        $start = hrtime(true);
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 10.0))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+        self::assertSame('succeeded', $result->record['execution']['outcome']);
+        self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
     }
 }

@@ -17,7 +17,11 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 512
+    mem_limit: 3g
+    memswap_limit: 3g
+    read_only: true
     tmpfs:
-      - /sandbox:size=1g,mode=1777
+      - /sandbox:size=512m,mode=1777
+      - /tmp:size=512m,mode=1777
     volumes:
       - .:/app:z

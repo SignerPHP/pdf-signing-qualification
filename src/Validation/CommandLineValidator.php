@@ -8,6 +8,7 @@ use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 abstract class CommandLineValidator implements Validator
@@ -51,7 +52,7 @@ abstract class CommandLineValidator implements Validator
         } elseif ($subject->outputPath === null) {
             $judgement = new Judgement('not_evaluated', 'The attempt produced no output to validate', null, '');
         } else {
-            $outputArtifact = self::artifact($subject->outputPath);
+            $outputArtifact = Artifact::describe($subject->outputPath);
             $judgement = $this->judge($subject->outputPath);
         }
 
@@ -99,19 +100,5 @@ abstract class CommandLineValidator implements Validator
     final protected function timedOut(CommandResult $result): Judgement
     {
         return new Judgement('inconclusive', "{$this->analyzerId()} did not finish within {$this->timeoutSeconds} seconds", null, $result->output);
-    }
-
-    /**
-     * @return array{sha256: string, byte_size: int}
-     */
-    private static function artifact(string $path): array
-    {
-        $sha256 = hash_file('sha256', $path);
-        $byteSize = filesize($path);
-        if ($sha256 === false || $byteSize === false) {
-            throw new RuntimeException("Unable to read the output {$path}");
-        }
-
-        return ['sha256' => $sha256, 'byte_size' => $byteSize];
     }
 }

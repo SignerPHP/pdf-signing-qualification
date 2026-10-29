@@ -64,4 +64,15 @@ final class ProcessRunnerTest extends TestCase
         self::assertSame(0, $result->exitCode);
         self::assertTrue(ProcessStatus::endsWithin((int) $result->output, 2.0), 'The background process is still running');
     }
+
+    public function test_process_that_exits_while_its_child_holds_the_output_is_not_a_timeout(): void
+    {
+        $start = hrtime(true);
+        $result = (new ProcessRunner)->run(['setsid', 'sh', '-c', 'sleep 30 & echo $!'], 10.0);
+
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+        self::assertFalse($result->timedOut);
+        self::assertSame(0, $result->exitCode);
+        self::assertTrue(ProcessStatus::endsWithin((int) $result->output, 2.0), 'The background process is still running');
+    }
 }

@@ -28,7 +28,8 @@ final class PdfSignerImplementation implements SigningImplementation
 
     public function revision(): array
     {
-        $installed = require $this->installationDirectory.'/vendor/composer/installed.php';
+        $installedPath = $this->installationDirectory.'/vendor/composer/installed.php';
+        $installed = is_file($installedPath) ? require $installedPath : null;
         $commit = is_array($installed) && is_array($installed['root'] ?? null) ? ($installed['root']['reference'] ?? null) : null;
         if (! is_string($commit) || preg_match('/^[0-9a-f]{40}$/', $commit) !== 1) {
             throw new RuntimeException("Unable to determine the pdf-signer commit installed in {$this->installationDirectory}");

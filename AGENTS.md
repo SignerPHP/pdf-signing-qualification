@@ -11,6 +11,8 @@ docker compose build
 docker compose run --rm app composer install
 ```
 
+Validators are pinned there: Debian packages by exact version, and pyHanko with its dependencies by version and hash in `docker/pyhanko-requirements.txt`. To change a validator version, update the pin, rebuild the image and keep the hash lock regenerated, never loosened.
+
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
 
 ## Commands
@@ -31,7 +33,9 @@ All commands run as `docker compose run --rm app composer <script>`.
 | ---- | -------- |
 | `bin/` | Command-line entry points |
 | `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
+| `docker/` | Files copied into the image, such as the hashed pyHanko requirements |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
+| `src/Validation/` | Validator adapters; each one writes its own observation, see the schemas README |
 | `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, attempts, observations and measurements; see its README |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |

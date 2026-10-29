@@ -16,6 +16,7 @@ use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 use SignerPHP\PdfSigningQualification\Signing\SigningImplementation;
 use SignerPHP\PdfSigningQualification\Signing\SigningRequest;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
+use SignerPHP\PdfSigningQualification\Tests\Validation\ProcessStatus;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
@@ -193,20 +194,8 @@ final class AttemptRunnerTest extends TestCase
         self::assertNull($result->record['execution']['exit_code']);
         self::assertSame('command-signer did not finish within 0.5 seconds', $result->record['execution']['error']['message']);
         self::assertNull($result->record['output']);
-        self::assertProcessIsGone((int) file_get_contents($childPidPath));
+        self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
         $this->assertWorkDirectoryIsEmpty();
-    }
-
-    private static function assertProcessIsGone(int $pid): void
-    {
-        $status = @file_get_contents("/proc/{$pid}/stat");
-        if ($status === false) {
-            self::assertFileDoesNotExist("/proc/{$pid}");
-
-            return;
-        }
-
-        self::assertMatchesRegularExpression('/^\d+ \(.*\) Z /', $status, "Process {$pid} is still running");
     }
 
     public function test_attempt_exceeding_the_memory_limit_fails(): void

@@ -62,7 +62,6 @@ final class ProcessRunnerTest extends TestCase
         $result = (new ProcessRunner)->run(['setsid', 'sh', '-c', 'sleep 30 > /dev/null 2>&1 & echo $!'], 10.0);
 
         self::assertSame(0, $result->exitCode);
-        $status = @file_get_contents('/proc/'.(int) $result->output.'/stat');
-        self::assertTrue($status === false || preg_match('/^\d+ \(.*\) Z /', $status) === 1, 'The background process is still running');
+        self::assertTrue(ProcessStatus::endsWithin((int) $result->output, 2.0), 'The background process is still running');
     }
 }

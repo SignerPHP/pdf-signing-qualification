@@ -56,4 +56,13 @@ final class ProcessRunnerTest extends TestCase
         self::assertSame("started\n", $result->output);
         self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
     }
+
+    public function test_processes_left_in_the_group_of_a_process_group_leader_are_stopped(): void
+    {
+        $result = (new ProcessRunner)->run(['setsid', 'sh', '-c', 'sleep 30 > /dev/null 2>&1 & echo $!'], 10.0);
+
+        self::assertSame(0, $result->exitCode);
+        $status = @file_get_contents('/proc/'.(int) $result->output.'/stat');
+        self::assertTrue($status === false || preg_match('/^\d+ \(.*\) Z /', $status) === 1, 'The background process is still running');
+    }
 }

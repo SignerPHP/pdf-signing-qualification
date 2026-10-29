@@ -37,4 +37,9 @@ Every document carries a `schema` field equal to the `$id` of the schema it foll
   | `qpdf` | `structure` | `qpdf --check`; exit 0 is `valid`, 2 is `invalid`, 3 (warnings only) is `inconclusive` |
 
   An output without any signature is `invalid` for the `cms_signature` adapters.
+- **Implementations.** An adapter declares which scenarios it supports and builds the command line of an external process that reads the input and writes the output; the runner knows nothing else about it, so an implementation in any language is added without changing the runner. The runner copies the input into a fresh work directory and refuses it if its hash or size differs from the acquisition record, then runs the command with the limits described in `AGENTS.md`. A timeout is `timed_out`; a non-zero exit, a termination by signal or an exit 0 without an output file is `failed`, with the last 4 KiB of the process output in the error message. The output is kept, under its SHA-256, only when the execution succeeded. Each run signs with a test certificate and RSA key generated for it, stored as a PKCS#12 outside the results and removed afterwards. The initial adapter is:
+
+  | Implementation | Revision | Supported scenarios | Command |
+  | -------------- | -------- | ------------------- | ------- |
+  | `pdf-signer` | Commit read from the installation | SHA-256, RSA PKCS#1 v1.5, `adbe.pkcs7.detached`, invisible, without timestamp or revocation information | `bin/signer-sign` with `--no-default-appearance` and `--no-default-timestamp`, and PHP's `memory_limit` disabled so that the runner's limit applies |
 - **Metric.** Either `{"status": "available", "value": ...}` or `{"status": "unavailable", "reason": ...}`. An unavailable metric has no value, so it cannot be mistaken for zero.

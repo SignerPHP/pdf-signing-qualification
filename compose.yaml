@@ -5,3 +5,19 @@ services:
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     volumes:
       - .:/app:z
+
+  sandbox:
+    build: .
+    image: pdf-signing-qualification:local
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    network_mode: none
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    tmpfs:
+      - /sandbox:size=1g,mode=1777
+    volumes:
+      - .:/app:z

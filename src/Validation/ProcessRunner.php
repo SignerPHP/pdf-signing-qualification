@@ -15,6 +15,7 @@ final class ProcessRunner implements CommandRunner
             throw new RuntimeException('Unable to start '.$command[0]);
         }
 
+        $processId = proc_get_status($process)['pid'];
         $stdout = $pipes[1];
         stream_set_blocking($stdout, false);
         $deadline = hrtime(true) + (int) ($timeoutSeconds * 1e9);
@@ -44,11 +45,13 @@ final class ProcessRunner implements CommandRunner
                 $timedOut = true;
             }
             if ($timedOut) {
+                @posix_kill(-$processId, 9);
                 proc_terminate($process, 9);
             }
             usleep(1_000);
             $status = proc_get_status($process);
         }
+        @posix_kill(-$processId, 9);
         proc_close($process);
 
         if ($timedOut) {

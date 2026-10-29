@@ -1,0 +1,50 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
+    "title": "Input sources, version 1",
+    "description": "Upstream projects pinned at an immutable revision and the files selected from them. Each input is identified as `<source>:<path>` and is acquired only if its bytes match the declared SHA-256 and byte size.",
+    "type": "object",
+    "required": ["schema", "sources", "inputs"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json" },
+        "sources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "url", "revision", "file_url", "license"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": { "$ref": "common.schema.json#/$defs/sourceId" },
+                    "url": { "$ref": "common.schema.json#/$defs/httpsUrl" },
+                    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+                    "file_url": {
+                        "description": "Template of the download URL of one file at the pinned revision. `{revision}` is replaced by the revision value and `{path}` by the URL-encoded input path.",
+                        "type": "string",
+                        "allOf": [
+                            { "pattern": "^https://\\S+$" },
+                            { "pattern": "\\{revision\\}" },
+                            { "pattern": "\\{path\\}" }
+                        ]
+                    },
+                    "license": { "$ref": "common.schema.json#/$defs/license" }
+                }
+            }
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["source", "path", "sha256", "byte_size", "license"],
+                "additionalProperties": false,
+                "properties": {
+                    "source": { "$ref": "common.schema.json#/$defs/sourceId" },
+                    "path": { "$ref": "common.schema.json#/$defs/relativePath" },
+                    "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                    "byte_size": { "type": "integer", "minimum": 0 },
+                    "license": { "$ref": "common.schema.json#/$defs/license" }
+                }
+            }
+        }
+    }
+}

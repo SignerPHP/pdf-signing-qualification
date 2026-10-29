@@ -17,7 +17,7 @@ final class SchemaValidator
     /**
      * @return list<string>
      */
-    public function errors(array $document, string $schemaId): array
+    public function errors(array|object $document, string $schemaId): array
     {
         $validator = new Validator;
         $validator->setMaxErrors(20);

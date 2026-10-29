@@ -141,6 +141,17 @@ final class SourcesSchemaTest extends SchemaTestCase
 
             return $configuration;
         })];
+        yield 'source identifier longer than 64 characters' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['id'] = str_repeat('s', 65);
+            $configuration['inputs'][0]['source'] = str_repeat('s', 65);
+
+            return $configuration;
+        })];
+        yield 'path longer than 447 characters' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = str_repeat('p', 444).'.pdf';
+
+            return $configuration;
+        })];
         yield 'unknown input field' => [self::mutate(function (array $configuration): array {
             $configuration['inputs'][0]['fallback_url'] = 'https://example.org/other.pdf';
 

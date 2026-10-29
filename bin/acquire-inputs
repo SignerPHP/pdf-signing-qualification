@@ -16,8 +16,14 @@ $acquirer = new Acquirer(new HttpFetcher, $cacheDirectory, static fn (): DateTim
 
 $records = [];
 $unavailableCount = 0;
+$abortedBy = null;
 foreach (SourceConfiguration::fromFile($configurationPath) as $input) {
-    $record = $acquirer->acquire($input);
+    try {
+        $record = $acquirer->acquire($input);
+    } catch (RuntimeException $exception) {
+        $abortedBy = "{$input->id()}: acquisition aborted: {$exception->getMessage()}";
+        break;
+    }
     $records[] = $record;
 
     if ($record['status'] === 'unavailable') {
@@ -27,5 +33,10 @@ foreach (SourceConfiguration::fromFile($configurationPath) as $input) {
 }
 
 echo json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
+
+if ($abortedBy !== null) {
+    fwrite(STDERR, $abortedBy."\n");
+    exit(2);
+}
 
 exit($unavailableCount === 0 ? 0 : 1);

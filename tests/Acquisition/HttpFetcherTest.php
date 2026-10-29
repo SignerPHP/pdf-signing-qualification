@@ -87,6 +87,28 @@ final class HttpFetcherTest extends TestCase
         }
     }
 
+    public function test_body_shorter_than_its_content_length_is_rejected(): void
+    {
+        try {
+            (new HttpFetcher)->fetch(self::$baseUrl.'/truncated.pdf');
+            self::fail('A truncated body was accepted');
+        } catch (RuntimeException $exception) {
+            self::assertNotInstanceOf(UpstreamFileMissing::class, $exception);
+            self::assertStringContainsString('incomplete', $exception->getMessage());
+        }
+    }
+
+    public function test_body_interrupted_by_the_timeout_is_rejected(): void
+    {
+        try {
+            (new HttpFetcher(timeoutSeconds: 0.2))->fetch(self::$baseUrl.'/stalled.pdf');
+            self::fail('A body interrupted by the timeout was accepted');
+        } catch (RuntimeException $exception) {
+            self::assertNotInstanceOf(UpstreamFileMissing::class, $exception);
+            self::assertStringContainsString('timed out', $exception->getMessage());
+        }
+    }
+
     public function test_unreachable_host_is_not_a_missing_upstream_file(): void
     {
         $socket = stream_socket_server('tcp://127.0.0.1:0');

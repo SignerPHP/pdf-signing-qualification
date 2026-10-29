@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Acquisition;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
@@ -62,9 +63,14 @@ final class AcquirerTest extends TestCase
         return new Acquirer($fetcher, $this->cacheDirectory, static fn (): DateTimeImmutable => new DateTimeImmutable($now));
     }
 
-    private function cachedPath(): string
+    private function cachedPath(string $path = 'test/pdfs/issue17069.pdf'): string
     {
-        return $this->cacheDirectory.'/pdfjs/test/pdfs/issue17069.pdf';
+        return $this->cacheDirectory.'/files/pdfjs/'.$path;
+    }
+
+    private function cachedRecordPath(): string
+    {
+        return $this->cacheDirectory.'/records/pdfjs/test/pdfs/issue17069.pdf';
     }
 
     private static function assertValidRecord(array $record): void
@@ -180,6 +186,71 @@ final class AcquirerTest extends TestCase
         self::assertSame([self::FILE_URL], $fetcher->requestedUrls);
         self::assertSame('2026-10-30T08:00:00Z', $record['retrieved_at']);
         self::assertSame(self::CONTENT, file_get_contents($this->cachedPath()));
+    }
+
+    public function test_inputs_whose_names_extend_another_keep_separate_cache_entries(): void
+    {
+        $paths = ['test/pdfs/a.pdf', 'test/pdfs/a.pdf.acquisition.json', 'test/pdfs/a.pdf.json', 'test/pdfs/a.pdf.part'];
+        $filesByUrl = [];
+        foreach ($paths as $path) {
+            $filesByUrl['https://raw.githubusercontent.com/mozilla/pdf.js/'.self::REVISION.'/'.$path] = "content of {$path}";
+        }
+        $online = $this->acquirer(new InMemoryFetcher($filesByUrl));
+        foreach ($paths as $path) {
+            $online->acquire(self::input("content of {$path}", $path));
+        }
+        $offline = new InMemoryFetcher;
+
+        foreach ($paths as $path) {
+            $record = $this->acquirer($offline)->acquire(self::input("content of {$path}", $path));
+
+            self::assertSame('available', $record['status'], $path);
+            self::assertSame("content of {$path}", file_get_contents($this->cachedPath($path)), $path);
+        }
+        self::assertSame([], $offline->requestedUrls);
+    }
+
+    public static function tamperedRecords(): iterable
+    {
+        yield 'byte size as a string' => [static function (array $record): array {
+            $record['byte_size'] = (string) $record['byte_size'];
+
+            return $record;
+        }];
+        yield 'retrieval time removed' => [static function (array $record): array {
+            unset($record['retrieved_at']);
+
+            return $record;
+        }];
+        yield 'unknown field added' => [static function (array $record): array {
+            $record['fallback_url'] = 'https://example.org/other.pdf';
+
+            return $record;
+        }];
+        yield 'document license changed' => [static function (array $record): array {
+            $record['license']['expression'] = 'CC0-1.0';
+
+            return $record;
+        }];
+    }
+
+    /**
+     * @param  callable(array): array  $tamper
+     */
+    #[DataProvider('tamperedRecords')]
+    public function test_cached_record_that_does_not_match_is_acquired_again(callable $tamper): void
+    {
+        $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT]))->acquire(self::input());
+        $storedRecord = json_decode((string) file_get_contents($this->cachedRecordPath()), true);
+        self::assertIsArray($storedRecord);
+        file_put_contents($this->cachedRecordPath(), json_encode($tamper($storedRecord)));
+        $fetcher = new InMemoryFetcher([self::FILE_URL => self::CONTENT]);
+
+        $record = $this->acquirer($fetcher, '2026-10-30T08:00:00Z')->acquire(self::input());
+
+        self::assertSame([self::FILE_URL], $fetcher->requestedUrls);
+        self::assertValidRecord($record);
+        self::assertSame('2026-10-30T08:00:00Z', $record['retrieved_at']);
     }
 
     public function test_path_is_url_encoded_in_the_file_url(): void

@@ -25,7 +25,10 @@
     },
     "minimum-stability": "stable",
     "scripts": {
-        "acquire": "bin/acquire-inputs",
+        "acquire": [
+            "Composer\\Config::disableProcessTimeout",
+            "bin/acquire-inputs"
+        ],
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",
         "pint:check": "vendor/bin/pint --test",

@@ -19,7 +19,7 @@ All commands run as `docker compose run --rm app composer <script>`.
 
 | Script | Purpose |
 | ------ | ------- |
-| `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits non-zero if any is unavailable |
+| `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |

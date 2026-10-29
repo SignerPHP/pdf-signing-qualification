@@ -14,7 +14,8 @@
         },
         "sourceId": {
             "type": "string",
-            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "maxLength": 64
         },
         "nonEmptyString": {
             "type": "string",
@@ -30,10 +31,10 @@
             "pattern": "^https://\\S+$"
         },
         "relativePath": {
-            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit, so absolute paths, `.`, `..` and empty segments are rejected.",
+            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit, so absolute paths, `.`, `..` and empty segments are rejected. Its length leaves room for `<source>:` within the 512 characters of an identifier.",
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$",
-            "maxLength": 512
+            "maxLength": 447
         },
         "license": {
             "description": "A license as an SPDX expression, or `NOASSERTION` when the evidence does not establish one, with the URL of that evidence.",

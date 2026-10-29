@@ -25,8 +25,9 @@ final class Acquirer
 
     public function acquire(Input $input): array
     {
-        $filePath = $this->cacheDirectory.'/'.$input->source->id.'/'.$input->path;
-        $recordPath = $filePath.'.acquisition.json';
+        $relativePath = $input->source->id.'/'.$input->path;
+        $filePath = $this->cacheDirectory.'/files/'.$relativePath;
+        $recordPath = $this->cacheDirectory.'/records/'.$relativePath;
 
         $cachedRecord = $this->verifiedCachedRecord($input, $filePath, $recordPath);
         if ($cachedRecord !== null) {
@@ -71,8 +72,12 @@ final class Acquirer
         }
 
         $record = json_decode((string) file_get_contents($recordPath), true);
-        $expectedRecord = $this->record($input, 'available') + ['sha256' => $input->sha256, 'byte_size' => $input->byteSize, 'license' => $input->license];
-        if (! is_array($record) || array_intersect_key($record, $expectedRecord) != $expectedRecord) {
+        if (! is_array($record) || (new SchemaValidator)->errors($record, self::RECORD_SCHEMA) !== []) {
+            return null;
+        }
+
+        $expectedRecord = $this->record($input, 'available') + ['retrieved_at' => $record['retrieved_at'], 'sha256' => $input->sha256, 'byte_size' => $input->byteSize, 'license' => $input->license];
+        if ($record !== $expectedRecord) {
             return null;
         }
 
@@ -129,14 +134,20 @@ final class Acquirer
 
     private function write(string $path, string $content): void
     {
-        $directory = dirname($path);
+        $partialDirectory = $this->cacheDirectory.'/partial';
+        $this->createDirectory($partialDirectory);
+        $this->createDirectory(dirname($path));
+
+        $partialPath = tempnam($partialDirectory, 'acquisition-');
+        if ($partialPath === false || file_put_contents($partialPath, $content) !== strlen($content) || ! rename($partialPath, $path)) {
+            throw new RuntimeException("Unable to write {$path} to the input cache");
+        }
+    }
+
+    private function createDirectory(string $directory): void
+    {
         if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
             throw new RuntimeException("Unable to create the cache directory {$directory}");
-        }
-
-        $partialPath = $path.'.part';
-        if (file_put_contents($partialPath, $content) !== strlen($content) || ! rename($partialPath, $path)) {
-            throw new RuntimeException("Unable to write {$path} to the input cache");
         }
     }
 }

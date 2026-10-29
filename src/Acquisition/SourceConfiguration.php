@@ -21,12 +21,12 @@ final class SourceConfiguration
             throw new InvalidArgumentException("Unable to read the source configuration {$path}");
         }
 
-        $configuration = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
-        if (! is_array($configuration)) {
-            throw new InvalidArgumentException("The source configuration {$path} is not a JSON object");
-        }
+        self::assertFollowsSchema(json_decode($contents, flags: JSON_THROW_ON_ERROR));
 
-        return self::fromArray($configuration);
+        /** @var array $configuration */
+        $configuration = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+
+        return self::bind($configuration);
     }
 
     /**
@@ -34,11 +34,26 @@ final class SourceConfiguration
      */
     public static function fromArray(array $configuration): array
     {
-        $errors = (new SchemaValidator)->errors($configuration, self::SCHEMA);
+        self::assertFollowsSchema($configuration);
+
+        return self::bind($configuration);
+    }
+
+    private static function assertFollowsSchema(mixed $configuration): void
+    {
+        $errors = is_array($configuration) || is_object($configuration)
+            ? (new SchemaValidator)->errors($configuration, self::SCHEMA)
+            : ['/: The source configuration is not a JSON object'];
         if ($errors !== []) {
             throw new InvalidArgumentException("The source configuration does not follow its schema:\n".implode("\n", $errors));
         }
+    }
 
+    /**
+     * @return list<Input>
+     */
+    private static function bind(array $configuration): array
+    {
         /** @var array<string, Source> $sources */
         $sources = [];
         foreach ($configuration['sources'] as $source) {

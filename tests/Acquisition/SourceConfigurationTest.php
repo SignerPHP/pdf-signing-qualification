@@ -5,12 +5,27 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Acquisition;
 
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 
 final class SourceConfigurationTest extends TestCase
 {
     private const string SHA256 = '3b4c1f0a9e6d2b7c8f5e4a3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2b1a0f9';
+
+    private string $configurationPath;
+
+    protected function setUp(): void
+    {
+        $this->configurationPath = sys_get_temp_dir().'/source-configuration-test-'.bin2hex(random_bytes(8)).'.json';
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_file($this->configurationPath)) {
+            unlink($this->configurationPath);
+        }
+    }
 
     private static function configuration(): array
     {
@@ -97,5 +112,35 @@ final class SourceConfigurationTest extends TestCase
         $this->expectExceptionMessage('Input pdfjs:test/pdfs/issue17069.pdf is declared more than once');
 
         SourceConfiguration::fromArray($configuration);
+    }
+
+    public static function nonArrayCollections(): iterable
+    {
+        yield 'sources as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "sources": {}, "inputs": []}', '/sources'];
+        yield 'inputs as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "sources": [], "inputs": {}}', '/inputs'];
+        yield 'list at the top level' => ['[]', '/:'];
+    }
+
+    #[DataProvider('nonArrayCollections')]
+    public function test_file_with_a_json_type_other_than_declared_is_rejected(string $contents, string $failingPath): void
+    {
+        file_put_contents($this->configurationPath, $contents);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($failingPath);
+
+        SourceConfiguration::fromFile($this->configurationPath);
+    }
+
+    public function test_longest_identity_allowed_by_the_schema_is_a_valid_source_id(): void
+    {
+        $configuration = self::configuration();
+        $configuration['sources'][0]['id'] = str_repeat('s', 64);
+        $configuration['inputs'][0]['source'] = str_repeat('s', 64);
+        $configuration['inputs'][0]['path'] = str_repeat('p', 443).'.pdf';
+
+        $inputs = SourceConfiguration::fromArray($configuration);
+
+        self::assertSame(512, strlen($inputs[0]->id()));
     }
 }

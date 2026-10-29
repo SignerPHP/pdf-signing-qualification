@@ -27,4 +27,14 @@ Every document carries a `schema` field equal to the `$id` of the schema it foll
 - **Revision.** Implementations and analyzers are identified by a full commit hash or a released version. Branch names and moving labels such as `latest` are rejected.
 - **Identifier.** Identifiers may be split into `/` segments; each segment starts with a letter or digit, so `.`, `..` and empty segments are rejected.
 - **Verdict.** `valid`, `invalid` and `inconclusive` are judgements about an output artifact and require both the input and the output artifact. `not_evaluated` means the analyzer did not judge it (for example, the input was unavailable or no output was produced), and the missing artifact is recorded as `null`; `not_applicable` means the property does not apply to the scenario. Each analyzer writes its own observation; there is no combined verdict.
+- **Validators.** Each adapter runs one pinned tool on the output and writes one observation for one property, with the version the tool reports, its policy, exit code and raw output. A timeout, a crash or an output the adapter cannot read is `inconclusive`, never `valid`. The initial adapters are:
+
+  | Analyzer | Property | Policy |
+  | -------- | -------- | ------ |
+  | `pyhanko` | `cms_signature` | Integrity and cryptographic validity of every embedded signature, with an empty trust store and no revocation lookup; an untrusted certificate does not change the verdict |
+  | `pdfsig` | `cms_signature` | Poppler's validation of every signature over its signed ranges, with `-nocert`; the verdict comes from the reported state, because `pdfsig` exits with 0 on a digest mismatch |
+  | `openssl-cms` | `cms_signature` | Every dictionary with a `/ByteRange`, direct or indirect and including those in object streams, is listed from qpdf's JSON output. The gap of each range must be exactly a hexadecimal string (PDF whitespace allowed inside); its bytes must decode as CMS (DER or BER) and are verified with `openssl cms -verify -noverify` over the bytes the range covers. A gap that is not a hexadecimal string, bytes that do not decode as CMS, and exit code 4 are `invalid` |
+  | `qpdf` | `structure` | `qpdf --check`; exit 0 is `valid`, 2 is `invalid`, 3 (warnings only) is `inconclusive` |
+
+  An output without any signature is `invalid` for the `cms_signature` adapters.
 - **Metric.** Either `{"status": "available", "value": ...}` or `{"status": "unavailable", "reason": ...}`. An unavailable metric has no value, so it cannot be mistaken for zero.

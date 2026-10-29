@@ -11,7 +11,7 @@ docker compose build
 docker compose run --rm app composer install
 ```
 
-Validators are pinned there: Debian packages by exact version, and pyHanko with its dependencies by version and hash in `docker/pyhanko-requirements.txt`. To change a validator version, update the pin, rebuild the image and keep the hash lock regenerated, never loosened.
+Validators are pinned there: Debian packages by exact version from a fixed `snapshot.debian.org` date, and pyHanko with its dependencies by version and hash in `docker/pyhanko-requirements.txt`. To change a validator version, update the snapshot date and the pin, rebuild the image and keep the hash lock regenerated, never loosened.
 
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
 

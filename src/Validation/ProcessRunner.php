@@ -36,13 +36,16 @@ final class ProcessRunner implements CommandRunner
             }
         }
 
-        if ($timedOut) {
-            proc_terminate($process, 9);
-        }
         fclose($stdout);
 
         $status = proc_get_status($process);
         while ($status['running']) {
+            if (! $timedOut && hrtime(true) >= $deadline) {
+                $timedOut = true;
+            }
+            if ($timedOut) {
+                proc_terminate($process, 9);
+            }
             usleep(1_000);
             $status = proc_get_status($process);
         }

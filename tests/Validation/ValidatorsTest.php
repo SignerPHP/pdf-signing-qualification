@@ -155,6 +155,71 @@ final class ValidatorsTest extends TestCase
         self::assertSame('openssl rejected a signature: the byte range gap is not a hexadecimal string', $observation['evidence']['summary']);
     }
 
+    public static function openSslByteRangeCases(): iterable
+    {
+        yield 'CMS with indefinite lengths' => [
+            static fn (): string => SyntheticSignedPdf::create(self::$directory, 'indefinite-length', indefiniteLength: true),
+            'valid',
+            'openssl verified 1 CMS signature(s) over their byte ranges',
+        ];
+        yield 'hexadecimal string with line breaks' => [
+            static fn (): string => SyntheticSignedPdf::create(self::$directory, 'wrapped-contents', wrappedContents: true),
+            'valid',
+            'openssl verified 1 CMS signature(s) over their byte ranges',
+        ];
+        yield 'unsigned line feed after the hexadecimal string' => [
+            static fn (): string => SyntheticSignedPdf::create(self::$directory, 'unsigned-gap-suffix', unsignedGapSuffix: "\n"),
+            'invalid',
+            'openssl rejected a signature: the byte range gap is not a hexadecimal string',
+        ];
+        yield 'second signature with an indirect byte range' => [
+            static fn (): string => SyntheticSignedPdf::appendSignatureWithIndirectByteRange(self::$fixtures['signed'], self::$directory),
+            'invalid',
+            'openssl rejected a signature: the byte range gap is not a hexadecimal string',
+        ];
+        yield 'DER that is not a CMS' => [
+            static fn (): string => SyntheticSignedPdf::replaceContents(self::$fixtures['signed'], self::$directory, (string) hex2bin('300602010102010200')),
+            'invalid',
+            'openssl rejected a signature: the byte range gap does not hold a decodable CMS',
+        ];
+    }
+
+    /**
+     * @param  callable(): string  $createOutput
+     */
+    #[DataProvider('openSslByteRangeCases')]
+    public function test_openssl_verifies_every_signature_found_by_its_byte_range(callable $createOutput, string $verdict, string $summary): void
+    {
+        $observation = self::validator(OpenSslCmsValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $createOutput()));
+
+        self::assertSame([], (new SchemaValidator)->errors($observation, CommandLineValidator::OBSERVATION_SCHEMA));
+        self::assertSame($verdict, $observation['verdict'], $observation['evidence']['raw_output']);
+        self::assertSame($summary, $observation['evidence']['summary']);
+    }
+
+    public function test_openssl_lists_a_signature_whose_byte_range_is_indirect(): void
+    {
+        $outputPath = SyntheticSignedPdf::appendSignatureWithIndirectByteRange(self::$fixtures['signed'], self::$directory);
+
+        $observation = self::validator(OpenSslCmsValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $outputPath));
+
+        self::assertSame([[0, 10, 20, 30], 'invalid'], [$observation['evidence']['details']['signatures'][1]['byte_range'], $observation['evidence']['details']['signatures'][1]['outcome']]);
+        self::assertSame('valid', $observation['evidence']['details']['signatures'][0]['outcome']);
+    }
+
+    public function test_panel_records_each_verdict_on_an_undecodable_signature(): void
+    {
+        $panel = new ValidationPanel(array_map(self::validator(...), [PyHankoValidator::class, PdfsigValidator::class, OpenSslCmsValidator::class, QpdfCheckValidator::class]));
+        $outputPath = SyntheticSignedPdf::replaceContents(self::$fixtures['signed'], self::$directory, (string) hex2bin('300602010102010200'));
+
+        $observations = $panel->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $outputPath));
+
+        self::assertSame(
+            ['pyhanko' => 'inconclusive', 'pdfsig' => 'inconclusive', 'openssl-cms' => 'invalid', 'qpdf' => 'valid'],
+            array_column(array_map(static fn (array $observation): array => ['analyzer' => $observation['analyzer']['id'], 'verdict' => $observation['verdict']], $observations), 'verdict', 'analyzer'),
+        );
+    }
+
     public function test_panel_keeps_conflicting_verdicts_side_by_side(): void
     {
         $panel = new ValidationPanel(array_map(self::validator(...), [PyHankoValidator::class, PdfsigValidator::class, OpenSslCmsValidator::class, QpdfCheckValidator::class]));

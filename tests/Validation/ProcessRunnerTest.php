@@ -45,4 +45,15 @@ final class ProcessRunnerTest extends TestCase
         self::assertSame("started\n", $result->output);
         self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
     }
+
+    public function test_process_that_closes_its_output_is_still_stopped_at_the_timeout(): void
+    {
+        $start = hrtime(true);
+        $result = (new ProcessRunner)->run(['sh', '-c', 'echo started; exec >&- 2>&-; exec sleep 30'], 0.5);
+
+        self::assertTrue($result->timedOut);
+        self::assertNull($result->exitCode);
+        self::assertSame("started\n", $result->output);
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+    }
 }

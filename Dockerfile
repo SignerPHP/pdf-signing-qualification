@@ -3,6 +3,11 @@ FROM composer:2.10.3@sha256:b6dcd72ca98fa19d0e5b8476de179859704891fad06dd9e0b968
 FROM php:8.4.27-cli-bookworm@sha256:54b467ede1db96c66675e7b78457dd43729d0e7be31978d4a1e5c069ceabcf76
 
 RUN set -eux; \
+    snapshot=20261029T000000Z; \
+    for archive in debian debian-security; do \
+        case "$archive" in debian) suites='bookworm bookworm-updates' ;; *) suites='bookworm-security' ;; esac; \
+        printf 'Types: deb\nURIs: https://snapshot.debian.org/archive/%s/%s\nSuites: %s\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\nCheck-Valid-Until: no\n\n' "$archive" "$snapshot" "$suites"; \
+    done > /etc/apt/sources.list.d/debian.sources; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         git \

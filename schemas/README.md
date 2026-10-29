@@ -1,9 +1,11 @@
 # Result schemas
 
-Machine-readable contracts written and read by every stage, as JSON Schema draft 2020-12 (RFC sections 6.4, 6.6 and 7).
+Machine-readable contracts written and read by every stage, as JSON Schema draft 2020-12 (RFC sections 6.3, 6.4, 6.6 and 7).
 
 | Schema | Describes |
 | ------ | --------- |
+| [`v1/sources.schema.json`](v1/sources.schema.json) | Upstream sources pinned at a revision and the inputs selected from them |
+| [`v1/acquisition.schema.json`](v1/acquisition.schema.json) | The outcome of acquiring one declared input: its provenance and licenses, or why it is unavailable |
 | [`v1/scenario.schema.json`](v1/scenario.schema.json) | An explicit operation configuration, including digest and signature algorithms |
 | [`v1/attempt.schema.json`](v1/attempt.schema.json) | One execution of a scenario by one implementation on one input |
 | [`v1/observation.schema.json`](v1/observation.schema.json) | One analyzer's verdict on one property of an attempt's output |
@@ -16,6 +18,9 @@ Every document carries a `schema` field equal to the `$id` of the schema it foll
 
 ## Semantics
 
+- **Sources.** A source is an upstream project at an immutable revision, with a `file_url` template in which `{revision}` and `{path}` are replaced to download one file. An input names its source, its path inside it, the SHA-256 and byte size it must have, and the document's own license. Its identity is `<source>:<path>`, the `source_id` used by attempts.
+- **License.** An SPDX expression, or `NOASSERTION` when the evidence does not establish one, always with the URL of that evidence. The source project's license and the document's license are recorded separately, because a repository's license does not establish the license of each file in it.
+- **Acquisition.** An available input records its retrieval time in UTC, its SHA-256 and byte size, and both licenses. A missing upstream file (HTTP 404 or 410) or a file whose hash or size differs from the declaration is recorded as `unavailable`, with the observed hash and size for a mismatch, and nothing is kept in the cache under its identity. Any other failure to reach the upstream stops the acquisition instead of being recorded as missing.
 - **Attempt.** `capability` (`supported`, `unsupported`, `expected_rejection`, `not_evaluated`) is what was expected of the implementation for this scenario and input; `execution.outcome` (`succeeded`, `failed`, `timed_out`, `not_run`) is what happened. They are recorded independently: a rejection that was expected is a failed execution that the capability keeps from being read as a defect, and an expected rejection that succeeded is kept as an observed result, not rewritten.
 - **Execution.** A succeeded execution has exit code 0, no error and an output. A failed or timed out execution carries its error message and both timestamps. A `not_run` attempt has no exit code, timestamps, error or output, and is only allowed when the input is unavailable or the capability is `unsupported`; an attempt that started is never recorded as `not_run`.
 - **Unavailable input.** A missing upstream file or a hash mismatch is recorded as `input.status: unavailable` with its reason; a mismatch also records the observed hash. Such an attempt is `not_run` with capability `not_evaluated` and no output, so it can never be counted as an implementation failure. `not_evaluated` is used for no other case.

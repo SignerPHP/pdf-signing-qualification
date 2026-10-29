@@ -5,11 +5,11 @@
     "license": "MIT",
     "homepage": "https://github.com/SignerPHP/pdf-signing-qualification",
     "require": {
-        "php": "^8.4"
+        "php": "^8.4",
+        "opis/json-schema": "^2.6"
     },
     "require-dev": {
         "laravel/pint": "^1.27",
-        "opis/json-schema": "^2.6",
         "phpunit/phpunit": "^11.5",
         "vimeo/psalm": "^6.15"
     },
@@ -25,6 +25,7 @@
     },
     "minimum-stability": "stable",
     "scripts": {
+        "acquire": "bin/acquire-inputs",
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",
         "pint:check": "vendor/bin/pint --test",

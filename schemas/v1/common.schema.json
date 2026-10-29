@@ -12,6 +12,10 @@
             "type": "string",
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
         },
+        "sourceId": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
         "nonEmptyString": {
             "type": "string",
             "minLength": 1
@@ -19,6 +23,30 @@
         "sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
+        },
+        "httpsUrl": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://\\S+$"
+        },
+        "relativePath": {
+            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit, so absolute paths, `.`, `..` and empty segments are rejected.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$",
+            "maxLength": 512
+        },
+        "license": {
+            "description": "A license as an SPDX expression, or `NOASSERTION` when the evidence does not establish one, with the URL of that evidence.",
+            "type": "object",
+            "required": ["expression", "evidence_url"],
+            "additionalProperties": false,
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "pattern": "^(NOASSERTION|\\(*[A-Za-z0-9.-]+\\+?\\)*( (AND|OR|WITH) \\(*[A-Za-z0-9.-]+\\+?\\)*)*)$"
+                },
+                "evidence_url": { "$ref": "#/$defs/httpsUrl" }
+            }
         },
         "utcTimestamp": {
             "type": "string",

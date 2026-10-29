@@ -1,0 +1,31 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
+use SignerPHP\PdfSigningQualification\Acquisition\HttpFetcher;
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$configurationPath = $argv[1] ?? __DIR__.'/../config/inputs.json';
+$cacheDirectory = $argv[2] ?? __DIR__.'/../var/cache/inputs';
+
+$acquirer = new Acquirer(new HttpFetcher, $cacheDirectory, static fn (): DateTimeImmutable => new DateTimeImmutable);
+
+$records = [];
+$unavailableCount = 0;
+foreach (SourceConfiguration::fromFile($configurationPath) as $input) {
+    $record = $acquirer->acquire($input);
+    $records[] = $record;
+
+    if ($record['status'] === 'unavailable') {
+        $unavailableCount++;
+        fwrite(STDERR, "{$input->id()}: {$record['reason']}: {$record['message']}\n");
+    }
+}
+
+echo json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
+
+exit($unavailableCount === 0 ? 0 : 1);

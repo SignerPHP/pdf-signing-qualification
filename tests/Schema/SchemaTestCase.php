@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Schema;
 
-use Opis\JsonSchema\Errors\ErrorFormatter;
-use Opis\JsonSchema\Helper;
-use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
+use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 abstract class SchemaTestCase extends TestCase
 {
-    public const string SCHEMA_PREFIX = 'https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/';
+    public const string SCHEMA_PREFIX = SchemaValidator::SCHEMA_PREFIX;
 
-    private const string SCHEMA_DIRECTORY = __DIR__.'/../../schemas/';
+    private const string SCHEMA_DIRECTORY = SchemaValidator::SCHEMA_DIRECTORY;
 
     abstract protected static function schemaPath(): string;
 
@@ -29,25 +27,7 @@ abstract class SchemaTestCase extends TestCase
      */
     final protected static function validationErrors(array $document): array
     {
-        $validator = new Validator;
-        $validator->setMaxErrors(20);
-        $validator->resolver()?->registerPrefix(self::SCHEMA_PREFIX, self::SCHEMA_DIRECTORY);
-
-        $result = $validator->validate(Helper::toJSON($document), self::schemaId());
-
-        $error = $result->error();
-        if ($error === null) {
-            return [];
-        }
-
-        $messages = [];
-        foreach ((new ErrorFormatter)->format($error, true) as $path => $pathMessages) {
-            foreach ($pathMessages as $message) {
-                $messages[] = $path.': '.$message;
-            }
-        }
-
-        return $messages;
+        return (new SchemaValidator)->errors($document, self::schemaId());
     }
 
     final protected static function assertValid(array $document): void

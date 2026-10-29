@@ -1,0 +1,14 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/scenario.schema.json",
+    "id": "basic-invisible-sha256",
+    "description": "One invisible signature with SHA-256 and RSA PKCS#1 v1.5 in a detached PKCS#7, without timestamp or revocation information",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "adbe.pkcs7.detached",
+        "appearance": "invisible",
+        "timestamp": false,
+        "revocation_info": false
+    }
+}

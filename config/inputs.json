@@ -2,16 +2,16 @@
     "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
     "sources": [
         {
-            "id": "pdfjs",
-            "url": "https://github.com/mozilla/pdf.js",
+            "id": "qpdf",
+            "url": "https://github.com/qpdf/qpdf",
             "revision": {
                 "kind": "commit",
-                "value": "aa89148aed549a93c5aba3ca85d81711c7e5803a"
+                "value": "4eba95899886e851cc41d76886483b347612f2a8"
             },
-            "file_url": "https://raw.githubusercontent.com/mozilla/pdf.js/{revision}/{path}",
+            "file_url": "https://raw.githubusercontent.com/qpdf/qpdf/{revision}/{path}",
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://github.com/mozilla/pdf.js/blob/aa89148aed549a93c5aba3ca85d81711c7e5803a/LICENSE"
+                "evidence_url": "https://github.com/qpdf/qpdf/blob/4eba95899886e851cc41d76886483b347612f2a8/LICENSE.txt"
             }
         },
         {
@@ -30,173 +30,163 @@
     ],
     "inputs": [
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue17069.pdf",
-            "sha256": "338fa82e5d4ee20033967eafb229d3b64a38edd0465421592800165b94003dac",
-            "byte_size": 706317,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/hybrid-xref.pdf",
+            "sha256": "df1ae8b9cb2378aaeda6fdc11146dd37328737fd050941390d2c6bd188eea0e4",
+            "byte_size": 16902,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/40b1d92044fa0cdd7f98b7b9f5724077cfc5f88e"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/print_protection.pdf",
-            "sha256": "e5497249e49832011090c5d7a757787192af4231fbd82980f87683e4e5e4e3fa",
-            "byte_size": 10832,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good17.pdf",
+            "sha256": "7383ca2c3a1da7c0691e0b8a63ebee3c91b62041ee5a3433a69e721b6c48f190",
+            "byte_size": 17031,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/806f9c1cee624f9257bbd4e62442a144be767368"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue19484_1.pdf",
-            "sha256": "0f020604762fe289eaed602bfb5f4e3d921fb04ffc0fd61ec5423933a03f1948",
-            "byte_size": 47688,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good18.pdf",
+            "sha256": "e6ea41e27e7ebbb0d89472e698d0cb16beefff768a584ea144ae650f8c4bbaa7",
+            "byte_size": 16642,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/4f25d7f6cd402c827daa7a1f3daf96bb7b4fe1a8"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue19484_2.pdf",
-            "sha256": "247215f0ca711ec552289c3076cc7ee38f117c3e0d9c83bfc136ff99f2627216",
-            "byte_size": 47196,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/digitally-signed.pdf",
+            "sha256": "05e969415b03d9782b0b132f147b86cb42eafddf6176aaf2710334a9cc643c3c",
+            "byte_size": 68846,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/4f25d7f6cd402c827daa7a1f3daf96bb7b4fe1a8"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/REDHAT-1531897-0.pdf",
-            "sha256": "f468fc2f922bb179f3cb9994c9476fb1840445fe6deb6cdcca42244ab0218786",
-            "byte_size": 871,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/minimal-signed-restricted.pdf",
+            "sha256": "60027d4631455ef6e4c6dd55360d6db91257031145105262d27db69d3f1ef086",
+            "byte_size": 135790,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/ca8d2bdce4252b72bec83ef1f00a467510f5a94b"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue9105_other.pdf",
-            "sha256": "6829f033d91558fcea1c34271efa88b535be9c8fcf0abdeec616c95b8e51d385",
-            "byte_size": 187,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/nontrivial-crypt-filter.pdf",
+            "sha256": "f47549959cf98041234d18c749dd57cc4e86c2e702f3bbc8eb92355108384305",
+            "byte_size": 8985,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/bc13a277ce6e49fd11776f3fa7f41dbee7f2c37a"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue9105_reduced.pdf",
-            "sha256": "6820ac7e4949964e6a828dfbb40c321b5e0389391066fe90a663a7437232bc70",
-            "byte_size": 723,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/V4-aes.pdf",
+            "sha256": "1d8a812844b8d8c7ba085a627eb3b7ab52aa651c6143ca07315084220a113240",
+            "byte_size": 16474,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/1dc54ddb400bc9f72c6e7b39bfd222646a8251f6"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue10438_reduced.pdf",
-            "sha256": "c30600728c95c1c851e7fc3c36a3e95b71c431bf89d2277cfe5c04ad569623f8",
-            "byte_size": 723,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/leading-junk.pdf",
+            "sha256": "76d5295c334fbf4b9540e474c8c4d899f29a3301b1b6308a28d065b38d6869a6",
+            "byte_size": 13670,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/d4a3858ed5c5f4a31a7089a33c00116eecd5b8bd"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/poppler-395-0-fuzzed.pdf",
-            "sha256": "e2ec919e787c0069948598f9c9d7a39787acde602aacd2bb263298a85e2e0c64",
-            "byte_size": 23068,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/incremental-1.pdf",
+            "sha256": "5f9c43d3f201d8e9ea77aa162bf4eb527c563f9db3626a736455e003cf5baaf3",
+            "byte_size": 1423,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/1fac6371d313224155bf9d4400e3853af5cd4772"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/poppler-937-0-fuzzed.pdf",
-            "sha256": "732311f7b606c6360121644b9b7709dc8d369f37157704dc16e6791a4ca6e680",
-            "byte_size": 1666,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-xref-entry.pdf",
+            "sha256": "1d3b6ed9362c92c3f24f6ee7650e1768387204b1bbb66327a4eba226ce801bb4",
+            "byte_size": 1113,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/63be23f05b8f1f13ec2dfd6136c1df5a171b4e02"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/Brotli-Prototype-FileA.pdf",
-            "sha256": "88d7f8b3f6e8cb26fdde69bbcd27990f2f61f807472afce7b5dbe2ae8f4f3ff7",
-            "byte_size": 1305278,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/xref-errors.pdf",
+            "sha256": "d535a7206627eb9e951b3d747e62c4c61338b3ca1a8c284028972b7a2e574e57",
+            "byte_size": 764,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/43273fde27132d12caa8ffce632279e83b9dbc59"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/bug1020226.pdf",
-            "sha256": "50e91d373aa313537972519c65b050f8d4d5bd996859fa20756432c2029c3ff6",
-            "byte_size": 184,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad3.pdf",
+            "sha256": "8d8567a3445617d76b04b7185e6c7da7e8bdaa4ee0b1b9f7f1b31d469ae7a863",
+            "byte_size": 751,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/e8ad6c9d131dd629b176860f3eea5bbaff81a1a9"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue15590.pdf",
-            "sha256": "c711bb3357eccec499968ac7b4e286ebd3f49910b458b0596d81731c890eedb6",
-            "byte_size": 191,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-direct-root.pdf",
+            "sha256": "0d7549c02c38717627deb10d1155c1b513d35036208e77d687597c77d04dc3b4",
+            "byte_size": 284,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/2516ffa78e829c1cf80b564860e3b47862eb4e42"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/signed_verified.pdf",
-            "sha256": "1fe9051d9ac1f39828988040db471916251dc2953c1a32efd6596e4975da848c",
-            "byte_size": 10252,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad1.pdf",
+            "sha256": "fe19778cf1ce280658154f2b9c01ffbccd825a23460141dcf3794e7a2c0eb629",
+            "byte_size": 5,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/ed81227557992a3745294ad8f7b5504ffb6a87a5"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue10301.pdf",
-            "sha256": "8f0824799c19c3385b90dadd2f0a58494b245962e8a62e9f36f559b01cb2e572",
-            "byte_size": 31364,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad35.pdf",
+            "sha256": "d149d9b30e913b9c44c76110daf4c73a2fae212c61a42e8a1e0a95ce58cd71f6",
+            "byte_size": 807,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/8edec018fef2f591b99617ac0617865bb8178af3"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue11656.pdf",
-            "sha256": "73a430a80708d8574d11e66dab26937bcbbfc1a167470e59020611ec739639fa",
-            "byte_size": 28291,
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/xref-with-short-size.pdf",
+            "sha256": "1b705deb63e4578ae90356463762739cfd2ddbc4ac515800ac7f12c1213710f5",
+            "byte_size": 16527,
             "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/5f77d3719b6bb2da9a92f764afb744b835ab36a0"
-            }
-        },
-        {
-            "source": "pdfjs",
-            "path": "test/pdfs/issue20324.pdf",
-            "sha256": "033cbfb8667324b4d23be0e2debcd74747caf80ab22672a945b76124bad8b733",
-            "byte_size": 11151,
-            "license": {
-                "expression": "NOASSERTION",
-                "evidence_url": "https://github.com/mozilla/pdf.js/commit/d04832a82f23c45bac1d58a7b240dceca573c9d8"
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             }
         },
         {

@@ -130,6 +130,12 @@ final class AttemptSchemaTest extends SchemaTestCase
 
             return $attempt;
         })];
+        yield 'input identifier with spaces inside its segments' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-20261028T120000Z/basic-invisible-sha256/pdf-signer/verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+            $attempt['input']['source_id'] = 'verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $attempt;
+        })];
     }
 
     #[DataProvider('validAttempts')]
@@ -317,6 +323,16 @@ final class AttemptSchemaTest extends SchemaTestCase
         })];
         yield 'identifier run-1/' => [self::mutate(function (array $attempt): array {
             $attempt['id'] = 'run-1/';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1/ x' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1/ x';
+
+            return $attempt;
+        })];
+        yield 'identifier run-1/x ' => [self::mutate(function (array $attempt): array {
+            $attempt['id'] = 'run-1/x ';
 
             return $attempt;
         })];

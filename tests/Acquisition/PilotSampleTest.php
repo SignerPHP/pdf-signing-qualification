@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SignerPHP\PdfSigningQualification\Tests\Acquisition;
+
+use PHPUnit\Framework\TestCase;
+use SignerPHP\PdfSigningQualification\Acquisition\Input;
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+
+final class PilotSampleTest extends TestCase
+{
+    private const string CONFIGURATION = __DIR__.'/../../config/inputs.json';
+
+    private const string DOCUMENT = __DIR__.'/../../docs/pilot-sample.md';
+
+    /**
+     * @return list<string>
+     */
+    private static function configuredIds(): array
+    {
+        $ids = array_map(static fn (Input $input): string => $input->id(), SourceConfiguration::fromFile(self::CONFIGURATION));
+        sort($ids);
+
+        return $ids;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function documentedIds(): array
+    {
+        preg_match_all('/^\| `([a-z0-9-]+:[^`]+)` \|/m', (string) file_get_contents(self::DOCUMENT), $matches);
+        $ids = $matches[1];
+        sort($ids);
+
+        return $ids;
+    }
+
+    public function test_sample_size_is_within_the_pilot_range(): void
+    {
+        $count = count(self::configuredIds());
+
+        self::assertGreaterThanOrEqual(20, $count);
+        self::assertLessThanOrEqual(30, $count);
+    }
+
+    public function test_document_lists_every_configured_input_once(): void
+    {
+        self::assertSame(self::configuredIds(), self::documentedIds());
+    }
+}

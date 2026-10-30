@@ -1,5 +1,313 @@
 {
     "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
-    "sources": [],
-    "inputs": []
+    "sources": [
+        {
+            "id": "pdfjs",
+            "url": "https://github.com/mozilla/pdf.js",
+            "revision": {
+                "kind": "commit",
+                "value": "aa89148aed549a93c5aba3ca85d81711c7e5803a"
+            },
+            "file_url": "https://raw.githubusercontent.com/mozilla/pdf.js/{revision}/{path}",
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://github.com/mozilla/pdf.js/blob/aa89148aed549a93c5aba3ca85d81711c7e5803a/LICENSE"
+            }
+        },
+        {
+            "id": "verapdf-corpus",
+            "url": "https://github.com/veraPDF/veraPDF-corpus",
+            "revision": {
+                "kind": "commit",
+                "value": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+            },
+            "file_url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/{revision}/{path}",
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue17069.pdf",
+            "sha256": "338fa82e5d4ee20033967eafb229d3b64a38edd0465421592800165b94003dac",
+            "byte_size": 706317,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/40b1d92044fa0cdd7f98b7b9f5724077cfc5f88e"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/print_protection.pdf",
+            "sha256": "e5497249e49832011090c5d7a757787192af4231fbd82980f87683e4e5e4e3fa",
+            "byte_size": 10832,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/806f9c1cee624f9257bbd4e62442a144be767368"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue19484_1.pdf",
+            "sha256": "0f020604762fe289eaed602bfb5f4e3d921fb04ffc0fd61ec5423933a03f1948",
+            "byte_size": 47688,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/4f25d7f6cd402c827daa7a1f3daf96bb7b4fe1a8"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue19484_2.pdf",
+            "sha256": "247215f0ca711ec552289c3076cc7ee38f117c3e0d9c83bfc136ff99f2627216",
+            "byte_size": 47196,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/4f25d7f6cd402c827daa7a1f3daf96bb7b4fe1a8"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/REDHAT-1531897-0.pdf",
+            "sha256": "f468fc2f922bb179f3cb9994c9476fb1840445fe6deb6cdcca42244ab0218786",
+            "byte_size": 871,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/ca8d2bdce4252b72bec83ef1f00a467510f5a94b"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue9105_other.pdf",
+            "sha256": "6829f033d91558fcea1c34271efa88b535be9c8fcf0abdeec616c95b8e51d385",
+            "byte_size": 187,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/bc13a277ce6e49fd11776f3fa7f41dbee7f2c37a"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue9105_reduced.pdf",
+            "sha256": "6820ac7e4949964e6a828dfbb40c321b5e0389391066fe90a663a7437232bc70",
+            "byte_size": 723,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/1dc54ddb400bc9f72c6e7b39bfd222646a8251f6"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue10438_reduced.pdf",
+            "sha256": "c30600728c95c1c851e7fc3c36a3e95b71c431bf89d2277cfe5c04ad569623f8",
+            "byte_size": 723,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/d4a3858ed5c5f4a31a7089a33c00116eecd5b8bd"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/poppler-395-0-fuzzed.pdf",
+            "sha256": "e2ec919e787c0069948598f9c9d7a39787acde602aacd2bb263298a85e2e0c64",
+            "byte_size": 23068,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/1fac6371d313224155bf9d4400e3853af5cd4772"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/poppler-937-0-fuzzed.pdf",
+            "sha256": "732311f7b606c6360121644b9b7709dc8d369f37157704dc16e6791a4ca6e680",
+            "byte_size": 1666,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/63be23f05b8f1f13ec2dfd6136c1df5a171b4e02"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/Brotli-Prototype-FileA.pdf",
+            "sha256": "88d7f8b3f6e8cb26fdde69bbcd27990f2f61f807472afce7b5dbe2ae8f4f3ff7",
+            "byte_size": 1305278,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/43273fde27132d12caa8ffce632279e83b9dbc59"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/bug1020226.pdf",
+            "sha256": "50e91d373aa313537972519c65b050f8d4d5bd996859fa20756432c2029c3ff6",
+            "byte_size": 184,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/e8ad6c9d131dd629b176860f3eea5bbaff81a1a9"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue15590.pdf",
+            "sha256": "c711bb3357eccec499968ac7b4e286ebd3f49910b458b0596d81731c890eedb6",
+            "byte_size": 191,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/2516ffa78e829c1cf80b564860e3b47862eb4e42"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/signed_verified.pdf",
+            "sha256": "1fe9051d9ac1f39828988040db471916251dc2953c1a32efd6596e4975da848c",
+            "byte_size": 10252,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/ed81227557992a3745294ad8f7b5504ffb6a87a5"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue10301.pdf",
+            "sha256": "8f0824799c19c3385b90dadd2f0a58494b245962e8a62e9f36f559b01cb2e572",
+            "byte_size": 31364,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/8edec018fef2f591b99617ac0617865bb8178af3"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue11656.pdf",
+            "sha256": "73a430a80708d8574d11e66dab26937bcbbfc1a167470e59020611ec739639fa",
+            "byte_size": 28291,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/5f77d3719b6bb2da9a92f764afb744b835ab36a0"
+            }
+        },
+        {
+            "source": "pdfjs",
+            "path": "test/pdfs/issue20324.pdf",
+            "sha256": "033cbfb8667324b4d23be0e2debcd74747caf80ab22672a945b76124bad8b733",
+            "byte_size": 11151,
+            "license": {
+                "expression": "NOASSERTION",
+                "evidence_url": "https://github.com/mozilla/pdf.js/commit/d04832a82f23c45bac1d58a7b240dceca573c9d8"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-pass-a.pdf",
+            "sha256": "279b932fe0d6d5ed16b32c66facb49bf0d88149aa301a6ada46618a822f38fc7",
+            "byte_size": 9573,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-a.pdf",
+            "sha256": "f266afada9dc83ae2cb4627520e0bc36c96ab884950c9193a8f6d0d38833d99a",
+            "byte_size": 5858,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-fail-a.pdf",
+            "sha256": "5ecf3e39ee24085ff59f77c93b1347c5d5e995291b12811ac3e3e024f4f12a5f",
+            "byte_size": 8581,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-pass-a.pdf",
+            "sha256": "36892ae1bc41bb215893a678d0a9fb6db39daa7edda23867cee1760110aa9d89",
+            "byte_size": 5923,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-a.pdf",
+            "sha256": "b613e6613772ae0b4c8cdf643f9866f892dcc5b6510ca25203c4d91bd75366bc",
+            "byte_size": 9577,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf",
+            "sha256": "b190b24a72a9650e256118b1db2d937dbd81b30769935bc3c9293b12577d5ad4",
+            "byte_size": 6658,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf",
+            "sha256": "80cca3eb633c48ca14e279f0b5035cc6c0de93b472fa75b22fe2ded2bce8f802",
+            "byte_size": 23383,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.16 Security/7.16-t01-pass-a.pdf",
+            "sha256": "027d5e0a0c292e77828a52cc861455b5a868f7668aac476dd4a790c721c513a0",
+            "byte_size": 40438,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t01-pass-a.pdf",
+            "sha256": "f389929bb730a7f0dab85a7179c76fc7f4cfc4a1f1f1210d2acc05d8dd99bf6b",
+            "byte_size": 6706,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-pass-a.pdf",
+            "sha256": "072b4eb93c38ab1f50875b4163719ede16ee93def87ad32290a599ce52f92017",
+            "byte_size": 11516,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.11 Permissions/veraPDF test suite 6-1-11-t01-pass-a.pdf",
+            "sha256": "0f9d20855519c455802a8d85e6b5afac9ec65719421a02973977e3447cba3419",
+            "byte_size": 7207,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        }
+    ]
 }

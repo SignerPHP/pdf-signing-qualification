@@ -4,8 +4,9 @@
     "title": "Shared definitions, version 1",
     "$defs": {
         "identifier": {
+            "description": "Segments separated by `/`. Each segment starts with a letter or digit and does not end with a space, so `.`, `..`, empty and padded segments are rejected; a space inside a segment is kept.",
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]*(/[A-Za-z0-9][A-Za-z0-9._:+-]*)*$",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9._:+ -]*[A-Za-z0-9._:+-])?(/[A-Za-z0-9]([A-Za-z0-9._:+ -]*[A-Za-z0-9._:+-])?)*$",
             "maxLength": 512
         },
         "scenarioId": {
@@ -31,9 +32,9 @@
             "pattern": "^https://\\S+$"
         },
         "relativePath": {
-            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit, so absolute paths, `.`, `..` and empty segments are rejected. Its length leaves room for `<source>:` within the 512 characters of an identifier.",
+            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit and does not end with a space, so absolute paths, `.`, `..`, empty and padded segments are rejected; a space inside a segment is kept. Its length leaves room for `<source>:` within the 512 characters of an identifier.",
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9._+ -]*[A-Za-z0-9._+-])?(/[A-Za-z0-9]([A-Za-z0-9._+ -]*[A-Za-z0-9._+-])?)*$",
             "maxLength": 447
         },
         "license": {

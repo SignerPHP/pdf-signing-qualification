@@ -86,8 +86,28 @@ final class ObservationSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_observation_of_an_input_whose_path_has_spaces_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $observation): array {
+            $observation['id'] = 'run-20261028T120000Z/basic-invisible-sha256/pdf-signer/verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf/pdfsig';
+            $observation['attempt_id'] = 'run-20261028T120000Z/basic-invisible-sha256/pdf-signer/verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $observation;
+        }));
+    }
+
     public static function invalidObservations(): iterable
     {
+        yield 'analyzer identifier with spaces' => [self::mutate(function (array $observation): array {
+            $observation['analyzer']['id'] = 'pdf sig';
+
+            return $observation;
+        })];
+        yield 'policy identifier with spaces' => [self::mutate(function (array $observation): array {
+            $observation['policy']['id'] = 'pdfsig no ocsp';
+
+            return $observation;
+        })];
         foreach (['analyzer', 'policy', 'input_artifact', 'output_artifact', 'verdict', 'evidence'] as $field) {
             yield 'missing '.$field => [self::mutate(function (array $observation) use ($field): array {
                 unset($observation[$field]);

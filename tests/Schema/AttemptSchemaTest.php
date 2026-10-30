@@ -336,6 +336,16 @@ final class AttemptSchemaTest extends SchemaTestCase
 
             return $attempt;
         })];
+        yield 'run identifier with spaces' => [self::mutate(function (array $attempt): array {
+            $attempt['run_id'] = 'run 1';
+
+            return $attempt;
+        })];
+        yield 'implementation identifier with spaces' => [self::mutate(function (array $attempt): array {
+            $attempt['implementation']['id'] = 'pdf signer';
+
+            return $attempt;
+        })];
     }
 
     #[DataProvider('invalidAttempts')]

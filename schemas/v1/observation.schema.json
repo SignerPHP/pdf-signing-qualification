@@ -8,8 +8,8 @@
     "additionalProperties": false,
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/observation.schema.json" },
-        "id": { "$ref": "common.schema.json#/$defs/identifier" },
-        "attempt_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+        "attempt_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
         "analyzer": {
             "type": "object",
             "required": ["id", "revision"],

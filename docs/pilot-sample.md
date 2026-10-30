@@ -15,14 +15,18 @@ Strata overlap: one input usually belongs to several. They were recorded from th
 | `hybrid` | Cross-reference table whose trailer points to a cross-reference stream (`/XRefStm`) | 3 |
 | `none` | No usable cross-reference section; a reader has to rebuild it | 5 |
 | `objstm` | Object streams | 12 |
-| `encrypted` | Standard security handler, opened by pdf.js without a password | 6 |
+| `encrypted` | Standard security handler | 6 |
 | `incremental` | More than one revision (`startxref` sections) | 12 |
 | `signed` | At least one signature dictionary with a `/ByteRange` | 6 |
-| `malformed` | qpdf reports the file as damaged and repairs it, or cannot find its header | 9 |
+| `malformed` | qpdf reports the file as damaged and repairs it, or cannot recognize its header | 9 |
 
-PDF versions range from 1.3 to 2.0, and one file has no header. Sizes range from 184 bytes to 1.3 MB.
+PDF versions range from 1.3 to 2.0, and one file has a truncated header (`%PDF-1.` without a minor version). Sizes range from 184 bytes to 1.3 MB.
 
-Every stratum the pilot requires is covered. Three of the encrypted inputs (`print_protection.pdf`, `issue19484_1.pdf`, `issue19484_2.pdf`) are opened by pdf.js with the empty password but refused by qpdf 11.3.0, so the `qpdf` structure check on their outputs is expected to fail for a reason that is not the signer's.
+Every stratum the pilot requires is covered. The encrypted inputs do not all open the same way:
+
+- `issue17069.pdf`, the PDF/A-4 `6-1-3-t02-fail-a` and the PDF/UA-1 `7.16-t01-fail-a` open with the empty user password in qpdf 11.3.0.
+- `issue19484_1.pdf` and `issue19484_2.pdf` are opened by pdf.js without a password (its test manifest gives none) but refused by qpdf 11.3.0 with the empty password.
+- `print_protection.pdf` needs the user password `1234`, which the pdf.js integration test types into its password dialog; with it, `qpdf --check` exits with 3. A signer that is not given the password cannot open it, so its failure on this input is expected and is not a defect.
 
 Not deliberately covered, and left for the main panel: form fields other than signature fields, visible signature appearances, PDF versions below 1.3, large documents (several megabytes or thousands of pages), and signatures with timestamps or revocation information.
 
@@ -37,16 +41,16 @@ No input is redistributed by this repository; the license status records what ma
 
 ## Inputs
 
-The qpdf column is the exit code of `qpdf --check` when the sample was selected: 0 no problem, 2 errors, 3 warnings only.
+The qpdf column is the exit code of `qpdf --check` on the input itself, without a password, when the sample was selected: 0 no problem, 2 errors, 3 warnings only. It is the baseline against which the `qpdf` structure observation of a signed output is read: that adapter turns 2 into `invalid` and 3 into `inconclusive`, so an output of one of the 6 inputs at 2 or the 14 inputs at 3 can get that verdict from a problem the input already had, not from the signer. Only the 8 inputs at 0 make a non-`valid` structure verdict a sign of a signer defect on its own.
 
 | Input | Version | Strata | qpdf | Why it was chosen |
 | ----- | ------- | ------ | ---: | ----------------- |
 | `pdfjs:test/pdfs/issue17069.pdf` | 1.6 | `stream`, `objstm`, `encrypted`, `signed` | 0 | Listed in the issue. An encrypted document that is already signed (`adbe.pkcs7.detached`), and the second largest input (690 KiB) |
-| `pdfjs:test/pdfs/print_protection.pdf` | 1.7 | `stream`, `objstm`, `encrypted`, `incremental` | 2 | Listed in the issue. AES-256 (R 6) with permissions that forbid printing; refused by qpdf |
+| `pdfjs:test/pdfs/print_protection.pdf` | 1.7 | `stream`, `objstm`, `encrypted`, `incremental` | 2 | Listed in the issue. AES-256 (R 6) with the user password `1234` and permissions that forbid printing |
 | `pdfjs:test/pdfs/issue19484_1.pdf` | 1.6 | `stream`, `objstm`, `encrypted`, `incremental` | 2 | Listed in the issue. R 4 encryption with a key shorter than 16 bytes, which pdf.js pads with zeros as Acrobat does; refused by qpdf |
 | `pdfjs:test/pdfs/issue19484_2.pdf` | 1.6 | `stream`, `objstm`, `encrypted`, `incremental` | 2 | Listed in the issue. Second file of the same report |
 | `pdfjs:test/pdfs/REDHAT-1531897-0.pdf` | 1.3 | `stream`, `objstm`, `malformed` | 2 | Listed in the issue. Cross-reference stream whose `/W` array has bogus entries |
-| `pdfjs:test/pdfs/issue9105_other.pdf` | none | `none`, `malformed` | 3 | Listed in the issue. No header, no cross-reference section and a wrong `/Pages` `/Count` |
+| `pdfjs:test/pdfs/issue9105_other.pdf` | `1.` | `none`, `malformed` | 3 | Listed in the issue. A truncated header (`%PDF-1.`), no cross-reference section and a wrong `/Pages` `/Count` |
 | `pdfjs:test/pdfs/issue9105_reduced.pdf` | 1.7 | `none`, `malformed` | 3 | Listed in the issue. Objects without `endobj`, so the cross-reference section has to be rebuilt by searching for `obj` |
 | `pdfjs:test/pdfs/issue10438_reduced.pdf` | 1.7 | `none`, `malformed` | 3 | Listed in the issue. Objects without `endobj` where `obj` is immediately followed by the dictionary |
 | `pdfjs:test/pdfs/poppler-395-0-fuzzed.pdf` | 1.7 | `classic`, `signed`, `malformed` | 3 | Listed in the issue. Fuzzed file with a damaged `/Pages` tree that also carries an `adbe.pkcs7.sha1` signature dictionary |

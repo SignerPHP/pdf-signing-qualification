@@ -7,7 +7,7 @@
     "required": ["schema", "source_id", "source", "path", "file_url", "status"],
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/acquisition.schema.json" },
-        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
         "source": {
             "type": "object",
             "required": ["id", "url", "revision", "license"],

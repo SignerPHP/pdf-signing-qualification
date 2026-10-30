@@ -49,4 +49,20 @@ final class PilotSampleTest extends TestCase
     {
         self::assertSame(self::configuredIds(), self::documentedIds());
     }
+
+    public function test_stratum_counts_match_the_documented_inputs(): void
+    {
+        $document = (string) file_get_contents(self::DOCUMENT);
+        preg_match_all('/^\| `([a-z]+)` \| [^|]+ \| (\d+) \|$/m', $document, $strata);
+        $declaredCounts = array_map(intval(...), array_combine($strata[1], $strata[2]));
+        ksort($declaredCounts);
+
+        preg_match_all('/^\| `[a-z0-9-]+:[^`]+` \| [^|]+ \| ([^|]+) \|/m', $document, $rows);
+        preg_match_all('/`([a-z]+)`/', implode(' ', $rows[1]), $tags);
+        $countedStrata = array_count_values($tags[1]);
+        ksort($countedStrata);
+
+        self::assertNotSame([], $declaredCounts);
+        self::assertSame($declaredCounts, $countedStrata);
+    }
 }

@@ -41,6 +41,15 @@ final class MeasurementSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_measurement_of_an_input_whose_path_has_spaces_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $measurement): array {
+            $measurement['attempt_id'] = 'run-20261028T120000Z/basic-invisible-sha256/pdf-signer/verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $measurement;
+        }));
+    }
+
     public static function invalidMeasurements(): iterable
     {
         yield 'unavailable metric recorded as zero' => [self::mutate(function (array $measurement): array {

@@ -62,6 +62,11 @@ final class SourcesSchemaTest extends SchemaTestCase
 
             return $configuration;
         })];
+        yield 'path with spaces inside its segments' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
     }
 
     #[DataProvider('validConfigurations')]
@@ -113,6 +118,21 @@ final class SourcesSchemaTest extends SchemaTestCase
         })];
         yield 'path leaving the source' => [self::mutate(function (array $configuration): array {
             $configuration['inputs'][0]['path'] = 'test/../../secret.pdf';
+
+            return $configuration;
+        })];
+        yield 'path segment starting with a space' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/ 7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
+        yield 'path segment ending with a space' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/7.16 Security /7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
+        yield 'path with a tab' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = "PDF_UA-1/7.16\tSecurity/7.16-t01-fail-a.pdf";
 
             return $configuration;
         })];

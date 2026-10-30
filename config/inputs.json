@@ -1,5 +1,303 @@
 {
     "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
-    "sources": [],
-    "inputs": []
+    "sources": [
+        {
+            "id": "qpdf",
+            "url": "https://github.com/qpdf/qpdf",
+            "revision": {
+                "kind": "commit",
+                "value": "4eba95899886e851cc41d76886483b347612f2a8"
+            },
+            "file_url": "https://raw.githubusercontent.com/qpdf/qpdf/{revision}/{path}",
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://github.com/qpdf/qpdf/blob/4eba95899886e851cc41d76886483b347612f2a8/LICENSE.txt"
+            }
+        },
+        {
+            "id": "verapdf-corpus",
+            "url": "https://github.com/veraPDF/veraPDF-corpus",
+            "revision": {
+                "kind": "commit",
+                "value": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+            },
+            "file_url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/{revision}/{path}",
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/hybrid-xref.pdf",
+            "sha256": "df1ae8b9cb2378aaeda6fdc11146dd37328737fd050941390d2c6bd188eea0e4",
+            "byte_size": 16902,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good17.pdf",
+            "sha256": "7383ca2c3a1da7c0691e0b8a63ebee3c91b62041ee5a3433a69e721b6c48f190",
+            "byte_size": 17031,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good18.pdf",
+            "sha256": "e6ea41e27e7ebbb0d89472e698d0cb16beefff768a584ea144ae650f8c4bbaa7",
+            "byte_size": 16642,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/digitally-signed.pdf",
+            "sha256": "05e969415b03d9782b0b132f147b86cb42eafddf6176aaf2710334a9cc643c3c",
+            "byte_size": 68846,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/minimal-signed-restricted.pdf",
+            "sha256": "60027d4631455ef6e4c6dd55360d6db91257031145105262d27db69d3f1ef086",
+            "byte_size": 135790,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/nontrivial-crypt-filter.pdf",
+            "sha256": "f47549959cf98041234d18c749dd57cc4e86c2e702f3bbc8eb92355108384305",
+            "byte_size": 8985,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/V4-aes.pdf",
+            "sha256": "1d8a812844b8d8c7ba085a627eb3b7ab52aa651c6143ca07315084220a113240",
+            "byte_size": 16474,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/leading-junk.pdf",
+            "sha256": "76d5295c334fbf4b9540e474c8c4d899f29a3301b1b6308a28d065b38d6869a6",
+            "byte_size": 13670,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/incremental-1.pdf",
+            "sha256": "5f9c43d3f201d8e9ea77aa162bf4eb527c563f9db3626a736455e003cf5baaf3",
+            "byte_size": 1423,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-xref-entry.pdf",
+            "sha256": "1d3b6ed9362c92c3f24f6ee7650e1768387204b1bbb66327a4eba226ce801bb4",
+            "byte_size": 1113,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/xref-errors.pdf",
+            "sha256": "d535a7206627eb9e951b3d747e62c4c61338b3ca1a8c284028972b7a2e574e57",
+            "byte_size": 764,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad3.pdf",
+            "sha256": "8d8567a3445617d76b04b7185e6c7da7e8bdaa4ee0b1b9f7f1b31d469ae7a863",
+            "byte_size": 751,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-direct-root.pdf",
+            "sha256": "0d7549c02c38717627deb10d1155c1b513d35036208e77d687597c77d04dc3b4",
+            "byte_size": 284,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad1.pdf",
+            "sha256": "fe19778cf1ce280658154f2b9c01ffbccd825a23460141dcf3794e7a2c0eb629",
+            "byte_size": 5,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad35.pdf",
+            "sha256": "d149d9b30e913b9c44c76110daf4c73a2fae212c61a42e8a1e0a95ce58cd71f6",
+            "byte_size": 807,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/xref-with-short-size.pdf",
+            "sha256": "1b705deb63e4578ae90356463762739cfd2ddbc4ac515800ac7f12c1213710f5",
+            "byte_size": 16527,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-pass-a.pdf",
+            "sha256": "279b932fe0d6d5ed16b32c66facb49bf0d88149aa301a6ada46618a822f38fc7",
+            "byte_size": 9573,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-a.pdf",
+            "sha256": "f266afada9dc83ae2cb4627520e0bc36c96ab884950c9193a8f6d0d38833d99a",
+            "byte_size": 5858,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-fail-a.pdf",
+            "sha256": "5ecf3e39ee24085ff59f77c93b1347c5d5e995291b12811ac3e3e024f4f12a5f",
+            "byte_size": 8581,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-pass-a.pdf",
+            "sha256": "36892ae1bc41bb215893a678d0a9fb6db39daa7edda23867cee1760110aa9d89",
+            "byte_size": 5923,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-a.pdf",
+            "sha256": "b613e6613772ae0b4c8cdf643f9866f892dcc5b6510ca25203c4d91bd75366bc",
+            "byte_size": 9577,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf",
+            "sha256": "b190b24a72a9650e256118b1db2d937dbd81b30769935bc3c9293b12577d5ad4",
+            "byte_size": 6658,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf",
+            "sha256": "80cca3eb633c48ca14e279f0b5035cc6c0de93b472fa75b22fe2ded2bce8f802",
+            "byte_size": 23383,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.16 Security/7.16-t01-pass-a.pdf",
+            "sha256": "027d5e0a0c292e77828a52cc861455b5a868f7668aac476dd4a790c721c513a0",
+            "byte_size": 40438,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t01-pass-a.pdf",
+            "sha256": "f389929bb730a7f0dab85a7179c76fc7f4cfc4a1f1f1210d2acc05d8dd99bf6b",
+            "byte_size": 6706,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-pass-a.pdf",
+            "sha256": "072b4eb93c38ab1f50875b4163719ede16ee93def87ad32290a599ce52f92017",
+            "byte_size": 11516,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.11 Permissions/veraPDF test suite 6-1-11-t01-pass-a.pdf",
+            "sha256": "0f9d20855519c455802a8d85e6b5afac9ec65719421a02973977e3447cba3419",
+            "byte_size": 7207,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        }
+    ]
 }

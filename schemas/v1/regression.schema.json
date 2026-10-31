@@ -1,0 +1,58 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/regression.schema.json",
+    "title": "Regression case, version 1",
+    "description": "A reported defect turned into a replayable case: the issue it comes from, the scenario it is run under and the exact input that reproduces its condition.",
+    "type": "object",
+    "required": ["schema", "id", "description", "origin", "scenario_id", "input", "condition"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/regression.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "description": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "origin": {
+            "type": "object",
+            "required": ["issue_url"],
+            "additionalProperties": false,
+            "properties": {
+                "issue_url": {
+                    "allOf": [
+                        { "$ref": "common.schema.json#/$defs/httpsUrl" },
+                        { "pattern": "^https://github\\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/issues/[1-9][0-9]*$" }
+                    ]
+                }
+            }
+        },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "input": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["kind", "generator", "sha256", "byte_size"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "synthetic" },
+                        "generator": {
+                            "allOf": [
+                                { "$ref": "common.schema.json#/$defs/relativePath" },
+                                { "pattern": "^tests/Fixtures/Synthetic/[A-Za-z0-9]+\\.php$" }
+                            ]
+                        },
+                        "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                        "byte_size": { "type": "integer", "minimum": 1 }
+                    }
+                },
+                {
+                    "type": "object",
+                    "required": ["kind", "source_id"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "upstream" },
+                        "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" }
+                    }
+                }
+            ]
+        },
+        "condition": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+    }
+}

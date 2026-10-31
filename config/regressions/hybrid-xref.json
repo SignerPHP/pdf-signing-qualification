@@ -1,0 +1,16 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/regression.schema.json",
+    "id": "hybrid-xref",
+    "description": "Signing a hybrid-reference file whose page tree is reachable only through the cross-reference stream named by /XRefStm",
+    "origin": {
+        "issue_url": "https://github.com/SignerPHP/signer-php/issues/24"
+    },
+    "scenario_id": "basic-invisible-sha256",
+    "input": {
+        "kind": "synthetic",
+        "generator": "tests/Fixtures/Synthetic/HybridXrefPdf.php",
+        "sha256": "5cf6e2c07f047493c7c26ed7e82c9a979cdd02feed840fa489bc8ff5bb485e95",
+        "byte_size": 714
+    },
+    "condition": "The trailer of the revision added by the signature keeps the /XRefStm of the original revision, so it points to a cross-reference stream that does not belong to the new section"
+}

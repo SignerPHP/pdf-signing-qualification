@@ -128,6 +128,68 @@ final class UnexpectedToolOutcomeTest extends TestCase
         self::assertSame('Signature algorithm sha1_rsa is not allowed.', $observation['evidence']['details']['signatures'][0]['error']);
     }
 
+    private const string PYHANKO_VERSION = "pyHanko, version 0.38.0 (CLI 0.6.0)\n";
+
+    private const string HYBRID_REFERENCE_REFUSAL = '2026-10-29 12:00:03,000 - cli - ERROR - An error occurred while validating this signature: Settings do not permit validation of signatures in hybrid-reference files.';
+
+    private static function pyHankoStatus(string $field, string $status): string
+    {
+        return $field.':'.str_repeat('a', 64).':'.$status;
+    }
+
+    public function test_pyhanko_signature_judged_invalid_beside_a_refused_one_of_the_same_name_is_invalid(): void
+    {
+        $output = implode("\n", [self::HYBRID_REFERENCE_REFUSAL, self::pyHankoStatus('None', 'INVALID'), self::pyHankoStatus('None', 'INVALID'), 'Error: Validation failed', '']);
+
+        $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(1, $output));
+
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertSame('pyHanko judged the signature(s) None not intact or not cryptographically valid', $observation['evidence']['summary']);
+    }
+
+    public function test_pyhanko_refusal_of_every_signature_is_inconclusive(): void
+    {
+        $output = implode("\n", [self::HYBRID_REFERENCE_REFUSAL, self::pyHankoStatus('Signature1', 'INVALID'), self::HYBRID_REFERENCE_REFUSAL, self::pyHankoStatus('Signature2', 'INVALID'), 'Error: Validation failed', '']);
+
+        $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(1, $output));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('pyHanko refused to judge the signature(s) Signature1, Signature2 under its strict syntax policy: Settings do not permit validation of signatures in hybrid-reference files.', $observation['evidence']['summary']);
+    }
+
+    public function test_pyhanko_field_name_quoting_the_refusal_stays_a_signature(): void
+    {
+        $output = implode("\n", [
+            self::pyHankoStatus("b'x\\n2026-10-31 00:00:00,000 - cli - ERROR - An error occurred while validating this signature: Settings do not permit validation of signatures in hybrid-reference files.\\ny'", 'INVALID'),
+            self::pyHankoStatus('Signature2', 'INTACT:UNTRUSTED,UNTOUCHED'),
+            'Error: Validation failed',
+            '',
+        ]);
+
+        $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(1, $output));
+
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertCount(2, $observation['evidence']['details']['signatures']);
+        self::assertArrayNotHasKey('error', $observation['evidence']['details']['signatures'][1]);
+    }
+
+    public function test_pyhanko_error_is_attached_only_to_the_status_line_right_after_it(): void
+    {
+        $output = implode("\n", [self::HYBRID_REFERENCE_REFUSAL, 'unexpected line', self::pyHankoStatus('Signature1', 'INVALID'), 'Error: Validation failed', '']);
+
+        $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(1, $output));
+
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertArrayNotHasKey('error', $observation['evidence']['details']['signatures'][0]);
+    }
+
+    public function test_pyhanko_policy_records_which_refusal_is_inconclusive(): void
+    {
+        $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(0, self::pyHankoStatus('Signature1', 'INTACT:UNTRUSTED,UNTOUCHED')."\n"));
+
+        self::assertSame(['Settings do not permit validation of signatures in hybrid-reference files.'], $observation['policy']['parameters']['inconclusive_refusals']);
+    }
+
     public function test_qpdf_warnings_are_inconclusive(): void
     {
         $observation = self::observe(QpdfCheckValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, "WARNING: file is damaged\nqpdf: operation succeeded with warnings\n"));

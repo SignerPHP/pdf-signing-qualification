@@ -24,8 +24,8 @@ final class PyHankoValidator extends CommandLineValidator
     {
         return [
             'id' => 'pyhanko-integrity-without-trust',
-            'description' => 'Integrity and cryptographic validity of every embedded signature, with no trust roots and no revocation lookup, so trust does not affect the verdict',
-            'parameters' => ['arguments' => self::ARGUMENTS],
+            'description' => 'Integrity and cryptographic validity of every embedded signature, with no trust roots and no revocation lookup, so trust does not affect the verdict; a signature that pyHanko refuses to validate with one of the inconclusive refusals is not judged, so it makes the verdict inconclusive unless another signature is invalid',
+            'parameters' => ['arguments' => self::ARGUMENTS, 'inconclusive_refusals' => [self::HYBRID_REFERENCE_REFUSAL]],
         ];
     }
 
@@ -49,9 +49,7 @@ final class PyHankoValidator extends CommandLineValidator
         $signatures = [];
         $pendingError = null;
         foreach (preg_split('/\R/', $result->output) ?: [] as $line) {
-            if (preg_match('/An error occurred while validating this signature: (.+)$/', $line, $match) === 1) {
-                $pendingError = $match[1];
-            } elseif (preg_match('/^(.+):([0-9a-f]{64}):(INTACT:\S*|INVALID)$/', $line, $match) === 1) {
+            if (preg_match('/^(.+):([0-9a-f]{64}):(INTACT:\S*|INVALID)$/', $line, $match) === 1) {
                 $signature = [
                     'field' => $match[1],
                     'signer_certificate_sha256' => $match[2],
@@ -59,9 +57,13 @@ final class PyHankoValidator extends CommandLineValidator
                 ];
                 if ($pendingError !== null) {
                     $signature['error'] = $pendingError;
-                    $pendingError = null;
                 }
                 $signatures[] = $signature;
+                $pendingError = null;
+            } elseif (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - cli - ERROR - An error occurred while validating this signature: (.+)$/', $line, $match) === 1) {
+                $pendingError = $match[1];
+            } else {
+                $pendingError = null;
             }
         }
         $details = ['signatures' => $signatures];
@@ -74,8 +76,9 @@ final class PyHankoValidator extends CommandLineValidator
             return new Judgement('invalid', 'pyHanko found no signature', $result->exitCode, $result->output, $details);
         }
 
-        $refusedFields = array_column(array_filter($signatures, static fn (array $signature): bool => ($signature['error'] ?? null) === self::HYBRID_REFERENCE_REFUSAL), 'field');
-        $invalidFields = array_column(array_filter($signatures, static fn (array $signature): bool => $signature['status'] === 'INVALID' && ! in_array($signature['field'], $refusedFields, true)), 'field');
+        $isRefused = static fn (array $signature): bool => ($signature['error'] ?? null) === self::HYBRID_REFERENCE_REFUSAL;
+        $refusedFields = array_column(array_filter($signatures, $isRefused), 'field');
+        $invalidFields = array_column(array_filter($signatures, static fn (array $signature): bool => $signature['status'] === 'INVALID' && ! $isRefused($signature)), 'field');
         if ($invalidFields !== []) {
             return new Judgement('invalid', 'pyHanko judged the signature(s) '.implode(', ', $invalidFields).' not intact or not cryptographically valid', $result->exitCode, $result->output, $details);
         }

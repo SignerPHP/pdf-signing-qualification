@@ -36,7 +36,7 @@ final class HybridXrefRegressionTest extends TestCase
     private const string PDF_SIGNER_COMMIT = 'f27e4064be107b8a662f370a9acdcecd786da9f7';
 
     private const array BASELINE_VERDICTS = [
-        'pyhanko' => 'invalid',
+        'pyhanko' => 'inconclusive',
         'pdfsig' => 'valid',
         'openssl-cms' => 'valid',
         'qpdf' => 'valid',

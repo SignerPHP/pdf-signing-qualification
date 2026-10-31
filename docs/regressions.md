@@ -18,7 +18,7 @@ Regression cases are a failure-enriched selection. They are not part of the pilo
 
 | Analyzer | Verdict | Evidence |
 | -------- | ------- | -------- |
-| `pyhanko` | `invalid` | pyHanko refuses to validate signatures in hybrid-reference files in its strict mode ("Settings do not permit validation of signatures in hybrid-reference files"); it does not judge the signature |
+| `pyhanko` | `inconclusive` | pyHanko refuses to validate signatures in hybrid-reference files in its strict mode ("Settings do not permit validation of signatures in hybrid-reference files"); it does not judge the signature |
 | `pdfsig` | `valid` | The signature is found and its digest matches |
 | `openssl-cms` | `valid` | The CMS verifies over the signed ranges |
 | `qpdf` | `valid` | No syntax or stream errors |
@@ -30,5 +30,5 @@ With the change proposed in the issue applied to `buildV14()`, the trailer no lo
 ### Limits
 
 - Only the `buildV14()` path is exercised: the last section of a hybrid-reference file is a cross-reference table, so pdf-core writes a table. The issue also changes `buildV15()`, which this case does not reach.
-- The `pyhanko` verdict on this input reflects a refusal by policy, not an integrity judgement. It applies to every hybrid-reference input, including the three in the pilot sample; see [#17](https://github.com/SignerPHP/pdf-signing-qualification/issues/17).
+- The `pyhanko` verdict on this input is `inconclusive` because pyHanko's strict syntax policy refuses the file; it says nothing about the integrity of the signature. The same applies to every hybrid-reference input, including the three in the pilot sample; see [#17](https://github.com/SignerPHP/pdf-signing-qualification/issues/17).
 - `qpdf:qpdf/qtest/qpdf/hybrid-xref.pdf` from the pilot sample shows the same condition and the same verdicts. The synthetic input is used so that the test runs without acquiring upstream files.

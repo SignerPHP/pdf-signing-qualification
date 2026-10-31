@@ -39,6 +39,7 @@ final class ValidatorsTest extends TestCase
             'signed' => $signed,
             'tampered' => SyntheticSignedPdf::tamperSignedRange($signed, self::$directory),
             'unsigned' => SyntheticSignedPdf::createUnsigned(self::$directory),
+            'hybrid-reference' => SyntheticSignedPdf::create(self::$directory, 'hybrid-reference', hybridReference: true),
         ];
     }
 
@@ -59,10 +60,10 @@ final class ValidatorsTest extends TestCase
     public static function expectedVerdicts(): iterable
     {
         $expectations = [
-            PyHankoValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid']],
-            PdfsigValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid']],
-            OpenSslCmsValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid']],
-            QpdfCheckValidator::class => ['structure', ['signed' => 'valid', 'tampered' => 'valid', 'unsigned' => 'valid']],
+            PyHankoValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid', 'hybrid-reference' => 'inconclusive']],
+            PdfsigValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid', 'hybrid-reference' => 'valid']],
+            OpenSslCmsValidator::class => ['cms_signature', ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'invalid', 'hybrid-reference' => 'valid']],
+            QpdfCheckValidator::class => ['structure', ['signed' => 'valid', 'tampered' => 'valid', 'unsigned' => 'valid', 'hybrid-reference' => 'valid']],
         ];
 
         foreach ($expectations as $validatorClass => [$property, $verdicts]) {
@@ -137,6 +138,16 @@ final class ValidatorsTest extends TestCase
         self::assertSame('not_evaluated', $observation['verdict']);
         self::assertNull($observation['input_artifact']);
         self::assertNull($observation['output_artifact']);
+    }
+
+    public function test_pyhanko_refusal_of_a_hybrid_reference_file_is_inconclusive(): void
+    {
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, self::$fixtures['hybrid-reference']));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('pyHanko refused to judge the signature(s) Signature1 under its strict syntax policy: Settings do not permit validation of signatures in hybrid-reference files.', $observation['evidence']['summary']);
+        self::assertStringContainsString('Signature1:'.$observation['evidence']['details']['signatures'][0]['signer_certificate_sha256'].':INVALID', $observation['evidence']['raw_output']);
+        self::assertSame('pyhanko-integrity-without-trust', $observation['policy']['id']);
     }
 
     public function test_openssl_rejects_a_byte_range_whose_gap_is_not_the_signature(): void

@@ -31,7 +31,7 @@ Every document carries a `schema` field equal to the `$id` of the schema it foll
 
   | Analyzer | Property | Policy |
   | -------- | -------- | ------ |
-  | `pyhanko` | `cms_signature` | Integrity and cryptographic validity of every embedded signature, with an empty trust store and no revocation lookup; an untrusted certificate does not change the verdict |
+  | `pyhanko` | `cms_signature` | Integrity and cryptographic validity of every embedded signature, with an empty trust store and no revocation lookup; an untrusted certificate does not change the verdict. pyHanko runs in its default strict syntax mode, which refuses to validate signatures in hybrid-reference files: that refusal is `inconclusive`, with pyHanko's message in the summary |
   | `pdfsig` | `cms_signature` | Poppler's validation of every signature over its signed ranges, with `-nocert`; the verdict comes from the reported state, because `pdfsig` exits with 0 on a digest mismatch |
   | `openssl-cms` | `cms_signature` | Every dictionary with a `/ByteRange`, direct or indirect and including those in object streams, is listed from qpdf's JSON output. The gap of each range must be exactly a hexadecimal string (PDF whitespace allowed inside); its bytes must decode as CMS (DER or BER) and are verified with `openssl cms -verify -noverify` over the bytes the range covers. A gap that is not a hexadecimal string, bytes that do not decode as CMS, and exit code 4 are `invalid` |
   | `qpdf` | `structure` | `qpdf --check`; exit 0 is `valid`, 2 is `invalid`, 3 (warnings only) is `inconclusive` |

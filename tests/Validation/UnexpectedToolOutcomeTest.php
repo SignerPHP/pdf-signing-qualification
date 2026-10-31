@@ -117,6 +117,17 @@ final class UnexpectedToolOutcomeTest extends TestCase
         self::assertSame('inconclusive', $observation['verdict']);
     }
 
+    public function test_pyhanko_error_other_than_the_hybrid_reference_refusal_stays_invalid(): void
+    {
+        $output = "2026-10-29 12:00:03,000 - cli - ERROR - An error occurred while validating this signature: Signature algorithm sha1_rsa is not allowed.\n"
+            .'Signature1:'.str_repeat('a', 64).":INVALID\nError: Validation failed\n";
+
+        $observation = self::observe(PyHankoValidator::class, "pyHanko, version 0.38.0 (CLI 0.6.0)\n", new CommandResult(1, $output));
+
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertSame('Signature algorithm sha1_rsa is not allowed.', $observation['evidence']['details']['signatures'][0]['error']);
+    }
+
     public function test_qpdf_warnings_are_inconclusive(): void
     {
         $observation = self::observe(QpdfCheckValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, "WARNING: file is damaged\nqpdf: operation succeeded with warnings\n"));

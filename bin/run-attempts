@@ -41,16 +41,17 @@ $readJson = static function (string $path): array {
 
     return $document;
 };
-$writeJson = static function (string $path, array $document): void {
-    $json = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
-    if (file_put_contents($path, $json) !== strlen($json)) {
+$writeFile = static function (string $path, string $contents): void {
+    if (file_put_contents($path, $contents) !== strlen($contents)) {
         throw new RuntimeException("Unable to write {$path}");
     }
 };
+$encodeJson = static fn (array $document): string => json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
 
 $clock = static fn (): DateTimeImmutable => new DateTimeImmutable;
 $scratchDirectory = $sandboxDirectory.'/run-'.bin2hex(random_bytes(8));
 $credential = null;
+$exitCode = 0;
 
 try {
     $inputs = SourceConfiguration::fromFile($configurationPath);
@@ -78,18 +79,19 @@ try {
         Environment::describe(getenv(Environment::IMAGE_VARIABLE)),
         Artifact::describe($configurationPath),
     );
+
+    $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations']);
+    $writeFile($runDirectory.'/attempts.json', $encodeJson($records['attempts']));
+    $writeFile($runDirectory.'/observations.json', $encodeJson($records['observations']));
+    $writeFile($runDirectory.'/summary.md', $summary);
+    $writeFile($runDirectory.'/run.json', $encodeJson($records['run']));
+    echo $summary;
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception->getMessage()."\n");
-    exit(1);
+    $exitCode = 1;
 } finally {
     $credential?->remove();
     exec('rm -rf '.escapeshellarg($scratchDirectory));
 }
 
-$writeJson($runDirectory.'/run.json', $records['run']);
-$writeJson($runDirectory.'/attempts.json', $records['attempts']);
-$writeJson($runDirectory.'/observations.json', $records['observations']);
-
-$summary = Summary::markdown($records['run'], $records['attempts'], $records['observations']);
-file_put_contents($runDirectory.'/summary.md', $summary);
-echo $summary;
+exit($exitCode);

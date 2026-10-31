@@ -8,6 +8,7 @@ use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -39,7 +40,7 @@ final class Pilot
      */
     public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration): array
     {
-        $acquisitionsByInput = self::acquisitionsByInput($inputs, $acquisitions);
+        $acquiredInputs = self::acquiredInputs($inputs, $acquisitions);
         $run = [
             'schema' => self::RUN_SCHEMA,
             'id' => $runId,
@@ -54,20 +55,20 @@ final class Pilot
 
         $attempts = [];
         $observations = [];
-        foreach ($acquisitionsByInput as $acquisition) {
-            $inputPath = $acquisition['status'] === 'available' ? "{$this->cacheDirectory}/files/{$acquisition['source']['id']}/{$acquisition['path']}" : null;
+        foreach ($acquiredInputs as [$input, $acquisition]) {
+            $inputPath = $acquisition['status'] === 'available' ? Acquirer::filePath($this->cacheDirectory, $input) : null;
             $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath);
             $attempts[] = $result->record;
 
             $inputArtifact = $result->record['input']['status'] === 'available' ? ['sha256' => $result->record['input']['sha256'], 'byte_size' => $result->record['input']['byte_size']] : null;
             foreach ($this->panel->observe(new ValidationSubject($result->record['id'], $inputArtifact, $result->outputPath)) as $observation) {
-                self::assertValid($observation, CommandLineValidator::OBSERVATION_SCHEMA, "observation {$observation['id']}");
+                (new SchemaValidator)->assertValid($observation, CommandLineValidator::OBSERVATION_SCHEMA, "observation {$observation['id']}");
                 $observations[] = $observation;
             }
         }
 
         $run['finished_at'] = $this->now();
-        self::assertValid($run, self::RUN_SCHEMA, 'run record');
+        (new SchemaValidator)->assertValid($run, self::RUN_SCHEMA, 'run record');
 
         return ['run' => $run, 'attempts' => $attempts, 'observations' => $observations];
     }
@@ -75,13 +76,18 @@ final class Pilot
     /**
      * @param  list<Input>  $inputs
      * @param  list<array>  $acquisitions
-     * @return list<array>
+     * @return list<array{Input, array}>
      */
-    private static function acquisitionsByInput(array $inputs, array $acquisitions): array
+    private static function acquiredInputs(array $inputs, array $acquisitions): array
     {
         $recordsBySourceId = [];
-        foreach ($acquisitions as $acquisition) {
-            $sourceId = (string) ($acquisition['source_id'] ?? '');
+        foreach (array_values($acquisitions) as $index => $acquisition) {
+            $position = $index + 1;
+            if (! is_array($acquisition)) {
+                throw new RuntimeException("Invalid acquisition record {$position}: it is not an object");
+            }
+            (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, "acquisition record {$position}");
+            $sourceId = $acquisition['source_id'];
             if (isset($recordsBySourceId[$sourceId])) {
                 throw new RuntimeException("The input {$sourceId} has more than one acquisition record");
             }
@@ -95,7 +101,7 @@ final class Pilot
             if ($recordedSha256 !== $input->sha256) {
                 throw new RuntimeException("The acquisition record of {$input->id()} is for SHA-256 {$recordedSha256}, but the input is declared with {$input->sha256}; acquire it again");
             }
-            $ordered[] = $acquisition;
+            $ordered[] = [$input, $acquisition];
             unset($recordsBySourceId[$input->id()]);
         }
         if ($recordsBySourceId !== []) {
@@ -103,14 +109,6 @@ final class Pilot
         }
 
         return $ordered;
-    }
-
-    private static function assertValid(array $document, string $schemaId, string $description): void
-    {
-        $errors = (new SchemaValidator)->errors($document, $schemaId);
-        if ($errors !== []) {
-            throw new RuntimeException("Invalid {$description}: ".implode('; ', $errors));
-        }
     }
 
     private function now(): string

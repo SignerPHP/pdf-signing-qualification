@@ -32,7 +32,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | `outputs/` | Signed outputs, named by SHA-256 |
 | `summary.md` | Totals per execution outcome and per analyzer and verdict, and every attempt or output that was not successful or not `valid`; also printed |
 
-An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues.
+An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues. `run.json` is written last, so a run directory without it holds an aborted or unfinished run, not results.
 
 ## Commands
 

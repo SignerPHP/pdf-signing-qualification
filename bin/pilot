@@ -8,7 +8,8 @@ export HOST_GID="${HOST_GID:-$(id -g)}"
 
 run_id="run-$(date -u +%Y%m%dT%H%M%SZ)"
 run_directory="var/runs/$run_id"
-mkdir -p "$run_directory"
+mkdir -p var/runs
+mkdir "$run_directory"
 
 docker compose build sandbox >&2
 docker compose run --rm -T app composer install --no-interaction --no-progress >&2

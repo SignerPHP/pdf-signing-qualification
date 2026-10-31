@@ -189,10 +189,28 @@ final class RunAttemptsCommandTest extends TestCase
         $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
         $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf, 'second.pdf' => $unsignedPdf."\n"], ['unsigned.pdf' => $unsignedPdf, 'second.pdf' => $unsignedPdf."\n"]);
 
+        $scratchDirectoriesBefore = glob('/sandbox/run-*') ?: [];
+
         [$exitCode, , $errorOutput] = $this->runCommand('run-20261031T120000Z', [$acquisitions[0]]);
 
         self::assertNotSame(0, $exitCode);
         self::assertStringContainsString('local:second.pdf', $errorOutput);
         self::assertFileDoesNotExist("{$this->directory}/runs/run-20261031T120000Z/attempts.json");
+        self::assertFileDoesNotExist("{$this->directory}/runs/run-20261031T120000Z/run.json");
+        self::assertSame($scratchDirectoriesBefore, glob('/sandbox/run-*') ?: []);
+    }
+
+    public function test_run_rejects_an_acquisition_record_that_does_not_follow_its_schema(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+        unset($acquisitions[0]['status']);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-20261031T120000Z', $acquisitions);
+
+        self::assertNotSame(0, $exitCode);
+        self::assertStringContainsString('Invalid acquisition record 1', $errorOutput);
+        self::assertStringNotContainsString('Warning', $errorOutput);
+        self::assertFileDoesNotExist("{$this->directory}/runs/run-20261031T120000Z/run.json");
     }
 }

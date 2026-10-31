@@ -25,7 +25,7 @@ final class RegressionSchemaTest extends SchemaTestCase
                 'kind' => 'synthetic',
                 'generator' => 'tests/Fixtures/Synthetic/HybridXrefPdf.php',
                 'sha256' => '3b4c1f0a9e6d2b7c8f5e4a3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2b1a0f9',
-                'byte_size' => 714,
+                'byte_size' => 721,
             ],
             'condition' => 'The trailer of the signed revision has an /XRefStm offset that points into the original revision',
         ];

@@ -40,14 +40,14 @@ final class HybridXrefPdf
             throw new RuntimeException("The cross-reference stream starts at {$offsets[6]} instead of ".self::XREF_STREAM_OFFSET);
         }
 
-        $rows = "\x00".pack('n', 0)."\xFF";
+        $rows = "\x00".pack('n', 0).pack('n', 65535);
         foreach (array_keys($compressedObjects) as $index => $number) {
-            $rows .= "\x02".pack('n', self::OBJECT_STREAM_NUMBER).chr($index);
+            $rows .= "\x02".pack('n', self::OBJECT_STREAM_NUMBER).pack('n', $index);
         }
         foreach ([4, self::OBJECT_STREAM_NUMBER, 6] as $number) {
-            $rows .= "\x01".pack('n', $offsets[$number])."\x00";
+            $rows .= "\x01".pack('n', $offsets[$number]).pack('n', 0);
         }
-        $document .= "6 0 obj\n<< /Type /XRef /Size 7 /W [1 2 1] /Length ".strlen($rows)." >>\nstream\n{$rows}\nendstream\nendobj\n";
+        $document .= "6 0 obj\n<< /Type /XRef /Size 7 /W [1 2 2] /Length ".strlen($rows)." >>\nstream\n{$rows}\nendstream\nendobj\n";
 
         $xrefOffset = strlen($document);
         $document .= "xref\n0 1\n0000000000 65535 f \n4 3\n";

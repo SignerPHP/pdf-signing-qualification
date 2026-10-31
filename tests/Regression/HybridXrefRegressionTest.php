@@ -74,7 +74,7 @@ final class HybridXrefRegressionTest extends TestCase
         return $scenario;
     }
 
-    private static function acquisition(string $path): array
+    private static function acquisition(array $input): array
     {
         $license = ['expression' => 'MIT', 'evidence_url' => 'https://github.com/SignerPHP/pdf-signing-qualification/blob/main/LICENSE'];
 
@@ -91,8 +91,8 @@ final class HybridXrefRegressionTest extends TestCase
             'file_url' => 'https://github.com/SignerPHP/pdf-signing-qualification/blob/main/tests/Fixtures/Synthetic/HybridXrefPdf.php',
             'status' => 'available',
             'retrieved_at' => '2026-10-31T12:00:00Z',
-            'sha256' => (string) hash_file('sha256', $path),
-            'byte_size' => (int) filesize($path),
+            'sha256' => $input['sha256'],
+            'byte_size' => $input['byte_size'],
             'license' => $license,
         ];
     }
@@ -171,7 +171,7 @@ final class HybridXrefRegressionTest extends TestCase
 
         try {
             $runner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $workDirectory, self::$directory.'/outputs', new ResourceLimits, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-31T12:00:01Z'));
-            $result = $runner->run(self::RUN_ID, self::scenario($case['scenario_id']), new PdfSignerImplementation, self::acquisition(self::$inputPath), self::$inputPath);
+            $result = $runner->run(self::RUN_ID, self::scenario($case['scenario_id']), new PdfSignerImplementation, self::acquisition($case['input']), self::$inputPath);
         } finally {
             $credential->remove();
             exec('rm -rf '.escapeshellarg($workDirectory));

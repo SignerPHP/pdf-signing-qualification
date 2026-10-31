@@ -9,8 +9,8 @@
     "input": {
         "kind": "synthetic",
         "generator": "tests/Fixtures/Synthetic/HybridXrefPdf.php",
-        "sha256": "5cf6e2c07f047493c7c26ed7e82c9a979cdd02feed840fa489bc8ff5bb485e95",
-        "byte_size": 714
+        "sha256": "d1ecc4e4aa7b5fd6ef5ed4eed7ac32c81ce426b44169de33d32c8366e56112bd",
+        "byte_size": 721
     },
     "condition": "The trailer of the revision added by the signature keeps the /XRefStm of the original revision, so it points to a cross-reference stream that does not belong to the new section"
 }

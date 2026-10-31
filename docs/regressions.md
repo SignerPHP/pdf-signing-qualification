@@ -8,7 +8,7 @@ Regression cases are a failure-enriched selection. They are not part of the pilo
 
 - **Origin:** [SignerPHP/signer-php#24](https://github.com/SignerPHP/signer-php/issues/24). When the signed file is a hybrid-reference file, the trailer written for the new revision copies the previous trailer and keeps its `/XRefStm`, which then points to the cross-reference stream of the original revision.
 - **Scenario:** `basic-invisible-sha256`.
-- **Input:** a synthetic PDF 1.5 of 714 bytes produced by [`HybridXrefPdf`](../tests/Fixtures/Synthetic/HybridXrefPdf.php). Its catalog, page tree and page are in an object stream that only the cross-reference stream at offset 445 lists; the cross-reference table covers objects 0 and 4 to 6, and the trailer names the stream with `/XRefStm 445`. qpdf, Poppler and pyHanko read it.
+- **Input:** a synthetic PDF 1.5 of 721 bytes produced by [`HybridXrefPdf`](../tests/Fixtures/Synthetic/HybridXrefPdf.php). Its catalog, page tree and page are in an object stream that only the cross-reference stream at offset 445 lists; the cross-reference table covers objects 0 and 4 to 6, and the trailer names the stream with `/XRefStm 445`. qpdf, Poppler and pyHanko read it.
 - **Condition:** the final trailer of the signed output, as `qpdf --show-object=trailer` reports it, still has `/XRefStm 445`, an offset inside the original revision.
 - **Test:** [`HybridXrefRegressionTest`](../tests/Regression/HybridXrefRegressionTest.php).
 

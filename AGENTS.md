@@ -19,6 +19,21 @@ Two Compose services share the image. `app` has network access, for `composer in
 
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
 
+## Running the pilot
+
+`bin/pilot` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. It writes everything under `var/runs/<run-id>/`:
+
+| File | Contents |
+| ---- | -------- |
+| `acquisitions.json` | One acquisition record per declared input |
+| `run.json` | The run record: scenario, environment, container image, `pdf-signer` revision and analyzer versions, and the hash of `config/inputs.json` |
+| `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
+| `observations.json` | One observation per attempt and analyzer |
+| `outputs/` | Signed outputs, named by SHA-256 |
+| `summary.md` | Totals per execution outcome and per analyzer and verdict, and every attempt or output that was not successful or not `valid`; also printed |
+
+An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues. `run.json` is written last, so a run directory without it holds an aborted or unfinished run, not results.
+
 ## Commands
 
 Commands run as `docker compose run --rm <service> composer <script>`, in `app` for `acquire` and in `sandbox` for the others.
@@ -26,6 +41,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | Script | Purpose |
 | ------ | ------- |
 | `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
+| `run-attempts -- <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` and validate each output; refuses to start unless there is exactly one record per declared input |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |
@@ -39,15 +55,16 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
 | `docker/` | Files copied into the image, such as the hashed pyHanko requirements |
-| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md) |
+| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md) and the [pilot results](docs/pilot-results.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process, see the schemas README |
+| `src/Run/` | Pilot run over every declared input, its environment record and summary |
 | `src/Validation/` | Validator adapters; each one writes its own observation, see the schemas README |
-| `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, attempts, observations and measurements; see its README |
+| `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, runs, attempts, observations and measurements; see its README |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |
-| `var/runs/` | Run outputs; ignored |
+| `var/runs/` | Run outputs, one directory per run; ignored |
 
 ## Workflow
 

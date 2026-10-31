@@ -14,6 +14,14 @@ final class ValidationPanel
     ) {}
 
     /**
+     * @return list<array{id: string, revision: array{kind: 'version', value: string}}>
+     */
+    public function analyzers(): array
+    {
+        return array_map(static fn (Validator $validator): array => $validator->analyzer(), $this->validators);
+    }
+
+    /**
      * @return list<array>
      */
     public function observe(ValidationSubject $subject): array

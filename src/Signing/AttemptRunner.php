@@ -40,8 +40,8 @@ final class AttemptRunner
 
     public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath): AttemptResult
     {
-        self::assertValid($scenario, self::SCENARIO_SCHEMA, 'scenario');
-        self::assertValid($acquisition, Acquirer::RECORD_SCHEMA, 'acquisition record');
+        (new SchemaValidator)->assertValid($scenario, self::SCENARIO_SCHEMA, 'scenario');
+        (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, 'acquisition record');
 
         $record = [
             'schema' => self::ATTEMPT_SCHEMA,
@@ -216,17 +216,9 @@ final class AttemptRunner
         }
     }
 
-    private static function assertValid(array $document, string $schemaId, string $description): void
-    {
-        $errors = (new SchemaValidator)->errors($document, $schemaId);
-        if ($errors !== []) {
-            throw new RuntimeException("Invalid {$description}: ".implode('; ', $errors));
-        }
-    }
-
     private static function result(array $record, ?string $outputPath): AttemptResult
     {
-        self::assertValid($record, self::ATTEMPT_SCHEMA, 'attempt record');
+        (new SchemaValidator)->assertValid($record, self::ATTEMPT_SCHEMA, 'attempt record');
 
         return new AttemptResult($record, $outputPath);
     }

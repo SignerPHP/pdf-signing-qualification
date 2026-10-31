@@ -29,6 +29,10 @@
             "Composer\\Config::disableProcessTimeout",
             "bin/acquire-inputs"
         ],
+        "run-attempts": [
+            "Composer\\Config::disableProcessTimeout",
+            "bin/run-attempts"
+        ],
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",
         "pint:check": "vendor/bin/pint --test",

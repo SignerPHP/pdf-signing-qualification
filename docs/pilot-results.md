@@ -26,7 +26,7 @@ Two runs on these revisions gave the same execution outcome for each of the 27 a
 
 | Analyzer | `valid` | `invalid` | `inconclusive` | `not_evaluated` | `not_applicable` |
 | -------- | ------: | --------: | -------------: | --------------: | ---------------: |
-| `pyhanko` | 8 | 4 | 11 | 4 | 0 |
+| `pyhanko` | 8 | 1 | 14 | 4 | 0 |
 | `pdfsig` | 20 | 3 | 0 | 4 | 0 |
 | `openssl-cms` | 19 | 3 | 1 | 4 | 0 |
 | `qpdf` | 16 | 1 | 6 | 4 | 0 |
@@ -57,10 +57,10 @@ The other `inconclusive` structure verdicts (`bad-xref-entry.pdf`, `xref-errors.
 
 ### Signature verdicts
 
-- **Hybrid cross-reference files.** On `hybrid-xref.pdf`, `good17.pdf` and `good18.pdf`, pyHanko judges the new signature `invalid` because its settings do not permit validating signatures in hybrid-reference files, while `pdfsig` and `openssl-cms` judge it `valid`. This is the behavior tracked by the [`hybrid-xref`](https://github.com/SignerPHP/pdf-signing-qualification/issues/8) regression case.
+- **Hybrid cross-reference files.** On `hybrid-xref.pdf`, `good17.pdf` and `good18.pdf`, pyHanko is `inconclusive` because its strict syntax settings do not permit validating signatures in hybrid-reference files ([#17](https://github.com/SignerPHP/pdf-signing-qualification/issues/17)), so it does not judge the new signature; `pdfsig` and `openssl-cms` judge it `valid`. The stale `/XRefStm` kept by the signer on these inputs is tracked by the [`hybrid-xref`](https://github.com/SignerPHP/pdf-signing-qualification/issues/8) regression case.
 - **Inputs that were already signed.** On veraPDF `6-1-12-t01-pass-a`, `6-1-12-t02-pass-a` and `6-1-11-t01-pass-a`, `pdfsig` and `openssl-cms` judge the output `invalid` because of the signature that was already in the input, which `pdfsig` could not verify or found with a digest mismatch in the input itself; pyHanko judges that same signature `invalid` on `6-1-12-t02-pass-a`. The signature added by `pdf-signer` is valid for `pdfsig` and `openssl-cms`. The `cms_signature` adapters judge every signature, so without a baseline of the input's own signatures these verdicts do not separate a pre-existing problem from a signer defect.
 - **Encrypted outputs.** No validator is given a password. `nontrivial-crypt-filter.pdf`, which needs the user password `asdfqwer`, was signed without it, and its output cannot be opened by qpdf (`invalid password`), so `qpdf` reports `invalid` and the other adapters `inconclusive`. pyHanko is also `inconclusive` on `V4-aes.pdf` and the PDF/A-4 `6-1-3-t02-fail-a` with a generic processing error.
-- **pyHanko strict parsing.** pyHanko is `inconclusive` on 8 more outputs because it refuses to read them in strict mode: illegal header (`leading-junk.pdf`), broken cross-reference sections (`xref-errors.pdf`, `bad3.pdf`, `xref-with-short-size.pdf`, `6-1-4-t02-pass-a`), and cross-reference stream objects that are clobbered (`6-1-4-t03-fail-a`, `6-1-12-t01-pass-a`, `6-1-11-t01-pass-a`). Whether the last case comes from the input or from the signed revision has not been examined.
+- **pyHanko strict parsing.** Besides the hybrid files, pyHanko is `inconclusive` on 8 more outputs because it refuses to read them in strict mode: illegal header (`leading-junk.pdf`), broken cross-reference sections (`xref-errors.pdf`, `bad3.pdf`, `xref-with-short-size.pdf`, `6-1-4-t02-pass-a`), and cross-reference stream objects that are clobbered (`6-1-4-t03-fail-a`, `6-1-12-t01-pass-a`, `6-1-11-t01-pass-a`). Whether the last case comes from the input or from the signed revision has not been examined.
 
 ## Open questions for the next stages
 

@@ -1,0 +1,74 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/run.schema.json",
+    "title": "Run, version 1",
+    "description": "One execution of a scenario by one implementation over every declared input, with the environment and the exact revisions of the implementation and analyzers it used.",
+    "type": "object",
+    "required": ["schema", "id", "scenario_id", "started_at", "finished_at", "environment", "implementation", "analyzers", "source_configuration"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/run.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "started_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+        "finished_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+        "environment": {
+            "type": "object",
+            "required": ["os", "container_image", "php_version"],
+            "additionalProperties": false,
+            "properties": {
+                "os": {
+                    "type": "object",
+                    "required": ["name", "kernel", "architecture"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                        "kernel": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                        "architecture": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                    }
+                },
+                "container_image": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["status", "id"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "available" },
+                                "id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "required": ["status", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "unavailable" },
+                                "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
+                    ]
+                },
+                "php_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+            }
+        },
+        "implementation": { "$ref": "#/$defs/tool" },
+        "analyzers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/tool" }
+        },
+        "source_configuration": { "$ref": "common.schema.json#/$defs/artifact" }
+    },
+    "$defs": {
+        "tool": {
+            "type": "object",
+            "required": ["id", "revision"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "revision": { "$ref": "common.schema.json#/$defs/revision" }
+            }
+        }
+    }
+}

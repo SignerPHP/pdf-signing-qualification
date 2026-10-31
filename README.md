@@ -26,6 +26,12 @@ docker compose run --rm app composer install
 docker compose run --rm sandbox composer check
 ```
 
+To run the pilot over the [selected sample](docs/pilot-sample.md) and get its summary:
+
+```sh
+bin/pilot
+```
+
 See [AGENTS.md](AGENTS.md) for the repository layout and workflow, and [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture policy.
 
 ## License

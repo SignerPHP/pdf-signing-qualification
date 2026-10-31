@@ -1,0 +1,95 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Artifact;
+use SignerPHP\PdfSigningQualification\Run\Environment;
+use SignerPHP\PdfSigningQualification\Run\Pilot;
+use SignerPHP\PdfSigningQualification\Run\Summary;
+use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
+use SignerPHP\PdfSigningQualification\Signing\PdfSignerImplementation;
+use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
+use SignerPHP\PdfSigningQualification\Signing\TestCredential;
+use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
+use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
+use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
+use SignerPHP\PdfSigningQualification\Validation\PyHankoValidator;
+use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
+use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
+
+require __DIR__.'/../vendor/autoload.php';
+
+if (! isset($argv[1])) {
+    fwrite(STDERR, "Usage: run-attempts <run-directory> [inputs-configuration] [input-cache]\n");
+    exit(2);
+}
+
+$runDirectory = rtrim($argv[1], '/');
+$configurationPath = $argv[2] ?? __DIR__.'/../config/inputs.json';
+$cacheDirectory = $argv[3] ?? __DIR__.'/../var/cache/inputs';
+$scenarioPath = __DIR__.'/../config/scenarios/basic-invisible-sha256.json';
+$sandboxDirectory = '/sandbox';
+
+$readJson = static function (string $path): array {
+    $document = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+    if (! is_array($document)) {
+        throw new RuntimeException("{$path} does not hold a JSON object or array");
+    }
+
+    return $document;
+};
+$writeJson = static function (string $path, array $document): void {
+    $json = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
+    if (file_put_contents($path, $json) !== strlen($json)) {
+        throw new RuntimeException("Unable to write {$path}");
+    }
+};
+
+$clock = static fn (): DateTimeImmutable => new DateTimeImmutable;
+$scratchDirectory = $sandboxDirectory.'/run-'.bin2hex(random_bytes(8));
+$credential = null;
+
+try {
+    $inputs = SourceConfiguration::fromFile($configurationPath);
+    $acquisitions = array_values($readJson($runDirectory.'/acquisitions.json'));
+
+    if (! mkdir($scratchDirectory, 0700) || ! mkdir($scratchDirectory.'/credential', 0700) || ! mkdir($scratchDirectory.'/work', 0700)) {
+        throw new RuntimeException("Unable to create the scratch directory {$scratchDirectory}");
+    }
+    $credential = TestCredential::generate($scratchDirectory.'/credential');
+
+    $implementation = new PdfSignerImplementation;
+    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', new ResourceLimits, $clock);
+    $panel = new ValidationPanel([
+        new PyHankoValidator(new ProcessRunner, $clock),
+        new PdfsigValidator(new ProcessRunner, $clock),
+        new OpenSslCmsValidator(new ProcessRunner, $clock),
+        new QpdfCheckValidator(new ProcessRunner, $clock),
+    ]);
+
+    $records = (new Pilot($attemptRunner, $implementation, $panel, $cacheDirectory, $clock))->run(
+        basename($runDirectory),
+        $readJson($scenarioPath),
+        $inputs,
+        $acquisitions,
+        Environment::describe(getenv(Environment::IMAGE_VARIABLE)),
+        Artifact::describe($configurationPath),
+    );
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(1);
+} finally {
+    $credential?->remove();
+    exec('rm -rf '.escapeshellarg($scratchDirectory));
+}
+
+$writeJson($runDirectory.'/run.json', $records['run']);
+$writeJson($runDirectory.'/attempts.json', $records['attempts']);
+$writeJson($runDirectory.'/observations.json', $records['observations']);
+
+$summary = Summary::markdown($records['run'], $records['attempts'], $records['observations']);
+file_put_contents($runDirectory.'/summary.md', $summary);
+echo $summary;

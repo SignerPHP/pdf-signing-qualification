@@ -1,0 +1,66 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/acquisition.schema.json",
+    "title": "Acquisition, version 1",
+    "description": "The outcome of acquiring one declared input. An unavailable input keeps its identity and the reason; no other file is ever recorded in its place.",
+    "type": "object",
+    "required": ["schema", "source_id", "source", "path", "file_url", "status"],
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/acquisition.schema.json" },
+        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "source": {
+            "type": "object",
+            "required": ["id", "url", "revision", "license"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/sourceId" },
+                "url": { "$ref": "common.schema.json#/$defs/httpsUrl" },
+                "revision": { "$ref": "common.schema.json#/$defs/revision" },
+                "license": { "$ref": "common.schema.json#/$defs/license" }
+            }
+        },
+        "path": { "$ref": "common.schema.json#/$defs/relativePath" },
+        "file_url": { "$ref": "common.schema.json#/$defs/httpsUrl" },
+        "status": { "enum": ["available", "unavailable"] }
+    },
+    "oneOf": [
+        {
+            "required": ["retrieved_at", "sha256", "byte_size", "license"],
+            "additionalProperties": false,
+            "properties": {
+                "schema": true,
+                "source_id": true,
+                "source": true,
+                "path": true,
+                "file_url": true,
+                "status": { "const": "available" },
+                "retrieved_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+                "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                "byte_size": { "type": "integer", "minimum": 0 },
+                "license": { "$ref": "common.schema.json#/$defs/license" }
+            }
+        },
+        {
+            "required": ["attempted_at", "reason", "expected_sha256", "expected_byte_size", "message"],
+            "additionalProperties": false,
+            "properties": {
+                "schema": true,
+                "source_id": true,
+                "source": true,
+                "path": true,
+                "file_url": true,
+                "status": { "const": "unavailable" },
+                "attempted_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+                "reason": { "enum": ["missing_upstream", "hash_mismatch"] },
+                "expected_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                "expected_byte_size": { "type": "integer", "minimum": 0 },
+                "observed_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                "observed_byte_size": { "type": "integer", "minimum": 0 },
+                "message": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+            },
+            "if": { "properties": { "reason": { "const": "hash_mismatch" } } },
+            "then": { "required": ["observed_sha256", "observed_byte_size"] },
+            "else": { "not": { "anyOf": [{ "required": ["observed_sha256"] }, { "required": ["observed_byte_size"] }] } }
+        }
+    ]
+}

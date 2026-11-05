@@ -19,6 +19,7 @@ All commands run as `docker compose run --rm app composer <script>`.
 
 | Script | Purpose |
 | ------ | ------- |
+| `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |
@@ -28,8 +29,10 @@ All commands run as `docker compose run --rm app composer <script>`.
 
 | Path | Contents |
 | ---- | -------- |
+| `bin/` | Command-line entry points |
+| `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
-| `schemas/` | Versioned JSON Schemas for scenarios, attempts, observations and measurements; see its README |
+| `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, attempts, observations and measurements; see its README |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |

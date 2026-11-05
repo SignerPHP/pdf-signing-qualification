@@ -1,0 +1,5 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
+    "sources": [],
+    "inputs": []
+}

@@ -7,6 +7,7 @@ Machine-readable contracts written and read by every stage, as JSON Schema draft
 | [`v1/sources.schema.json`](v1/sources.schema.json) | Upstream sources pinned at a revision and the inputs selected from them |
 | [`v1/acquisition.schema.json`](v1/acquisition.schema.json) | The outcome of acquiring one declared input: its provenance and licenses, or why it is unavailable |
 | [`v1/scenario.schema.json`](v1/scenario.schema.json) | An explicit operation configuration, including digest and signature algorithms |
+| [`v1/regression.schema.json`](v1/regression.schema.json) | A reported defect as a replayable case: its originating issue, scenario, input and condition |
 | [`v1/attempt.schema.json`](v1/attempt.schema.json) | One execution of a scenario by one implementation on one input |
 | [`v1/observation.schema.json`](v1/observation.schema.json) | One analyzer's verdict on one property of an attempt's output |
 | [`v1/measurement.schema.json`](v1/measurement.schema.json) | Resource usage of one attempt within a declared boundary |
@@ -42,4 +43,5 @@ Every document carries a `schema` field equal to the `$id` of the schema it foll
   | Implementation | Revision | Supported scenarios | Command |
   | -------------- | -------- | ------------------- | ------- |
   | `pdf-signer` | Commit read from the installation | SHA-256, RSA PKCS#1 v1.5, `adbe.pkcs7.detached`, invisible, without timestamp or revocation information | `bin/signer-sign` with `--no-default-appearance` and `--no-default-timestamp`, and PHP's `memory_limit` disabled so that the runner's limit applies |
+- **Regression case.** A case names the GitHub issue it comes from, the scenario it runs under, the condition that shows the defect and one of the two input forms allowed by `CONTRIBUTING.md`: a synthetic input, identified by the generator under `tests/Fixtures/Synthetic/` that writes it and by the SHA-256 and byte size it must have, or an upstream input, identified by the `source_id` of an input declared in `config/inputs.json`, whose hash is already recorded there.
 - **Metric.** Either `{"status": "available", "value": ...}` or `{"status": "unavailable", "reason": ...}`. An unavailable metric has no value, so it cannot be mistaken for zero.

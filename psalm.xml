@@ -8,6 +8,7 @@
 >
     <projectFiles>
         <file name="bin/acquire-inputs"/>
+        <file name="bin/run-attempts"/>
         <directory name="src"/>
         <directory name="tests"/>
         <ignoreFiles>

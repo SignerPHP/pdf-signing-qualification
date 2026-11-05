@@ -69,10 +69,7 @@ abstract class CommandLineValidator implements Validator
             'schema' => self::OBSERVATION_SCHEMA,
             'id' => $subject->attemptId.'/'.$this->analyzerId(),
             'attempt_id' => $subject->attemptId,
-            'analyzer' => [
-                'id' => $this->analyzerId(),
-                'revision' => ['kind' => 'version', 'value' => $this->version()],
-            ],
+            'analyzer' => $this->analyzer(),
             'policy' => $this->policy(),
             'property' => $this->property(),
             'input_artifact' => $subject->inputArtifact,
@@ -81,6 +78,11 @@ abstract class CommandLineValidator implements Validator
             'evidence' => $evidence,
             'observed_at' => ($this->clock)()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
         ];
+    }
+
+    final public function analyzer(): array
+    {
+        return ['id' => $this->analyzerId(), 'revision' => ['kind' => 'version', 'value' => $this->version()]];
     }
 
     final public function version(): string

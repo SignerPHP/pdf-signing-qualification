@@ -25,9 +25,8 @@ final class Acquirer
 
     public function acquire(Input $input): array
     {
-        $relativePath = $input->source->id.'/'.$input->path;
-        $filePath = $this->cacheDirectory.'/files/'.$relativePath;
-        $recordPath = $this->cacheDirectory.'/records/'.$relativePath;
+        $filePath = self::filePath($this->cacheDirectory, $input);
+        $recordPath = $this->cacheDirectory.'/records/'.$input->source->id.'/'.$input->path;
 
         $cachedRecord = $this->verifiedCachedRecord($input, $filePath, $recordPath);
         if ($cachedRecord !== null) {
@@ -63,6 +62,11 @@ final class Acquirer
         $this->write($recordPath, json_encode($record, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
 
         return $record;
+    }
+
+    public static function filePath(string $cacheDirectory, Input $input): string
+    {
+        return $cacheDirectory.'/files/'.$input->source->id.'/'.$input->path;
     }
 
     private function verifiedCachedRecord(Input $input, string $filePath, string $recordPath): ?array

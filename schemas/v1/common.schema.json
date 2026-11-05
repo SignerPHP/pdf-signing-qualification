@@ -8,6 +8,12 @@
             "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]*(/[A-Za-z0-9][A-Za-z0-9._:+-]*)*$",
             "maxLength": 512
         },
+        "inputIdentifier": {
+            "description": "An identifier that carries the identity `<source>:<path>` of an input: the input's own, or the id of an attempt, observation or measurement built from it. Segments follow the rule of `identifier`, except that a space is kept inside a segment, as input paths may contain one; a segment still cannot end with a space.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9._:+ -]*[A-Za-z0-9._:+-])?(/[A-Za-z0-9]([A-Za-z0-9._:+ -]*[A-Za-z0-9._:+-])?)*$",
+            "maxLength": 512
+        },
         "scenarioId": {
             "type": "string",
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -31,9 +37,9 @@
             "pattern": "^https://\\S+$"
         },
         "relativePath": {
-            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit, so absolute paths, `.`, `..` and empty segments are rejected. Its length leaves room for `<source>:` within the 512 characters of an identifier.",
+            "description": "A path inside an upstream source, relative to its root. Each segment starts with a letter or digit and does not end with a space, so absolute paths, `.`, `..`, empty and padded segments are rejected; a space inside a segment is kept. Its length leaves room for `<source>:` within the 512 characters of an identifier.",
             "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$",
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9._+ -]*[A-Za-z0-9._+-])?(/[A-Za-z0-9]([A-Za-z0-9._+ -]*[A-Za-z0-9._+-])?)*$",
             "maxLength": 447
         },
         "license": {

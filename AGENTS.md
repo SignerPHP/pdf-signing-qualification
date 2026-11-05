@@ -39,6 +39,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
 | `docker/` | Files copied into the image, such as the hashed pyHanko requirements |
+| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process, see the schemas README |
 | `src/Validation/` | Validator adapters; each one writes its own observation, see the schemas README |

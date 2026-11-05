@@ -7,6 +7,7 @@ All work runs inside the project container; see [AGENTS.md](AGENTS.md) for the c
 This repository versions acquisition code, configuration, schemas and analysis logic. It does not version PDF corpora.
 
 - **PDFs reported by users are never committed**, not even redacted or truncated. They may contain personal data and their distribution rights are unknown.
+- **Upstream inputs have an established free license.** An input is selected only when evidence establishes a free license for the document itself, not only for the repository that holds it. Its license and that evidence are recorded in [`config/inputs.json`](config/inputs.json); an input whose license is unresolved (`NOASSERTION`) is not selected.
 - **Upstream PDFs are never mirrored.** An upstream input is referenced by URL, immutable revision and SHA-256, acquired into the local input cache (`var/cache/inputs/`) and verified before use. The cache is ignored by Git and can be rebuilt.
 - **A regression case uses one of two forms:**
   - a minimal synthetic reproduction that triggers the same behavior without carrying any content from the original document; or

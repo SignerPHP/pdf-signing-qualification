@@ -8,7 +8,7 @@
     "additionalProperties": false,
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/attempt.schema.json" },
-        "id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
         "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
         "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
         "implementation": {
@@ -28,7 +28,7 @@
                     "additionalProperties": false,
                     "properties": {
                         "status": { "const": "available" },
-                        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                        "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
                         "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
                         "byte_size": { "type": "integer", "minimum": 0 }
                     }
@@ -39,7 +39,7 @@
                     "additionalProperties": false,
                     "properties": {
                         "status": { "const": "unavailable" },
-                        "source_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                        "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
                         "reason": { "enum": ["missing_upstream", "hash_mismatch"] },
                         "expected_sha256": { "$ref": "common.schema.json#/$defs/sha256" },
                         "observed_sha256": { "$ref": "common.schema.json#/$defs/sha256" },

@@ -75,6 +75,13 @@ final class AcquisitionSchemaTest extends SchemaTestCase
     {
         yield 'missing upstream file' => [self::unavailable('missing_upstream')];
         yield 'hash mismatch with the observed hash and size' => [self::hashMismatch()];
+        yield 'input whose path has spaces' => [self::mutate(function (array $acquisition): array {
+            $acquisition['source_id'] = 'verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+            $acquisition['source']['id'] = 'verapdf-corpus';
+            $acquisition['path'] = 'PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $acquisition;
+        })];
     }
 
     #[DataProvider('validAcquisitions')]

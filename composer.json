@@ -9,6 +9,7 @@
     },
     "require-dev": {
         "laravel/pint": "^1.27",
+        "opis/json-schema": "^2.6",
         "phpunit/phpunit": "^11.5",
         "vimeo/psalm": "^6.15"
     },

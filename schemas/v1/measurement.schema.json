@@ -1,0 +1,34 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/measurement.schema.json",
+    "title": "Measurement, version 1",
+    "description": "Resource usage of one attempt within a declared measurement boundary. A metric that could not be measured is unavailable, never zero.",
+    "type": "object",
+    "required": ["schema", "attempt_id", "boundary", "instrumented", "metrics"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/measurement.schema.json" },
+        "attempt_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "boundary": { "enum": ["process", "process_tree", "cgroup"] },
+        "instrumented": { "type": "boolean" },
+        "metrics": {
+            "type": "object",
+            "required": ["wall_time_seconds", "cpu_user_seconds", "cpu_system_seconds", "peak_memory_bytes"],
+            "additionalProperties": false,
+            "properties": {
+                "wall_time_seconds": { "$ref": "common.schema.json#/$defs/metric" },
+                "cpu_user_seconds": { "$ref": "common.schema.json#/$defs/metric" },
+                "cpu_system_seconds": { "$ref": "common.schema.json#/$defs/metric" },
+                "peak_memory_bytes": {
+                    "allOf": [
+                        { "$ref": "common.schema.json#/$defs/metric" },
+                        {
+                            "if": { "properties": { "status": { "const": "available" } } },
+                            "then": { "properties": { "value": { "type": "integer" } } }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

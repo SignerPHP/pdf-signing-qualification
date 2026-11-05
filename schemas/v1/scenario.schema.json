@@ -1,0 +1,28 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/scenario.schema.json",
+    "title": "Scenario, version 1",
+    "description": "An explicit operation configuration. Non-equivalent configurations are distinct scenarios; nothing in a scenario may be changed silently at run time.",
+    "type": "object",
+    "required": ["schema", "id", "description", "operation", "signing"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/scenario.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "description": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "operation": { "enum": ["sign"] },
+        "signing": {
+            "type": "object",
+            "required": ["digest_algorithm", "signature_algorithm", "sub_filter", "appearance", "timestamp", "revocation_info"],
+            "additionalProperties": false,
+            "properties": {
+                "digest_algorithm": { "enum": ["sha256", "sha384", "sha512"] },
+                "signature_algorithm": { "enum": ["rsa-pkcs1-v1_5", "rsa-pss", "ecdsa"] },
+                "sub_filter": { "enum": ["adbe.pkcs7.detached", "ETSI.CAdES.detached"] },
+                "appearance": { "enum": ["invisible", "visible"] },
+                "timestamp": { "type": "boolean" },
+                "revocation_info": { "type": "boolean" }
+            }
+        }
+    }
+}

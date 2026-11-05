@@ -54,8 +54,9 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `bin/` | Command-line entry points |
 | `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
+| `config/regressions/` | Regression cases, one per file, following `regression.schema.json`; see [docs/regressions.md](docs/regressions.md) |
 | `docker/` | Files copied into the image, such as the hashed pyHanko requirements |
-| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md) and the [pilot results](docs/pilot-results.md) |
+| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the [regression cases](docs/regressions.md) and the [pilot results](docs/pilot-results.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process, see the schemas README |
 | `src/Run/` | Pilot run over every declared input, its environment record and summary |
@@ -63,6 +64,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, runs, attempts, observations and measurements; see its README |
 | `tests/` | PHPUnit tests, namespace `SignerPHP\PdfSigningQualification\Tests\` |
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
+| `tests/Regression/` | One test per regression case, fixing the outcome observed at the pinned revisions |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |
 | `var/runs/` | Run outputs, one directory per run; ignored |
 

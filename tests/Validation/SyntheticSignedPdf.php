@@ -17,11 +17,11 @@ final class SyntheticSignedPdf
 
     private const string BYTE_RANGE_PLACEHOLDER = '/ByteRange [0 ********** ********** **********]';
 
-    public static function create(string $directory, string $name = 'signed', bool $indefiniteLength = false, bool $wrappedContents = false, string $unsignedGapSuffix = ''): string
+    public static function create(string $directory, string $name = 'signed', bool $indefiniteLength = false, bool $wrappedContents = false, string $unsignedGapSuffix = '', bool $hybridReference = false): string
     {
         [$certificate, $privateKey] = self::generateCredentials();
 
-        $document = self::document(self::signedObjects($unsignedGapSuffix));
+        $document = self::document(self::signedObjects($unsignedGapSuffix), $hybridReference);
         $contentsStart = (int) strpos($document, '/Contents <') + strlen('/Contents ');
         $contentsEnd = $contentsStart + self::CONTENTS_HEX_LENGTH + 2 + strlen($unsignedGapSuffix);
         $byteRange = sprintf('/ByteRange [0 %d %d %d]', $contentsStart, $contentsEnd, strlen($document) - $contentsEnd);
@@ -143,7 +143,7 @@ final class SyntheticSignedPdf
     /**
      * @param  list<string>  $objects
      */
-    private static function document(array $objects): string
+    private static function document(array $objects, bool $hybridReference = false): string
     {
         $document = "%PDF-1.7\n%\xE2\xE3\xCF\xD3\n";
         $offsets = [];
@@ -152,15 +152,27 @@ final class SyntheticSignedPdf
             $document .= ($index + 1)." 0 obj\n{$object}\nendobj\n";
         }
 
+        $trailerEntries = '';
+        if ($hybridReference) {
+            $xrefStreamNumber = count($objects) + 1;
+            $offsets[] = strlen($document);
+            $rows = "\x00".pack('N', 0).pack('n', 65535);
+            foreach ($offsets as $offset) {
+                $rows .= "\x01".pack('N', $offset).pack('n', 0);
+            }
+            $document .= "{$xrefStreamNumber} 0 obj\n<< /Type /XRef /Size ".($xrefStreamNumber + 1).' /W [1 4 2] /Length '.strlen($rows)." >>\nstream\n{$rows}\nendstream\nendobj\n";
+            $trailerEntries = ' /XRefStm '.end($offsets);
+        }
+
         $xrefOffset = strlen($document);
         $document .= 'xref
-0 '.(count($objects) + 1)."\n0000000000 65535 f \n";
+0 '.(count($offsets) + 1)."\n0000000000 65535 f \n";
         foreach ($offsets as $offset) {
             $document .= sprintf("%010d 00000 n \n", $offset);
         }
 
         return $document.'trailer
-<< /Size '.(count($objects) + 1)." /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+<< /Size '.(count($offsets) + 1)." /Root 1 0 R{$trailerEntries} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
     }
 
     /**

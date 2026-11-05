@@ -37,4 +37,4 @@ jobs:
         run: docker compose run --rm app composer install --prefer-dist --no-interaction --no-progress
 
       - name: Run PHPUnit
-        run: docker compose run --rm app composer tests
+        run: docker compose run --rm sandbox composer tests

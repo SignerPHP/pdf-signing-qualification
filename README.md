@@ -23,7 +23,7 @@ Requirements: Docker with Compose.
 ```sh
 docker compose build
 docker compose run --rm app composer install
-docker compose run --rm app composer check
+docker compose run --rm sandbox composer check
 ```
 
 See [AGENTS.md](AGENTS.md) for the repository layout and workflow, and [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture policy.

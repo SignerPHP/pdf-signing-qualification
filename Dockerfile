@@ -30,4 +30,14 @@ COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 ENV COMPOSER_HOME=/tmp/composer \
     HOME=/tmp
 
+RUN set -eux; \
+    commit=f27e4064be107b8a662f370a9acdcecd786da9f7; \
+    directory=/opt/implementations/pdf-signer; \
+    git init -q "$directory"; \
+    git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "$commit"; \
+    git -C "$directory" checkout -q FETCH_HEAD; \
+    test "$(git -C "$directory" rev-parse HEAD)" = "$commit"; \
+    composer install --working-dir="$directory" --no-dev --no-interaction --no-progress --prefer-dist; \
+    rm -rf "$directory/.git" "$COMPOSER_HOME"
+
 WORKDIR /app

@@ -88,7 +88,8 @@
             "minItems": 1,
             "items": { "$ref": "#/$defs/tool" }
         },
-        "source_configuration": { "$ref": "common.schema.json#/$defs/artifact" }
+        "source_configuration": { "$ref": "common.schema.json#/$defs/artifact" },
+        "expected_rejections": { "$ref": "common.schema.json#/$defs/artifact" }
     },
     "$defs": {
         "tool": {

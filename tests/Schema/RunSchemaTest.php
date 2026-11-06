@@ -35,6 +35,15 @@ final class RunSchemaTest extends SchemaTestCase
         ];
     }
 
+    public function test_expected_rejections_file_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['expected_rejections'] = ['sha256' => str_repeat('b', 64), 'byte_size' => 420];
+
+            return $run;
+        }));
+    }
+
     public function test_unidentified_container_image_is_accepted_with_its_reason(): void
     {
         self::assertValid(self::mutate(function (array $run): array {

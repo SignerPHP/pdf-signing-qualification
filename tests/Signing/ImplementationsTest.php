@@ -16,6 +16,11 @@ final class ImplementationsTest extends TestCase
         self::assertSame('jsignpdf', Implementations::select('jsignpdf')->id());
     }
 
+    public function test_implementation_without_a_runtime_of_its_own_reports_none(): void
+    {
+        self::assertSame([], Implementations::select('pdf-signer')->runtime());
+    }
+
     public function test_unknown_identifier_is_refused(): void
     {
         $this->expectException(InvalidArgumentException::class);

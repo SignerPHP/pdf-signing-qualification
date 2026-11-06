@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
@@ -196,9 +197,35 @@ final class RunAttemptsCommandTest extends TestCase
         $run = $this->readRecords('run-jsignpdf', 'run.json');
         self::assertSame([], (new SchemaValidator)->errors($run, self::RUN_SCHEMA));
         self::assertSame(['id' => 'jsignpdf', 'revision' => ['kind' => 'version', 'value' => '3.2.1']], $run['implementation']);
-        self::assertSame('21.0.13+9-LTS', $run['environment']['java_version']);
+        self::assertSame('21.0.13+9-LTS', $run['implementation_runtime']['java_version']);
         self::assertSame(1024 * 1024 * 1024, $run['environment']['resource_limits']['address_space_bytes']);
         self::assertSame('succeeded', $this->readRecords('run-jsignpdf', 'attempts.json')[0]['execution']['outcome']);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>}>
+     */
+    public static function invalidOptions(): iterable
+    {
+        yield 'misspelled option' => [['--implementaton=jsignpdf']];
+        yield 'repeated option' => [['--implementation=jsignpdf', '--implementation=pdf-signer']];
+        yield 'option without a value' => [['--implementation']];
+    }
+
+    /**
+     * @param  list<string>  $options
+     */
+    #[DataProvider('invalidOptions')]
+    public function test_invalid_options_stop_the_run_before_signing(array $options): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-invalid-options', $acquisitions, options: $options);
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('Usage: run-attempts', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-invalid-options/attempts.json');
     }
 
     public function test_run_with_an_unknown_implementation_stops_before_signing(): void

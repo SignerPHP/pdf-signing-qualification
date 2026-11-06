@@ -25,10 +25,15 @@ final class JSignPdfImplementation implements SigningImplementation
         '-XX:-UsePerfData',
     ];
 
+    private const array ENVIRONMENT_VARIABLES = ['MALLOC_ARENA_MAX=1'];
+
+    private const string ENGINE = 'openpdf';
+
     public function __construct(
         private readonly string $installationDirectory = '/opt/implementations/jsignpdf',
         private readonly string $signingScript = '/opt/implementations/jsignpdf-sign.php',
         private readonly string $javaBinary = '/opt/java/bin/java',
+        private readonly string $wrapperDirectory = '/opt/implementations/jsignpdf-php',
     ) {}
 
     public function id(): string
@@ -60,12 +65,24 @@ final class JSignPdfImplementation implements SigningImplementation
         return $signing === $supported;
     }
 
+    public function runtime(): array
+    {
+        return [
+            'java_version' => $this->javaVersion(),
+            'java_options' => self::JAVA_OPTIONS,
+            'environment_variables' => self::ENVIRONMENT_VARIABLES,
+            'engine' => self::ENGINE,
+            'wrapper' => ['id' => 'jsignpdf-php', 'revision' => $this->wrapperRevision()],
+        ];
+    }
+
     public function command(SigningRequest $request): array
     {
-        $javaOptions = [...self::JAVA_OPTIONS, '-Djava.io.tmpdir='.dirname($request->outputPath)];
+        $attemptDirectory = dirname($request->outputPath);
+        $javaOptions = [...self::JAVA_OPTIONS, '-Djava.io.tmpdir='.$attemptDirectory, '-Duser.home='.$attemptDirectory];
 
         return [
-            'env', 'MALLOC_ARENA_MAX=1',
+            'env', ...self::ENVIRONMENT_VARIABLES,
             'php',
             '-d', 'memory_limit=-1',
             $this->signingScript,
@@ -77,7 +94,34 @@ final class JSignPdfImplementation implements SigningImplementation
             '--jsignpdf='.$this->installationDirectory,
             ...array_map(static fn (string $option): string => '--java-option='.$option, $javaOptions),
             '--hash-algorithm=SHA256',
-            '--engine=openpdf',
+            '--engine='.self::ENGINE,
         ];
+    }
+
+    private function javaVersion(): string
+    {
+        $releasePath = dirname($this->javaBinary, 2).'/release';
+        $release = is_file($releasePath) ? parse_ini_file($releasePath, false, INI_SCANNER_RAW) : false;
+        $version = is_array($release) ? ($release['JAVA_RUNTIME_VERSION'] ?? null) : null;
+        if (! is_string($version) || trim($version, " \"'") === '') {
+            throw new RuntimeException("Unable to read the Java version from {$releasePath}");
+        }
+
+        return trim($version, " \"'");
+    }
+
+    /**
+     * @return array{kind: 'commit', value: string}
+     */
+    private function wrapperRevision(): array
+    {
+        $installedPath = $this->wrapperDirectory.'/vendor/composer/installed.php';
+        $installed = is_file($installedPath) ? require $installedPath : null;
+        $commit = is_array($installed) && is_array($installed['root'] ?? null) ? ($installed['root']['reference'] ?? null) : null;
+        if (! is_string($commit) || preg_match('/^[0-9a-f]{40}$/', $commit) !== 1) {
+            throw new RuntimeException("Unable to determine the jsignpdf-php commit installed in {$this->wrapperDirectory}");
+        }
+
+        return ['kind' => 'commit', 'value' => $commit];
     }
 }

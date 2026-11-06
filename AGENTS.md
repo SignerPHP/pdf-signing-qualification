@@ -23,12 +23,12 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 
 ## Running the pilot
 
-`bin/pilot [implementation]` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. The implementation is `pdf-signer` unless another identifier, such as `jsignpdf`, is given. It writes everything under `var/runs/<run-id>/`:
+`bin/pilot [implementation]` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. The implementation is `pdf-signer` unless another identifier, such as `jsignpdf`, is given; an unknown identifier is refused after the build, before anything is acquired. It writes everything under `var/runs/<run-id>/`:
 
 | File | Contents |
 | ---- | -------- |
 | `acquisitions.json` | One acquisition record per declared input |
-| `run.json` | The run record: scenario, environment, container image, Java version, resource limits, implementation revision and analyzer versions, and the hash of `config/inputs.json` |
+| `run.json` | The run record: scenario, environment, container image, resource limits, implementation revision and runtime, analyzer versions, and the hash of `config/inputs.json` |
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
 | `observations.json` | One observation per attempt and analyzer |
 | `outputs/` | Signed outputs, named by SHA-256 |
@@ -43,7 +43,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | Script | Purpose |
 | ------ | ------- |
 | `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
-| `run-attempts -- [--implementation=<id>] <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` with the implementation (`pdf-signer` by default) and validate each output; refuses to start for an unknown identifier or unless there is exactly one record per declared input |
+| `run-attempts -- [--implementation=<id>] <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` with the implementation (`pdf-signer` by default) and validate each output; the option comes first, and it refuses to start for an unknown identifier, any other option, or unless there is exactly one record per declared input |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |

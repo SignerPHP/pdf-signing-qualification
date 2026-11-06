@@ -143,6 +143,36 @@ final class JSignPdfImplementationTest extends TestCase
         return $processIds;
     }
 
+    private static function assertOutputHoldsOnlyTheSignatureOfTheScenario(string $outputPath): void
+    {
+        $document = json_decode((string) shell_exec('qpdf --json=2 --json-key=qpdf '.escapeshellarg($outputPath)), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($document);
+        $objects = array_map(static fn (array $object): mixed => $object['value'] ?? null, $document['qpdf'][1]);
+
+        $signatures = array_values(array_filter($objects, static fn (mixed $value): bool => is_array($value) && isset($value['/ByteRange'])));
+        self::assertCount(1, $signatures);
+        self::assertSame('/adbe.pkcs7.detached', $signatures[0]['/SubFilter']);
+
+        $widgets = array_values(array_filter($objects, static fn (mixed $value): bool => is_array($value) && ($value['/Subtype'] ?? null) === '/Widget' && ($value['/FT'] ?? null) === '/Sig'));
+        self::assertCount(1, $widgets);
+        self::assertSame([0, 0, 0, 0], $widgets[0]['/Rect']);
+
+        foreach ($objects as $value) {
+            self::assertFalse(is_array($value) && isset($value['/DSS']), 'The output holds a document security store');
+        }
+
+        $contentsPath = self::$directory.'/contents-'.bin2hex(random_bytes(4)).'.der';
+        file_put_contents($contentsPath, (string) hex2bin(substr((string) $signatures[0]['/Contents'], 2)));
+        $cmsStructure = (string) shell_exec('openssl cms -cmsout -inform DER -in '.escapeshellarg($contentsPath).' -print 2>&1');
+        unlink($contentsPath);
+
+        self::assertMatchesRegularExpression('/digestAlgorithm:\s+algorithm: sha256 /', $cmsStructure);
+        self::assertMatchesRegularExpression('/signatureAlgorithm:\s+algorithm: rsaEncryption /', $cmsStructure);
+        self::assertStringNotContainsString('rsassaPss', $cmsStructure);
+        self::assertStringNotContainsString('1.2.840.113549.1.9.16.2.14', $cmsStructure);
+        self::assertStringNotContainsString('1.2.840.113583.1.1.8', $cmsStructure);
+    }
+
     public function test_revision_is_the_exact_installed_version(): void
     {
         self::assertSame(['kind' => 'version', 'value' => '3.2.1'], (new JSignPdfImplementation)->revision());
@@ -162,10 +192,7 @@ final class JSignPdfImplementationTest extends TestCase
         $input = (string) file_get_contents(self::$unsignedPath);
         self::assertStringStartsWith($input, (string) file_get_contents($result->outputPath));
 
-        $pdfsigOutput = (string) shell_exec('pdfsig -nocert '.escapeshellarg($result->outputPath).' 2>&1');
-        self::assertStringContainsString('Signature Type: adbe.pkcs7.detached', $pdfsigOutput);
-        self::assertStringContainsString('Signing Hash Algorithm: SHA-256', $pdfsigOutput);
-        self::assertSame(1, substr_count($pdfsigOutput, 'Signature #'));
+        self::assertOutputHoldsOnlyTheSignatureOfTheScenario($result->outputPath);
 
         $clock = static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-06T12:00:02Z');
         $panel = new ValidationPanel([
@@ -195,11 +222,48 @@ final class JSignPdfImplementationTest extends TestCase
         self::assertStringContainsString('Signing Hash Algorithm: SHA-256', (string) shell_exec('pdfsig -nocert '.escapeshellarg($result->outputPath).' 2>&1'));
     }
 
-    public function test_command_never_rewrites_the_document(): void
+    public function test_bytes_before_the_header_are_dropped_and_the_rest_is_kept_byte_for_byte(): void
     {
-        $request = new SigningRequest('/work/input.pdf', '/work/output.pdf', self::$credential, self::scenario()['signing']);
+        $leadingBytes = "leading junk\n\n";
+        $document = (string) file_get_contents(self::$unsignedPath);
+        $inputPath = self::$directory.'/leading-bytes.pdf';
+        file_put_contents($inputPath, $leadingBytes.$document);
 
-        self::assertNotContains('--overwrite', (new JSignPdfImplementation)->command($request));
+        $result = $this->sign($inputPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        self::assertNotNull($result->outputPath);
+        self::assertStringStartsWith($document, (string) file_get_contents($result->outputPath));
+    }
+
+    public function test_jsignpdf_receives_the_scenario_options_and_never_rewrites_the_document(): void
+    {
+        $attemptDirectory = $this->workDirectory.'/attempt';
+        mkdir($attemptDirectory);
+        $implementation = new JSignPdfImplementation(javaBinary: __DIR__.'/recording-java');
+        $request = new SigningRequest(self::$unsignedPath, $attemptDirectory.'/output.pdf', self::$credential, self::scenario()['signing']);
+
+        (new ProcessRunner)->run($implementation->command($request), 30.0);
+
+        $arguments = (array) file($attemptDirectory.'/java-arguments', FILE_IGNORE_NEW_LINES);
+        self::assertNotContains('--overwrite', $arguments);
+        self::assertContains('-a', $arguments);
+        self::assertSame('SHA256', $arguments[array_search('-ha', $arguments, true) + 1]);
+        self::assertSame('openpdf', $arguments[array_search('-eng', $arguments, true) + 1]);
+        self::assertContains('-Xmx512m', $arguments);
+        self::assertContains('-Djava.io.tmpdir='.$attemptDirectory, $arguments);
+        self::assertContains('-Duser.home='.$attemptDirectory, $arguments);
+    }
+
+    public function test_runtime_reports_what_a_reader_needs_to_repeat_the_run(): void
+    {
+        self::assertSame([
+            'java_version' => '21.0.13+9-LTS',
+            'java_options' => ['-Xmx512m', '-XX:+UseSerialGC', '-XX:CompressedClassSpaceSize=64m', '-XX:ReservedCodeCacheSize=48m', '-XX:-UsePerfData'],
+            'environment_variables' => ['MALLOC_ARENA_MAX=1'],
+            'engine' => 'openpdf',
+            'wrapper' => ['id' => 'jsignpdf-php', 'revision' => ['kind' => 'commit', 'value' => '6f150373a41cd2f149725e428e21d3f9ca5b4267']],
+        ], (new JSignPdfImplementation)->runtime());
     }
 
     public function test_malformed_input_is_a_failed_attempt(): void

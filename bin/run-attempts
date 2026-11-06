@@ -22,19 +22,20 @@ use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 
 require __DIR__.'/../vendor/autoload.php';
 
-$firstPositional = 0;
-$options = getopt('', ['implementation:'], $firstPositional);
-$positionals = array_slice($argv, $firstPositional);
+$arguments = array_slice($argv, 1);
+$implementationId = Implementations::DEFAULT_ID;
+if (str_starts_with($arguments[0] ?? '', '--implementation=')) {
+    $implementationId = substr((string) array_shift($arguments), strlen('--implementation='));
+}
 
-if (! isset($positionals[0])) {
+if ($arguments === [] || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
     fwrite(STDERR, "Usage: run-attempts [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache]\n");
     exit(2);
 }
 
-$implementationId = is_string($options['implementation'] ?? null) ? $options['implementation'] : Implementations::DEFAULT_ID;
-$runDirectory = rtrim($positionals[0], '/');
-$configurationPath = $positionals[1] ?? __DIR__.'/../config/inputs.json';
-$cacheDirectory = $positionals[2] ?? __DIR__.'/../var/cache/inputs';
+$runDirectory = rtrim($arguments[0], '/');
+$configurationPath = $arguments[1] ?? __DIR__.'/../config/inputs.json';
+$cacheDirectory = $arguments[2] ?? __DIR__.'/../var/cache/inputs';
 $scenarioPath = __DIR__.'/../config/scenarios/basic-invisible-sha256.json';
 $sandboxDirectory = '/sandbox';
 

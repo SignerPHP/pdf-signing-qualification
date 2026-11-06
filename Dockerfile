@@ -27,8 +27,6 @@ RUN set -eux; \
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
-COPY docker/jsignpdf-sign.php /opt/implementations/jsignpdf-sign.php
-
 ENV COMPOSER_HOME=/tmp/composer \
     HOME=/tmp
 
@@ -70,5 +68,7 @@ RUN set -eux; \
     test "$(git -C "$directory" rev-parse HEAD)" = "$commit"; \
     composer install --working-dir="$directory" --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins; \
     rm -rf "$directory/.git" "$COMPOSER_HOME"
+
+COPY docker/jsignpdf-sign.php /opt/implementations/jsignpdf-sign.php
 
 WORKDIR /app

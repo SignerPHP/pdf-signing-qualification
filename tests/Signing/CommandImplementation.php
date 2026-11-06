@@ -33,6 +33,11 @@ final class CommandImplementation implements SigningImplementation
         return $this->supported;
     }
 
+    public function runtime(): array
+    {
+        return [];
+    }
+
     public function command(SigningRequest $request): array
     {
         return ($this->command)($request);

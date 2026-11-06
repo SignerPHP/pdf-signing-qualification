@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
@@ -81,16 +82,17 @@ final class RunAttemptsCommandTest extends TestCase
     /**
      * @param  list<array>  $acquisitions
      * @param  array<string, string>  $environment
+     * @param  list<string>  $options
      * @return array{int, string, string}
      */
-    private function runCommand(string $runId, array $acquisitions, array $environment = []): array
+    private function runCommand(string $runId, array $acquisitions, array $environment = [], array $options = []): array
     {
         $runDirectory = $this->directory.'/runs/'.$runId;
         mkdir($runDirectory, 0777, true);
         file_put_contents($runDirectory.'/acquisitions.json', json_encode($acquisitions, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $process = proc_open(
-            [PHP_BINARY, __DIR__.'/../../bin/run-attempts', $runDirectory, $this->configurationPath, $this->directory.'/cache'],
+            [PHP_BINARY, __DIR__.'/../../bin/run-attempts', ...$options, $runDirectory, $this->configurationPath, $this->directory.'/cache'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             env_vars: ['PATH' => (string) getenv('PATH')] + $environment,
@@ -182,6 +184,61 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(0, $secondExitCode, $secondErrorOutput);
         self::assertSame($expectedVerdicts, $this->verdicts('run-20261031T130000Z'));
         self::assertSame('unavailable', $this->readRecords('run-20261031T130000Z', 'run.json')['environment']['container_image']['status']);
+    }
+
+    public function test_run_selects_its_implementation_and_records_java_and_the_memory_bound(): void
+    {
+        $unsignedPdf = (string) preg_replace('/\A%PDF-\d\.\d/', '%PDF-1.7', (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory)));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-jsignpdf', $acquisitions, options: ['--implementation=jsignpdf']);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        $run = $this->readRecords('run-jsignpdf', 'run.json');
+        self::assertSame([], (new SchemaValidator)->errors($run, self::RUN_SCHEMA));
+        self::assertSame(['id' => 'jsignpdf', 'revision' => ['kind' => 'version', 'value' => '3.2.1']], $run['implementation']);
+        self::assertSame('21.0.13+9-LTS', $run['implementation_runtime']['java_version']);
+        self::assertSame(1024 * 1024 * 1024, $run['environment']['resource_limits']['address_space_bytes']);
+        self::assertSame('succeeded', $this->readRecords('run-jsignpdf', 'attempts.json')[0]['execution']['outcome']);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>}>
+     */
+    public static function invalidOptions(): iterable
+    {
+        yield 'misspelled option' => [['--implementaton=jsignpdf']];
+        yield 'repeated option' => [['--implementation=jsignpdf', '--implementation=pdf-signer']];
+        yield 'option without a value' => [['--implementation']];
+    }
+
+    /**
+     * @param  list<string>  $options
+     */
+    #[DataProvider('invalidOptions')]
+    public function test_invalid_options_stop_the_run_before_signing(array $options): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-invalid-options', $acquisitions, options: $options);
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('Usage: run-attempts', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-invalid-options/attempts.json');
+    }
+
+    public function test_run_with_an_unknown_implementation_stops_before_signing(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-unknown', $acquisitions, options: ['--implementation=unknown-signer']);
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('Unknown implementation unknown-signer', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-unknown/run.json');
+        self::assertFileDoesNotExist($this->directory.'/runs/run-unknown/attempts.json');
     }
 
     public function test_run_stops_before_signing_when_a_declared_input_has_no_acquisition_record(): void

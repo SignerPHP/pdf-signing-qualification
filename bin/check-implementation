@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Signing\Implementations;
+
+require __DIR__.'/../vendor/autoload.php';
+
+try {
+    Implementations::select($argv[1] ?? '');
+} catch (InvalidArgumentException $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}

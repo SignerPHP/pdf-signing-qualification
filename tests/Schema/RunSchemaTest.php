@@ -44,10 +44,52 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_resource_limits_and_implementation_runtime_are_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['environment']['resource_limits'] = [
+                'timeout_seconds' => 120.0,
+                'address_space_bytes' => 1_073_741_824,
+                'file_size_bytes' => 268_435_456,
+                'storage_bytes' => 536_870_912,
+                'open_files' => 256,
+            ];
+            $run['implementation_runtime'] = [
+                'java_version' => '21.0.13+9-LTS',
+                'java_options' => ['-Xmx512m'],
+                'environment_variables' => ['MALLOC_ARENA_MAX=1'],
+                'engine' => 'openpdf',
+                'wrapper' => ['id' => 'jsignpdf-php', 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)]],
+            ];
+
+            return $run;
+        }));
+    }
+
     public static function invalidRuns(): iterable
     {
         yield 'run id with a space' => [self::mutate(function (array $run): array {
             $run['id'] = 'run 1';
+
+            return $run;
+        })];
+        yield 'empty java version' => [self::mutate(function (array $run): array {
+            $run['implementation_runtime'] = ['java_version' => ''];
+
+            return $run;
+        })];
+        yield 'empty implementation runtime' => [self::mutate(function (array $run): array {
+            $run['implementation_runtime'] = [];
+
+            return $run;
+        })];
+        yield 'wrapper at a moving revision' => [self::mutate(function (array $run): array {
+            $run['implementation_runtime'] = ['wrapper' => ['id' => 'jsignpdf-php', 'revision' => ['kind' => 'version', 'value' => 'latest']]];
+
+            return $run;
+        })];
+        yield 'resource limits without the address space' => [self::mutate(function (array $run): array {
+            $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1];
 
             return $run;
         })];

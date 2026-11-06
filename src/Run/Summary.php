@@ -44,21 +44,22 @@ final class Summary
      */
     private static function executions(array $attempts): array
     {
-        $otherCounts = array_fill_keys(self::OUTCOMES, 0);
-        $expectedRejectionCounts = $otherCounts;
+        $counts = array_fill_keys(self::OUTCOMES, 0);
+        $rejectedAsExpected = 0;
         foreach ($attempts as $attempt) {
-            if (self::isExpectedRejection($attempt)) {
-                $expectedRejectionCounts[$attempt['execution']['outcome']]++;
+            if (self::isRejectedAsExpected($attempt)) {
+                $rejectedAsExpected++;
             } else {
-                $otherCounts[$attempt['execution']['outcome']]++;
+                $counts[$attempt['execution']['outcome']]++;
             }
         }
 
-        $lines = ['## Executions', '', '| Outcome | Other attempts | Expected rejections | Total |', '| ------- | -------------: | ------------------: | ----: |'];
-        foreach (self::OUTCOMES as $outcome) {
-            $lines[] = "| `{$outcome}` | {$otherCounts[$outcome]} | {$expectedRejectionCounts[$outcome]} | ".($otherCounts[$outcome] + $expectedRejectionCounts[$outcome]).' |';
+        $lines = ['## Executions', '', '| Outcome | Attempts |', '| ------- | -------: |'];
+        foreach ($counts as $outcome => $count) {
+            $lines[] = "| `{$outcome}` | {$count} |";
         }
-        $lines[] = '| Total | '.array_sum($otherCounts).' | '.array_sum($expectedRejectionCounts).' | '.count($attempts).' |';
+        $lines[] = "| Rejected as expected | {$rejectedAsExpected} |";
+        $lines[] = '| Total | '.count($attempts).' |';
 
         return $lines;
     }
@@ -90,7 +91,9 @@ final class Summary
 
     private static function isRejectedAsExpected(array $attempt): bool
     {
-        return self::isExpectedRejection($attempt) && $attempt['execution']['outcome'] === 'failed';
+        return self::isExpectedRejection($attempt)
+            && $attempt['execution']['outcome'] === 'failed'
+            && ! in_array($attempt['execution']['exit_code'], [null, 0], true);
     }
 
     /**
@@ -132,7 +135,7 @@ final class Summary
         if ($unsuccessfulAttempts === [] && $unexpectedSuccesses === [] && $judgedOutputs === []) {
             return [array_filter($attempts, self::isRejectedAsExpected(...)) === []
                 ? 'Every attempt succeeded and every output was judged valid.'
-                : 'Every other attempt succeeded and every output was judged valid.'];
+                : 'No other attempt failed and no output was judged invalid or inconclusive.'];
         }
 
         $lines = [];

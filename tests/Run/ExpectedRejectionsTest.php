@@ -80,7 +80,7 @@ final class ExpectedRejectionsTest extends TestCase
      */
     public static function invalidDeclarations(): iterable
     {
-        yield 'undeclared input' => [[['source_id' => 'local:gone.pdf', 'scenario_id' => self::SCENARIO_ID]], 'undeclared input local:gone.pdf'];
+        yield 'undeclared input' => [[['source_id' => 'local:gone.pdf', 'scenario_id' => self::SCENARIO_ID]], 'refers to the undeclared input local:gone.pdf'];
         yield 'undeclared scenario' => [[['source_id' => 'local:not-a-pdf.pdf', 'scenario_id' => 'unknown-scenario']], 'undeclared scenario unknown-scenario'];
         yield 'repeated declaration' => [[
             ['source_id' => 'local:not-a-pdf.pdf', 'scenario_id' => self::SCENARIO_ID],
@@ -100,14 +100,65 @@ final class ExpectedRejectionsTest extends TestCase
         $this->load($rejections);
     }
 
-    public function test_file_that_does_not_follow_its_schema_is_refused(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function documentsOutsideTheSchema(): iterable
     {
-        file_put_contents($this->path, json_encode(['schema' => ExpectedRejections::SCHEMA], JSON_THROW_ON_ERROR));
+        yield 'without rejections' => [json_encode(['schema' => ExpectedRejections::SCHEMA], JSON_THROW_ON_ERROR)];
+        yield 'rejections as an object' => ['{"schema": "'.ExpectedRejections::SCHEMA.'", "rejections": {}}'];
+        yield 'a list' => ['[]'];
+        yield 'a string' => ['"text"'];
+        yield 'null' => ['null'];
+    }
+
+    #[DataProvider('documentsOutsideTheSchema')]
+    public function test_file_that_does_not_follow_its_schema_is_refused(string $document): void
+    {
+        file_put_contents($this->path, $document);
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('do not follow their schema');
 
         ExpectedRejections::fromFile($this->path, self::inputs(), self::SCENARIO_DIRECTORY);
+    }
+
+    public function test_file_that_is_not_json_is_refused_by_its_path(): void
+    {
+        file_put_contents($this->path, '{');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($this->path);
+
+        ExpectedRejections::fromFile($this->path, self::inputs(), self::SCENARIO_DIRECTORY);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidScenarios(): iterable
+    {
+        yield 'truncated' => ['{"id": "tru'];
+        yield 'without the fields of a scenario' => ['{"id": "basic-invisible-sha256"}'];
+    }
+
+    #[DataProvider('invalidScenarios')]
+    public function test_invalid_scenario_is_refused_by_its_path(string $scenario): void
+    {
+        $scenarioDirectory = $this->path.'-scenarios';
+        mkdir($scenarioDirectory);
+        file_put_contents($scenarioDirectory.'/broken.json', $scenario);
+        file_put_contents($this->path, json_encode(['schema' => ExpectedRejections::SCHEMA, 'rejections' => []], JSON_THROW_ON_ERROR));
+
+        try {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage($scenarioDirectory.'/broken.json');
+
+            ExpectedRejections::fromFile($this->path, self::inputs(), $scenarioDirectory);
+        } finally {
+            unlink($scenarioDirectory.'/broken.json');
+            rmdir($scenarioDirectory);
+        }
     }
 
     public function test_versioned_configuration_declares_only_the_file_that_is_not_a_pdf(): void

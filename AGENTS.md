@@ -32,7 +32,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
 | `observations.json` | One observation per attempt and analyzer |
 | `outputs/` | Signed outputs, named by SHA-256 |
-| `summary.md` | Totals per execution outcome, with expected rejections apart, and per analyzer and verdict, the rejections that were expected, and every other attempt or output that was not successful or not `valid`; also printed |
+| `summary.md` | Totals per execution outcome and of the attempts rejected as expected, totals per analyzer and verdict, the rejections that were expected, and every other attempt or output that was not successful or not `valid`; also printed |
 
 An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues. `run.json` is written last, so a run directory without it holds an aborted or unfinished run, not results.
 
@@ -43,7 +43,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | Script | Purpose |
 | ------ | ------- |
 | `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
-| `run-attempts -- [--implementation=<id>] <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` with the implementation (`pdf-signer` by default) and validate each output; the option comes first, and it refuses to start for an unknown identifier, any other option, an expected rejection for an undeclared input or scenario, or unless there is exactly one record per declared input |
+| `run-attempts -- [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections]` | Sign every input whose record is in `<run-directory>/acquisitions.json` with the implementation (`pdf-signer` by default) and validate each output; the option comes first, another input configuration needs its own expected rejections, because the versioned ones name its undeclared inputs, and it refuses to start for an unknown identifier, any other option, an expected rejection for an undeclared input or scenario, or unless there is exactly one record per declared input |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |

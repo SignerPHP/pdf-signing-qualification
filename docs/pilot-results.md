@@ -17,13 +17,14 @@ Two runs on these revisions gave the same execution outcome for each of the 27 a
 
 ## Totals
 
-| Outcome | Other attempts | Expected rejections | Total |
-| ------- | -------------: | ------------------: | ----: |
-| `succeeded` | 23 | 0 | 23 |
-| `failed` | 3 | 1 | 4 |
-| `timed_out` | 0 | 0 | 0 |
-| `not_run` | 0 | 0 | 0 |
-| Total | 26 | 1 | 27 |
+| Outcome | Attempts |
+| ------- | -------: |
+| `succeeded` | 23 |
+| `failed` | 3 |
+| `timed_out` | 0 |
+| `not_run` | 0 |
+| Rejected as expected | 1 |
+| Total | 27 |
 
 | Analyzer | `valid` | `invalid` | `inconclusive` | `not_evaluated` | `not_applicable` |
 | -------- | ------: | --------: | -------------: | --------------: | ---------------: |
@@ -32,7 +33,7 @@ Two runs on these revisions gave the same execution outcome for each of the 27 a
 | `openssl-cms` | 19 | 3 | 1 | 4 | 0 |
 | `qpdf` | 16 | 1 | 6 | 4 | 0 |
 
-The 4 `not_evaluated` per analyzer are the 4 failed attempts, which produced no output.
+The 4 `not_evaluated` per analyzer are the 3 failed attempts and the expected rejection, which produced no output.
 
 ## Failures found
 

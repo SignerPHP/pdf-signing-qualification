@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Run;
 
 use InvalidArgumentException;
+use JsonException;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 
 final readonly class ExpectedRejections
 {
@@ -27,27 +29,23 @@ final readonly class ExpectedRejections
      */
     public static function fromFile(string $path, array $inputs, string $scenarioDirectory): self
     {
-        $contents = file_get_contents($path);
-        if ($contents === false) {
-            throw new InvalidArgumentException("Unable to read the expected rejections {$path}");
-        }
-
-        $errors = (new SchemaValidator)->errors((object) json_decode($contents, flags: JSON_THROW_ON_ERROR), self::SCHEMA);
+        $configuration = self::decode($path);
+        $errors = (new SchemaValidator)->errors($configuration, self::SCHEMA);
         if ($errors !== []) {
-            throw new InvalidArgumentException("The expected rejections do not follow their schema:\n".implode("\n", $errors));
+            throw new InvalidArgumentException("The expected rejections {$path} do not follow their schema:\n".implode("\n", $errors));
         }
 
-        /** @var array{rejections: list<array{source_id: string, scenario_id: string, reason: string}>} $configuration */
-        $configuration = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        /** @var list<object{source_id: string, scenario_id: string}> $rejections */
+        $rejections = $configuration->rejections;
 
         $sourceIds = array_map(static fn (Input $input): string => $input->id(), $inputs);
         $scenarioIds = self::scenarioIds($scenarioDirectory);
         $sourceIdsByScenario = [];
-        foreach ($configuration['rejections'] as $rejection) {
-            $sourceId = $rejection['source_id'];
-            $scenarioId = $rejection['scenario_id'];
+        foreach ($rejections as $rejection) {
+            $sourceId = $rejection->source_id;
+            $scenarioId = $rejection->scenario_id;
             if (! in_array($sourceId, $sourceIds, true)) {
-                throw new InvalidArgumentException("An expected rejection refers to the undeclared input {$sourceId}");
+                throw new InvalidArgumentException("The expected rejection in {$path} refers to the undeclared input {$sourceId}");
             }
             if (! in_array($scenarioId, $scenarioIds, true)) {
                 throw new InvalidArgumentException("The expected rejection of {$sourceId} refers to the undeclared scenario {$scenarioId}");
@@ -73,11 +71,28 @@ final readonly class ExpectedRejections
     {
         $scenarioIds = [];
         foreach (glob($scenarioDirectory.'/*.json') ?: [] as $scenarioPath) {
-            /** @var array{id: string} $scenario */
-            $scenario = json_decode((string) file_get_contents($scenarioPath), true, flags: JSON_THROW_ON_ERROR);
-            $scenarioIds[] = $scenario['id'];
+            $scenario = self::decode($scenarioPath);
+            $errors = (new SchemaValidator)->errors($scenario, AttemptRunner::SCENARIO_SCHEMA);
+            if ($errors !== []) {
+                throw new InvalidArgumentException("The scenario {$scenarioPath} does not follow its schema:\n".implode("\n", $errors));
+            }
+            $scenarioIds[] = (string) $scenario->id;
         }
 
         return $scenarioIds;
+    }
+
+    private static function decode(string $path): object
+    {
+        $contents = file_get_contents($path);
+        if ($contents === false) {
+            throw new InvalidArgumentException("Unable to read {$path}");
+        }
+
+        try {
+            return (object) json_decode($contents, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new InvalidArgumentException("{$path} is not valid JSON: {$exception->getMessage()}", previous: $exception);
+        }
     }
 }

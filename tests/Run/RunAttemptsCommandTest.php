@@ -101,14 +101,14 @@ final class RunAttemptsCommandTest extends TestCase
      * @param  list<string>  $options
      * @return array{int, string, string}
      */
-    private function runCommand(string $runId, array $acquisitions, array $environment = [], array $options = []): array
+    private function runCommand(string $runId, array $acquisitions, array $environment = [], array $options = [], bool $passExpectedRejections = true): array
     {
         $runDirectory = $this->directory.'/runs/'.$runId;
         mkdir($runDirectory, 0777, true);
         file_put_contents($runDirectory.'/acquisitions.json', json_encode($acquisitions, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $process = proc_open(
-            [PHP_BINARY, __DIR__.'/../../bin/run-attempts', ...$options, $runDirectory, $this->configurationPath, $this->directory.'/cache', $this->expectedRejectionsPath],
+            [PHP_BINARY, __DIR__.'/../../bin/run-attempts', ...$options, $runDirectory, $this->configurationPath, $this->directory.'/cache', ...($passExpectedRejections ? [$this->expectedRejectionsPath] : [])],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             env_vars: ['PATH' => (string) getenv('PATH')] + $environment,
@@ -193,7 +193,7 @@ final class RunAttemptsCommandTest extends TestCase
 
         $summary = (string) file_get_contents("{$this->directory}/runs/run-20261031T120000Z/summary.md");
         self::assertSame($summary, $output);
-        self::assertStringContainsString("| `failed` | 1 | 0 | 1 |\n", $summary);
+        self::assertStringContainsString("| `failed` | 1 |\n", $summary);
         self::assertStringContainsString('| `local:not-a-pdf.pdf` | `supported` | `failed` | pdf-signer exited with code 1', $summary);
 
         [$secondExitCode, , $secondErrorOutput] = $this->runCommand('run-20261031T130000Z', $acquisitions);
@@ -218,7 +218,8 @@ final class RunAttemptsCommandTest extends TestCase
         $attempts = $this->readRecords('run-expected-rejection', 'attempts.json');
         self::assertSame(['supported', 'expected_rejection', 'not_evaluated'], array_column($attempts, 'capability'));
         self::assertSame(['succeeded', 'failed', 'not_run'], array_column(array_column($attempts, 'execution'), 'outcome'));
-        self::assertStringContainsString("| `failed` | 0 | 1 | 1 |\n", $output);
+        self::assertStringContainsString("| `failed` | 0 |\n", $output);
+        self::assertStringContainsString("| Rejected as expected | 1 |\n", $output);
         self::assertStringContainsString('| `local:not-a-pdf.pdf` | pdf-signer exited with code 1', $output);
     }
 
@@ -233,6 +234,31 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(1, $exitCode);
         self::assertStringContainsString('undeclared input local:gone.pdf', $errorOutput);
         self::assertFileDoesNotExist($this->directory.'/runs/run-undeclared-input/attempts.json');
+    }
+
+    public function test_declaration_for_an_undeclared_scenario_stops_the_run_before_signing(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+        $this->declareExpectedRejections(['local:unsigned.pdf'], 'unknown-scenario');
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-undeclared-scenario', $acquisitions);
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('undeclared scenario unknown-scenario', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-undeclared-scenario/attempts.json');
+    }
+
+    public function test_another_input_configuration_needs_its_own_declarations(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-versioned-declarations', $acquisitions, passExpectedRejections: false);
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('config/expected-rejections.json refers to the undeclared input qpdf:qpdf/qtest/qpdf/bad1.pdf', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-versioned-declarations/attempts.json');
     }
 
     public function test_run_selects_its_implementation_and_records_java_and_the_memory_bound(): void

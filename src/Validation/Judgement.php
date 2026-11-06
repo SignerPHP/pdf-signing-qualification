@@ -12,5 +12,6 @@ final class Judgement
         public readonly ?int $exitCode,
         public readonly string $rawOutput,
         public readonly array $details = [],
+        public readonly bool $noSignature = false,
     ) {}
 }

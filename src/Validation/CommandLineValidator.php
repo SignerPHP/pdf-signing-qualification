@@ -15,6 +15,8 @@ abstract class CommandLineValidator implements Validator
 {
     public const string OBSERVATION_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/observation.schema.json';
 
+    public const string BASELINE_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/baseline.schema.json';
+
     private ?string $version = null;
 
     /**
@@ -42,7 +44,7 @@ abstract class CommandLineValidator implements Validator
 
     abstract protected function versionPattern(): string;
 
-    abstract protected function judge(string $outputPath): Judgement;
+    abstract protected function judge(string $documentPath): Judgement;
 
     final public function observe(ValidationSubject $subject): array
     {
@@ -56,15 +58,6 @@ abstract class CommandLineValidator implements Validator
             $judgement = $this->judge($subject->outputPath);
         }
 
-        $evidence = [
-            'summary' => $judgement->summary,
-            'exit_code' => $judgement->exitCode,
-            'raw_output' => $judgement->rawOutput,
-        ];
-        if ($judgement->details !== []) {
-            $evidence['details'] = $judgement->details;
-        }
-
         return [
             'schema' => self::OBSERVATION_SCHEMA,
             'id' => $subject->attemptId.'/'.$this->analyzerId(),
@@ -75,9 +68,47 @@ abstract class CommandLineValidator implements Validator
             'input_artifact' => $subject->inputArtifact,
             'output_artifact' => $outputArtifact,
             'verdict' => $judgement->verdict,
-            'evidence' => $evidence,
-            'observed_at' => ($this->clock)()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
+            'evidence' => self::evidence($judgement),
+            'observed_at' => $this->now(),
         ];
+    }
+
+    final public function baseline(BaselineSubject $subject): array
+    {
+        $judgement = $this->judge($subject->inputPath);
+
+        return [
+            'schema' => self::BASELINE_SCHEMA,
+            'id' => "{$subject->runId}/{$subject->sourceId}/{$this->analyzerId()}",
+            'run_id' => $subject->runId,
+            'source_id' => $subject->sourceId,
+            'analyzer' => $this->analyzer(),
+            'policy' => $this->policy(),
+            'property' => $this->property(),
+            'input_artifact' => $subject->inputArtifact,
+            'verdict' => $judgement->noSignature ? 'not_applicable' : $judgement->verdict,
+            'evidence' => self::evidence($judgement),
+            'observed_at' => $this->now(),
+        ];
+    }
+
+    private static function evidence(Judgement $judgement): array
+    {
+        $evidence = [
+            'summary' => $judgement->summary,
+            'exit_code' => $judgement->exitCode,
+            'raw_output' => $judgement->rawOutput,
+        ];
+        if ($judgement->details !== []) {
+            $evidence['details'] = $judgement->details;
+        }
+
+        return $evidence;
+    }
+
+    private function now(): string
+    {
+        return ($this->clock)()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
     }
 
     final public function analyzer(): array

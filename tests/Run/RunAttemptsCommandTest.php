@@ -203,6 +203,55 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame('unavailable', $this->readRecords('run-20261031T130000Z', 'run.json')['environment']['container_image']['status']);
     }
 
+    public function test_every_available_input_gets_one_baseline_per_analyzer_before_signing(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $signedPath = SyntheticSignedPdf::create($this->directory);
+        $signedPdf = (string) file_get_contents($signedPath);
+        $tamperedPdf = (string) file_get_contents(SyntheticSignedPdf::tamperSignedRange($signedPath, $this->directory));
+        $acquisitions = $this->acquire(
+            ['unsigned.pdf' => $unsignedPdf, 'signed.pdf' => $signedPdf, 'tampered.pdf' => $tamperedPdf, 'gone.pdf' => 'never served'],
+            ['unsigned.pdf' => $unsignedPdf, 'signed.pdf' => $signedPdf, 'tampered.pdf' => $tamperedPdf],
+        );
+
+        [$exitCode, $output, $errorOutput] = $this->runCommand('run-baseline', $acquisitions);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        $baselines = $this->readRecords('run-baseline', 'baselines.json');
+        foreach ($baselines as $baseline) {
+            self::assertSame([], (new SchemaValidator)->errors($baseline, CommandLineValidator::BASELINE_SCHEMA));
+        }
+        $verdicts = [];
+        foreach ($baselines as $baseline) {
+            $verdicts[$baseline['source_id']][$baseline['analyzer']['id']] = $baseline['verdict'];
+        }
+        self::assertSame([
+            'local:unsigned.pdf' => ['pyhanko' => 'not_applicable', 'pdfsig' => 'not_applicable', 'openssl-cms' => 'not_applicable', 'qpdf' => 'valid'],
+            'local:signed.pdf' => ['pyhanko' => 'valid', 'pdfsig' => 'valid', 'openssl-cms' => 'valid', 'qpdf' => 'valid'],
+            'local:tampered.pdf' => ['pyhanko' => 'invalid', 'pdfsig' => 'invalid', 'openssl-cms' => 'invalid', 'qpdf' => 'valid'],
+        ], $verdicts);
+
+        $outputVerdicts = $this->verdicts('run-baseline');
+        self::assertSame('valid', $outputVerdicts['local:unsigned.pdf pdfsig']);
+        self::assertSame('invalid', $outputVerdicts['local:tampered.pdf pdfsig']);
+        self::assertStringContainsString("| `local:unsigned.pdf` | `not_applicable` → `valid` | `not_applicable` → `valid` | `not_applicable` → `valid` | `valid` → `valid` |\n", $output);
+        self::assertStringContainsString("| `local:tampered.pdf` | `invalid` → `invalid` | `invalid` → `invalid` | `invalid` → `invalid` | `valid` → `valid` |\n", $output);
+        self::assertStringContainsString("| `local:gone.pdf` | `missing_upstream` |\n", $output);
+    }
+
+    public function test_input_changed_in_the_cache_stops_the_run_before_any_baseline(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+        file_put_contents($this->directory.'/cache/files/local/unsigned.pdf', $unsignedPdf."\n%changed\n");
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-changed-input', $acquisitions);
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('does not match its acquisition record for local:unsigned.pdf', $errorOutput);
+        self::assertFileDoesNotExist("{$this->directory}/runs/run-changed-input/baselines.json");
+    }
+
     public function test_declared_input_is_an_expected_rejection_and_the_others_stay_supported(): void
     {
         $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));

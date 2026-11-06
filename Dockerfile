@@ -27,6 +27,8 @@ RUN set -eux; \
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
+COPY docker/jsignpdf-sign.php /opt/implementations/jsignpdf-sign.php
+
 ENV COMPOSER_HOME=/tmp/composer \
     HOME=/tmp
 
@@ -38,6 +40,35 @@ RUN set -eux; \
     git -C "$directory" checkout -q FETCH_HEAD; \
     test "$(git -C "$directory" rev-parse HEAD)" = "$commit"; \
     composer install --working-dir="$directory" --no-dev --no-interaction --no-progress --prefer-dist; \
+    rm -rf "$directory/.git" "$COMPOSER_HOME"
+
+RUN set -eux; \
+    case "$(dpkg --print-architecture)" in \
+        amd64) architecture=x64; sha256=a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd ;; \
+        arm64) architecture=aarch64; sha256=b1734db7ade49c3f6acc6ae06233b8c2dd90e3e2f00f67000ae1c972aaa64d8c ;; \
+    esac; \
+    curl -fsSL -o /tmp/java.tar.gz "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_${architecture}_linux_hotspot_21.0.13_9.tar.gz"; \
+    echo "$sha256  /tmp/java.tar.gz" | sha256sum -c -; \
+    mkdir /opt/java; \
+    tar -xzf /tmp/java.tar.gz -C /opt/java --strip-components=1; \
+    rm /tmp/java.tar.gz
+
+RUN set -eux; \
+    version=3.2.1; \
+    curl -fsSL -o /tmp/jsignpdf.zip "https://github.com/intoolswetrust/jsignpdf/releases/download/JSignPdf_3_2_1/jsignpdf-${version}-minimal.zip"; \
+    echo '519ef80502efbc349db62a256f8cd8d4e0c4fbe57984856adb2eed66cebd43b4  /tmp/jsignpdf.zip' | sha256sum -c -; \
+    unzip -q /tmp/jsignpdf.zip -d /tmp/jsignpdf; \
+    mv "/tmp/jsignpdf/jsignpdf-${version}" /opt/implementations/jsignpdf; \
+    rm -rf /tmp/jsignpdf /tmp/jsignpdf.zip
+
+RUN set -eux; \
+    commit=6f150373a41cd2f149725e428e21d3f9ca5b4267; \
+    directory=/opt/implementations/jsignpdf-php; \
+    git init -q "$directory"; \
+    git -C "$directory" fetch -q --depth 1 https://github.com/JSignPdf/jsignpdf-php.git "$commit"; \
+    git -C "$directory" checkout -q FETCH_HEAD; \
+    test "$(git -C "$directory" rev-parse HEAD)" = "$commit"; \
+    composer install --working-dir="$directory" --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins; \
     rm -rf "$directory/.git" "$COMPOSER_HOME"
 
 WORKDIR /app

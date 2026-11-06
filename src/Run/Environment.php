@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Run;
 
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 
 final class Environment
 {
     public const string IMAGE_VARIABLE = 'QUALIFICATION_IMAGE_ID';
 
-    public static function describe(string|false $imageId, string $osReleasePath = '/etc/os-release'): array
+    public static function describe(string|false $imageId, ResourceLimits $limits, string $osReleasePath = '/etc/os-release', string $javaReleasePath = '/opt/java/release'): array
     {
         return [
             'os' => [
@@ -20,6 +21,8 @@ final class Environment
             ],
             'container_image' => self::containerImage($imageId),
             'php_version' => PHP_VERSION,
+            'java_version' => self::javaVersion($javaReleasePath),
+            'resource_limits' => $limits->record(),
         ];
     }
 
@@ -32,6 +35,17 @@ final class Environment
         }
 
         return trim($name, " \"'");
+    }
+
+    private static function javaVersion(string $javaReleasePath): string
+    {
+        $release = is_file($javaReleasePath) ? parse_ini_file($javaReleasePath, false, INI_SCANNER_RAW) : false;
+        $version = is_array($release) ? ($release['JAVA_RUNTIME_VERSION'] ?? null) : null;
+        if (! is_string($version) || trim($version, " \"'") === '') {
+            throw new RuntimeException("Unable to read the Java version from {$javaReleasePath}");
+        }
+
+        return trim($version, " \"'");
     }
 
     private static function containerImage(string|false $imageId): array

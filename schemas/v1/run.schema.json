@@ -49,7 +49,20 @@
                         }
                     ]
                 },
-                "php_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                "php_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "java_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "resource_limits": {
+                    "type": "object",
+                    "required": ["timeout_seconds", "address_space_bytes", "file_size_bytes", "storage_bytes", "open_files"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "timeout_seconds": { "type": "number", "exclusiveMinimum": 0 },
+                        "address_space_bytes": { "type": "integer", "minimum": 1 },
+                        "file_size_bytes": { "type": "integer", "minimum": 1 },
+                        "storage_bytes": { "type": "integer", "minimum": 1 },
+                        "open_files": { "type": "integer", "minimum": 1 }
+                    }
+                }
             }
         },
         "implementation": { "$ref": "#/$defs/tool" },

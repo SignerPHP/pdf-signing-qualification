@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+implementation="${1:-pdf-signer}"
+
 cd "$(dirname "$0")/.."
 
 export HOST_UID="${HOST_UID:-$(id -u)}"
@@ -22,6 +24,6 @@ if [ "$acquisition_status" -gt 1 ]; then
 fi
 
 image_id="$(docker image inspect --format '{{.Id}}' pdf-signing-qualification:local)"
-docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "$run_directory"
+docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$implementation" "$run_directory"
 
 echo "Results written to $run_directory" >&2

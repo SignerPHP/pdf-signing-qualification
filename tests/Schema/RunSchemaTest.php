@@ -44,10 +44,36 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_java_version_and_resource_limits_are_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['environment']['java_version'] = '21.0.13+9-LTS';
+            $run['environment']['resource_limits'] = [
+                'timeout_seconds' => 120.0,
+                'address_space_bytes' => 1_073_741_824,
+                'file_size_bytes' => 268_435_456,
+                'storage_bytes' => 536_870_912,
+                'open_files' => 256,
+            ];
+
+            return $run;
+        }));
+    }
+
     public static function invalidRuns(): iterable
     {
         yield 'run id with a space' => [self::mutate(function (array $run): array {
             $run['id'] = 'run 1';
+
+            return $run;
+        })];
+        yield 'empty java version' => [self::mutate(function (array $run): array {
+            $run['environment']['java_version'] = '';
+
+            return $run;
+        })];
+        yield 'resource limits without the address space' => [self::mutate(function (array $run): array {
+            $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1];
 
             return $run;
         })];

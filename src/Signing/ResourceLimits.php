@@ -15,6 +15,20 @@ final class ResourceLimits
     ) {}
 
     /**
+     * @return array{timeout_seconds: float, address_space_bytes: int, file_size_bytes: int, storage_bytes: int, open_files: int}
+     */
+    public function record(): array
+    {
+        return [
+            'timeout_seconds' => $this->timeoutSeconds,
+            'address_space_bytes' => $this->memoryBytes,
+            'file_size_bytes' => $this->fileSizeBytes,
+            'storage_bytes' => $this->storageBytes,
+            'open_files' => $this->openFiles,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public function prlimitArguments(): array

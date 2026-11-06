@@ -14,7 +14,7 @@ The method is described in the RFC [Reproducible PDF signing qualification and b
 
 ## Any signing solution can be qualified
 
-Implementations are integrated through adapters. An adapter runs one signing solution, in any language or as an external process, against the same inputs and scenarios, and the same validators judge every output. The first implementation under test is [`signerphp/pdf-signer`](https://github.com/SignerPHP/pdf-signer); other solutions are qualified by adding an adapter, without changes to the inputs or validators.
+Implementations are integrated through adapters. An adapter runs one signing solution, in any language or as an external process, against the same inputs and scenarios, and the same validators judge every output. The implementations under test are [`signerphp/pdf-signer`](https://github.com/SignerPHP/pdf-signer) and [JSignPdf](https://github.com/intoolswetrust/jsignpdf), run through [`jsignpdf-php`](https://github.com/JSignPdf/jsignpdf-php); other solutions are qualified by adding an adapter, without changes to the inputs or validators.
 
 ## Getting started
 

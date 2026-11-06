@@ -53,14 +53,14 @@ final class OpenSslCmsValidator extends CommandLineValidator
         return '/^OpenSSL (\d+\.\d+\.\d+)/';
     }
 
-    protected function judge(string $outputPath): Judgement
+    protected function judge(string $documentPath): Judgement
     {
-        $document = file_get_contents($outputPath);
+        $document = file_get_contents($documentPath);
         if ($document === false) {
-            throw new RuntimeException("Unable to read the output {$outputPath}");
+            throw new RuntimeException("Unable to read the document {$documentPath}");
         }
 
-        $located = $this->runner->run(['qpdf', ...self::LOCATOR_ARGUMENTS, $outputPath], $this->timeoutSeconds);
+        $located = $this->runner->run(['qpdf', ...self::LOCATOR_ARGUMENTS, $documentPath], $this->timeoutSeconds);
         if ($located->timedOut) {
             return $this->timedOut($located);
         }
@@ -72,7 +72,9 @@ final class OpenSslCmsValidator extends CommandLineValidator
         $byteRanges = [];
         self::collectByteRanges($objects, $objects, $byteRanges);
         if ($byteRanges === []) {
-            return new Judgement('invalid', 'No dictionary with a /ByteRange was found', null, '');
+            $documentWasRead = $located->exitCode === 0;
+
+            return Judgement::noSignature($documentWasRead ? 'No dictionary with a /ByteRange was found' : 'No dictionary with a /ByteRange was found in a file qpdf had to recover', $located->exitCode, '', documentWasRead: $documentWasRead);
         }
 
         $signatures = [];

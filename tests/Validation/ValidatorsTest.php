@@ -8,7 +8,9 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
@@ -21,6 +23,10 @@ use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 final class ValidatorsTest extends TestCase
 {
     private const string ATTEMPT_ID = 'run-20261029T120000Z/synthetic/basic-invisible-sha256/synthetic-signer/1';
+
+    private const string RUN_ID = 'run-20261029T120000Z';
+
+    private const string SOURCE_ID = 'synthetic:qtest/input one.pdf';
 
     private const array INPUT_ARTIFACT = ['sha256' => '3b4c1f0a9e6d2b7c8f5e4a3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2b1a0f9', 'byte_size' => 1_024];
 
@@ -35,18 +41,20 @@ final class ValidatorsTest extends TestCase
         mkdir(self::$directory);
 
         $signed = SyntheticSignedPdf::create(self::$directory);
+        mkdir(self::$directory.'/without-field-name');
+        $signedWithoutFieldName = SyntheticSignedPdf::create(self::$directory.'/without-field-name', fieldName: '');
         self::$fixtures = [
             'signed' => $signed,
             'tampered' => SyntheticSignedPdf::tamperSignedRange($signed, self::$directory),
             'unsigned' => SyntheticSignedPdf::createUnsigned(self::$directory),
             'hybrid-reference' => SyntheticSignedPdf::create(self::$directory, 'hybrid-reference', hybridReference: true),
+            'tampered-without-field-name' => SyntheticSignedPdf::tamperSignedRange($signedWithoutFieldName, self::$directory.'/without-field-name'),
         ];
     }
 
     public static function tearDownAfterClass(): void
     {
-        array_map(unlink(...), glob(self::$directory.'/*') ?: []);
-        rmdir(self::$directory);
+        exec('rm -rf '.escapeshellarg(self::$directory));
     }
 
     /**
@@ -99,6 +107,66 @@ final class ValidatorsTest extends TestCase
         foreach ([PyHankoValidator::class, PdfsigValidator::class, OpenSslCmsValidator::class, QpdfCheckValidator::class] as $validatorClass) {
             yield (new ReflectionClass($validatorClass))->getShortName() => [$validatorClass];
         }
+    }
+
+    public static function expectedBaselines(): iterable
+    {
+        $expectations = [
+            PyHankoValidator::class => ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'not_applicable'],
+            PdfsigValidator::class => ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'not_applicable'],
+            OpenSslCmsValidator::class => ['signed' => 'valid', 'tampered' => 'invalid', 'unsigned' => 'not_applicable'],
+            QpdfCheckValidator::class => ['signed' => 'valid', 'tampered' => 'valid', 'unsigned' => 'valid'],
+        ];
+
+        foreach ($expectations as $validatorClass => $verdicts) {
+            foreach ($verdicts as $fixture => $verdict) {
+                yield (new ReflectionClass($validatorClass))->getShortName().' on '.$fixture => [$validatorClass, $fixture, $verdict];
+            }
+        }
+    }
+
+    /**
+     * @param  class-string<CommandLineValidator>  $validatorClass
+     */
+    #[DataProvider('expectedBaselines')]
+    public function test_validator_judges_the_input_itself(string $validatorClass, string $fixture, string $verdict): void
+    {
+        $validator = self::validator($validatorClass);
+        $inputPath = self::$fixtures[$fixture];
+
+        $baseline = $validator->baseline(new BaselineSubject(self::RUN_ID, self::SOURCE_ID, Artifact::describe($inputPath), $inputPath));
+
+        self::assertSame([], (new SchemaValidator)->errors($baseline, CommandLineValidator::BASELINE_SCHEMA));
+        self::assertSame($verdict, $baseline['verdict'], $baseline['evidence']['summary']."\n".$baseline['evidence']['raw_output']);
+        self::assertSame(self::RUN_ID.'/'.self::SOURCE_ID.'/'.$validator->analyzerId(), $baseline['id']);
+        self::assertSame(self::RUN_ID, $baseline['run_id']);
+        self::assertSame(self::SOURCE_ID, $baseline['source_id']);
+        self::assertSame(Artifact::describe($inputPath), $baseline['input_artifact']);
+    }
+
+    public function test_pyhanko_judges_a_signature_whose_field_has_no_name(): void
+    {
+        $inputPath = self::$fixtures['tampered-without-field-name'];
+
+        $baseline = self::validator(PyHankoValidator::class)->baseline(new BaselineSubject(self::RUN_ID, self::SOURCE_ID, Artifact::describe($inputPath), $inputPath));
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $inputPath));
+
+        self::assertSame('invalid', $baseline['verdict'], $baseline['evidence']['summary']);
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertCount(1, $baseline['evidence']['details']['signatures']);
+    }
+
+    public function test_panel_records_one_baseline_per_analyzer_on_a_tampered_input(): void
+    {
+        $panel = new ValidationPanel(array_map(self::validator(...), [PyHankoValidator::class, PdfsigValidator::class, OpenSslCmsValidator::class, QpdfCheckValidator::class]));
+        $inputPath = self::$fixtures['tampered'];
+
+        $baselines = $panel->baseline(new BaselineSubject(self::RUN_ID, self::SOURCE_ID, Artifact::describe($inputPath), $inputPath));
+
+        self::assertSame(
+            ['pyhanko' => 'invalid', 'pdfsig' => 'invalid', 'openssl-cms' => 'invalid', 'qpdf' => 'valid'],
+            array_column(array_map(static fn (array $baseline): array => ['analyzer' => $baseline['analyzer']['id'], 'verdict' => $baseline['verdict']], $baselines), 'verdict', 'analyzer'),
+        );
     }
 
     /**

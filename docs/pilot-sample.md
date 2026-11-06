@@ -40,7 +40,7 @@ Not deliberately covered, and left for the main panel: form fields other than si
 
 ## Inputs
 
-The qpdf column is the exit code of `qpdf --check` on the input itself, without a password, when the sample was selected: 0 no problem, 2 errors, 3 warnings only. It is the baseline against which the `qpdf` structure observation of a signed output is read: that adapter turns 2 into `invalid` and 3 into `inconclusive`, so an output of one of the 2 inputs at 2 or the 14 inputs at 3 can get that verdict from a problem the input already had, not from the signer. Only the 11 inputs at 0 make a non-`valid` structure verdict a sign of a signer defect on its own.
+The qpdf column is the exit code of `qpdf --check` on the input itself, without a password, when the sample was selected: 0 no problem, 2 errors, 3 warnings only. Every run now records this as the `qpdf` baseline of the input, next to the baseline of the other analyzers. The `qpdf` adapter turns 2 into `invalid` and 3 into `inconclusive`, so an output of one of the 2 inputs at 2 or the 14 inputs at 3 can get that verdict from a problem the input already had, not from the signer. Only the 11 inputs at 0 make a non-`valid` structure verdict a sign of a signer defect on its own.
 
 | Input | Version | Strata | qpdf | Why it was chosen |
 | ----- | ------- | ------ | ---: | ----------------- |

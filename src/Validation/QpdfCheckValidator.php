@@ -35,9 +35,9 @@ final class QpdfCheckValidator extends CommandLineValidator
         return '/^qpdf version (\S+)$/m';
     }
 
-    protected function judge(string $outputPath): Judgement
+    protected function judge(string $documentPath): Judgement
     {
-        $result = $this->runner->run(['qpdf', '--check', $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run(['qpdf', '--check', $documentPath], $this->timeoutSeconds);
         if ($result->timedOut) {
             return $this->timedOut($result);
         }

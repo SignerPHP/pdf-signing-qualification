@@ -91,7 +91,8 @@ try {
         Artifact::describe($configurationPath),
     );
 
-    $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations']);
+    $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations'], $records['baselines']);
+    $writeFile($runDirectory.'/baselines.json', $encodeJson($records['baselines']));
     $writeFile($runDirectory.'/attempts.json', $encodeJson($records['attempts']));
     $writeFile($runDirectory.'/observations.json', $encodeJson($records['observations']));
     $writeFile($runDirectory.'/summary.md', $summary);

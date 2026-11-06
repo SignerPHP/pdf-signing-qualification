@@ -10,9 +10,11 @@ use DateTimeZone;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\SigningImplementation;
+use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
@@ -37,7 +39,7 @@ final class Pilot
      * @param  list<Input>  $inputs
      * @param  list<array>  $acquisitions
      * @param  array{sha256: string, byte_size: int}  $sourceConfiguration
-     * @return array{run: array, attempts: list<array>, observations: list<array>}
+     * @return array{run: array, baselines: list<array>, attempts: list<array>, observations: list<array>}
      */
     public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration): array
     {
@@ -59,10 +61,14 @@ final class Pilot
             $run['implementation_runtime'] = $runtime;
         }
 
+        $baselines = [];
         $attempts = [];
         $observations = [];
         foreach ($acquiredInputs as [$input, $acquisition]) {
             $inputPath = $acquisition['status'] === 'available' ? Acquirer::filePath($this->cacheDirectory, $input) : null;
+            if ($inputPath !== null) {
+                array_push($baselines, ...$this->baselines($runId, $acquisition, $inputPath));
+            }
             $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']));
             $attempts[] = $result->record;
 
@@ -76,7 +82,25 @@ final class Pilot
         $run['finished_at'] = $this->now();
         (new SchemaValidator)->assertValid($run, self::RUN_SCHEMA, 'run record');
 
-        return ['run' => $run, 'attempts' => $attempts, 'observations' => $observations];
+        return ['run' => $run, 'baselines' => $baselines, 'attempts' => $attempts, 'observations' => $observations];
+    }
+
+    /**
+     * @return list<array>
+     */
+    private function baselines(string $runId, array $acquisition, string $inputPath): array
+    {
+        $inputArtifact = Artifact::describe($inputPath);
+        if ($inputArtifact !== ['sha256' => $acquisition['sha256'], 'byte_size' => $acquisition['byte_size']]) {
+            throw new RuntimeException("The input {$inputPath} does not match its acquisition record for {$acquisition['source_id']}");
+        }
+
+        $baselines = $this->panel->baseline(new BaselineSubject($runId, $acquisition['source_id'], $inputArtifact, $inputPath));
+        foreach ($baselines as $baseline) {
+            (new SchemaValidator)->assertValid($baseline, CommandLineValidator::BASELINE_SCHEMA, "baseline {$baseline['id']}");
+        }
+
+        return $baselines;
     }
 
     /**

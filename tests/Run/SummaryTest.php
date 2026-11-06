@@ -27,7 +27,7 @@ final class SummaryTest extends TestCase
     {
         return [
             'id' => "run-20261031T120000Z/basic-invisible-sha256/pdf-signer/{$sourceId}",
-            'input' => ['source_id' => $sourceId],
+            'input' => $outcome === 'not_run' ? ['status' => 'unavailable', 'source_id' => $sourceId, 'reason' => 'missing_upstream'] : ['status' => 'available', 'source_id' => $sourceId],
             'capability' => $capability ?? ($outcome === 'not_run' ? 'not_evaluated' : 'supported'),
             'execution' => ['outcome' => $outcome, 'exit_code' => $exitCode, 'error' => $error === null ? null : ['message' => $error]],
         ];
@@ -41,6 +41,107 @@ final class SummaryTest extends TestCase
             'verdict' => $verdict,
             'evidence' => ['summary' => $summary],
         ];
+    }
+
+    private static function baseline(string $sourceId, string $analyzerId, string $verdict): array
+    {
+        return ['source_id' => $sourceId, 'analyzer' => ['id' => $analyzerId], 'verdict' => $verdict];
+    }
+
+    /**
+     * @param  list<array>  $attempts
+     * @param  list<array>  $observations
+     */
+    private static function markdown(array $attempts, array $observations): string
+    {
+        $run = self::runRecord();
+        $judged = array_map(static fn (array $observation): string => $observation['attempt_id'].' '.$observation['analyzer']['id'], $observations);
+        $baselines = [];
+        foreach ($attempts as $attempt) {
+            foreach (array_column($run['analyzers'], 'id') as $analyzerId) {
+                if (! in_array($attempt['id'].' '.$analyzerId, $judged, true)) {
+                    $observations[] = self::observation($attempt['input']['source_id'], $analyzerId, 'not_evaluated', 'The attempt produced no output to validate');
+                }
+                if ($attempt['input']['status'] === 'available') {
+                    $baselines[] = self::baseline($attempt['input']['source_id'], $analyzerId, 'valid');
+                }
+            }
+        }
+
+        return Summary::markdown($run, $attempts, $observations, $baselines);
+    }
+
+    public function test_summary_shows_the_baseline_next_to_the_output_verdict_without_changing_either(): void
+    {
+        $attempts = [
+            self::attempt('qpdf:unsigned.pdf', 'succeeded'),
+            self::attempt('verapdf:signed-before.pdf', 'succeeded'),
+            self::attempt('qpdf:damaged.pdf', 'failed', 'pdf-signer exited with code 1: startxref not found'),
+            self::attempt('qpdf:gone.pdf', 'not_run'),
+        ];
+        $observations = [
+            self::observation('qpdf:unsigned.pdf', 'pyhanko', 'valid', 'pyHanko judged 1 signature(s) intact and cryptographically valid'),
+            self::observation('qpdf:unsigned.pdf', 'qpdf', 'valid', 'qpdf found no problem'),
+            self::observation('verapdf:signed-before.pdf', 'pyhanko', 'invalid', 'pyHanko judged the signature(s) Signature1 not intact or not cryptographically valid'),
+            self::observation('verapdf:signed-before.pdf', 'qpdf', 'valid', 'qpdf found no problem'),
+            self::observation('qpdf:damaged.pdf', 'pyhanko', 'not_evaluated', 'The attempt produced no output to validate'),
+            self::observation('qpdf:damaged.pdf', 'qpdf', 'not_evaluated', 'The attempt produced no output to validate'),
+            self::observation('qpdf:gone.pdf', 'pyhanko', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+            self::observation('qpdf:gone.pdf', 'qpdf', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+        ];
+        $baselines = [
+            self::baseline('qpdf:unsigned.pdf', 'pyhanko', 'not_applicable'),
+            self::baseline('qpdf:unsigned.pdf', 'qpdf', 'valid'),
+            self::baseline('verapdf:signed-before.pdf', 'pyhanko', 'invalid'),
+            self::baseline('verapdf:signed-before.pdf', 'qpdf', 'valid'),
+            self::baseline('qpdf:damaged.pdf', 'pyhanko', 'inconclusive'),
+            self::baseline('qpdf:damaged.pdf', 'qpdf', 'invalid'),
+        ];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations, $baselines);
+
+        $expectedVerdicts = <<<'MARKDOWN'
+            ## Verdicts
+
+            | Analyzer | `valid` | `invalid` | `inconclusive` | `not_evaluated` | `not_applicable` |
+            | -------- | ------: | --------: | -------------: | --------------: | ---------------: |
+            | `pyhanko` | 1 | 1 | 0 | 2 | 0 |
+            | `qpdf` | 2 | 0 | 0 | 2 | 0 |
+
+            MARKDOWN;
+        self::assertStringContainsString($expectedVerdicts, $markdown);
+
+        $expectedBaseline = <<<'MARKDOWN'
+            ## Baseline
+
+            Each analyzer's verdict on the input itself, before signing. It is never combined with the verdict on the output.
+
+            | Analyzer | `valid` | `invalid` | `inconclusive` | `not_evaluated` | `not_applicable` |
+            | -------- | ------: | --------: | -------------: | --------------: | ---------------: |
+            | `pyhanko` | 0 | 1 | 1 | 0 | 1 |
+            | `qpdf` | 2 | 1 | 0 | 0 | 0 |
+
+            Each cell gives the verdict on the input, then the verdict on the output.
+
+            | Input | `pyhanko` | `qpdf` |
+            | ----- | --------- | ------ |
+            | `qpdf:unsigned.pdf` | `not_applicable` → `valid` | `valid` → `valid` |
+            | `verapdf:signed-before.pdf` | `invalid` → `invalid` | `valid` → `valid` |
+            | `qpdf:damaged.pdf` | `inconclusive` → `not_evaluated` | `invalid` → `not_evaluated` |
+
+            Inputs without a baseline, because they were unavailable:
+
+            | Input | Reason |
+            | ----- | ------ |
+            | `qpdf:gone.pdf` | `missing_upstream` |
+
+            MARKDOWN;
+        self::assertStringContainsString($expectedBaseline, $markdown);
+
+        self::assertStringContainsString(
+            "| Input | Analyzer | Baseline | Verdict | Summary |\n| ----- | -------- | -------- | ------- | ------- |\n| `verapdf:signed-before.pdf` | `pyhanko` | `invalid` | `invalid` | pyHanko judged the signature(s) Signature1 not intact or not cryptographically valid |\n",
+            $markdown,
+        );
     }
 
     public function test_summary_counts_every_outcome_and_verdict_and_lists_the_failures(): void
@@ -85,6 +186,29 @@ final class SummaryTest extends TestCase
             | `pyhanko` | 1 | 1 | 0 | 2 | 0 |
             | `qpdf` | 1 | 0 | 1 | 2 | 0 |
 
+            ## Baseline
+
+            Each analyzer's verdict on the input itself, before signing. It is never combined with the verdict on the output.
+
+            | Analyzer | `valid` | `invalid` | `inconclusive` | `not_evaluated` | `not_applicable` |
+            | -------- | ------: | --------: | -------------: | --------------: | ---------------: |
+            | `pyhanko` | 3 | 0 | 0 | 0 | 0 |
+            | `qpdf` | 3 | 0 | 0 | 0 | 0 |
+
+            Each cell gives the verdict on the input, then the verdict on the output.
+
+            | Input | `pyhanko` | `qpdf` |
+            | ----- | --------- | ------ |
+            | `qpdf:good.pdf` | `valid` → `valid` | `valid` → `valid` |
+            | `qpdf:hybrid.pdf` | `valid` → `invalid` | `valid` → `inconclusive` |
+            | `qpdf:bad1.pdf` | `valid` → `not_evaluated` | `valid` → `not_evaluated` |
+
+            Inputs without a baseline, because they were unavailable:
+
+            | Input | Reason |
+            | ----- | ------ |
+            | `qpdf:gone.pdf` | `missing_upstream` |
+
             ## Failures
 
             ### Executions that did not succeed
@@ -96,14 +220,14 @@ final class SummaryTest extends TestCase
 
             ### Outputs not judged valid
 
-            | Input | Analyzer | Verdict | Summary |
-            | ----- | -------- | ------- | ------- |
-            | `qpdf:hybrid.pdf` | `pyhanko` | `invalid` | pyHanko judged the signature(s) Signature1 not intact or not cryptographically valid |
-            | `qpdf:hybrid.pdf` | `qpdf` | `inconclusive` | qpdf reported warnings only |
+            | Input | Analyzer | Baseline | Verdict | Summary |
+            | ----- | -------- | -------- | ------- | ------- |
+            | `qpdf:hybrid.pdf` | `pyhanko` | `valid` | `invalid` | pyHanko judged the signature(s) Signature1 not intact or not cryptographically valid |
+            | `qpdf:hybrid.pdf` | `qpdf` | `valid` | `inconclusive` | qpdf reported warnings only |
 
             MARKDOWN;
 
-        self::assertSame($expected, Summary::markdown(self::runRecord(), $attempts, $observations));
+        self::assertSame($expected, self::markdown($attempts, $observations));
     }
 
     public function test_expected_rejections_are_totaled_and_listed_apart_from_failures(): void
@@ -115,7 +239,7 @@ final class SummaryTest extends TestCase
         ];
         $observations = [self::observation('qpdf:good.pdf', 'qpdf', 'valid', 'ok')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("| `succeeded` | 1 |\n| `failed` | 1 |\n| `timed_out` | 0 |\n| `not_run` | 0 |\n| Rejected as expected | 1 |\n| Total | 3 |\n", $markdown);
         self::assertStringContainsString("## Expected rejections\n\n| Input | Error |\n| ----- | ----- |\n| `qpdf:bad1.pdf` | pdf-signer exited with code 1: PDF version not found |\n", $markdown);
@@ -132,7 +256,7 @@ final class SummaryTest extends TestCase
         ];
         $observations = [self::observation('qpdf:good.pdf', 'qpdf', 'valid', 'ok')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("## Failures\n\nNo other attempt failed and no output was judged invalid or inconclusive.\n", $markdown);
     }
@@ -142,7 +266,7 @@ final class SummaryTest extends TestCase
         $attempts = [self::attempt('qpdf:bad1.pdf', 'succeeded', capability: 'expected_rejection')];
         $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'valid', 'ok')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("| `succeeded` | 1 |\n", $markdown);
         self::assertStringContainsString("| Rejected as expected | 0 |\n", $markdown);
@@ -155,7 +279,7 @@ final class SummaryTest extends TestCase
         $attempts = [self::attempt('qpdf:bad1.pdf', 'timed_out', 'pdf-signer did not finish within 120 seconds', 'expected_rejection')];
         $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'not_evaluated', 'The attempt produced no output to validate')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("| `timed_out` | 1 |\n", $markdown);
         self::assertStringContainsString("| Rejected as expected | 0 |\n", $markdown);
@@ -180,7 +304,7 @@ final class SummaryTest extends TestCase
         $attempts = [self::attempt('qpdf:bad1.pdf', 'failed', $error, 'expected_rejection', $exitCode)];
         $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'not_evaluated', 'The attempt produced no output to validate')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("| `failed` | 1 |\n", $markdown);
         self::assertStringContainsString("| Rejected as expected | 0 |\n", $markdown);
@@ -193,7 +317,7 @@ final class SummaryTest extends TestCase
         $attempts = [self::attempt('qpdf:bad1.pdf', 'failed', 'a | b '.str_repeat('x', 300))];
         $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'not_evaluated', 'The attempt produced no output to validate')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString('| a \| b '.str_repeat('x', 194).'… |', $markdown);
     }
@@ -203,7 +327,7 @@ final class SummaryTest extends TestCase
         $attempts = [self::attempt('qpdf:good.pdf', 'succeeded')];
         $observations = [self::observation('qpdf:good.pdf', 'pyhanko', 'valid', 'ok')];
 
-        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+        $markdown = self::markdown($attempts, $observations);
 
         self::assertStringContainsString("## Failures\n\nEvery attempt succeeded and every output was judged valid.\n", $markdown);
     }

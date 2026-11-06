@@ -39,9 +39,9 @@ final class PyHankoValidator extends CommandLineValidator
         return '/^pyHanko, version (\S+)/m';
     }
 
-    protected function judge(string $outputPath): Judgement
+    protected function judge(string $documentPath): Judgement
     {
-        $result = $this->runner->run(['pyhanko', ...self::ARGUMENTS, $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run(['pyhanko', ...self::ARGUMENTS, $documentPath], $this->timeoutSeconds);
         if ($result->timedOut) {
             return $this->timedOut($result);
         }
@@ -73,7 +73,7 @@ final class PyHankoValidator extends CommandLineValidator
             return new Judgement('inconclusive', 'pyHanko '.$result->describe().' before reporting every signature', $result->exitCode, $result->output, $details);
         }
         if ($signatures === []) {
-            return new Judgement('invalid', 'pyHanko found no signature', $result->exitCode, $result->output, $details);
+            return new Judgement('invalid', 'pyHanko found no signature', $result->exitCode, $result->output, $details, noSignature: true);
         }
 
         $isRefused = static fn (array $signature): bool => ($signature['error'] ?? null) === self::HYBRID_REFERENCE_REFUSAL;

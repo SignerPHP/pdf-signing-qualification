@@ -39,15 +39,15 @@ final class PdfsigValidator extends CommandLineValidator
         return '/^pdfsig version (\S+)$/m';
     }
 
-    protected function judge(string $outputPath): Judgement
+    protected function judge(string $documentPath): Judgement
     {
-        $result = $this->runner->run(['pdfsig', '-nocert', $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run(['pdfsig', '-nocert', $documentPath], $this->timeoutSeconds);
         if ($result->timedOut) {
             return $this->timedOut($result);
         }
 
         if (str_contains($result->output, 'does not contain any signatures')) {
-            return new Judgement('invalid', 'pdfsig found no signature', $result->exitCode, $result->output);
+            return new Judgement('invalid', 'pdfsig found no signature', $result->exitCode, $result->output, noSignature: true);
         }
 
         $blocks = preg_split('/^Signature #(\d+):$/m', $result->output, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];

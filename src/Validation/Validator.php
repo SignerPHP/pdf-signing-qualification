@@ -12,4 +12,6 @@ interface Validator
     public function analyzer(): array;
 
     public function observe(ValidationSubject $subject): array;
+
+    public function baseline(BaselineSubject $subject): array;
 }

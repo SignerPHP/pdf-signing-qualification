@@ -28,4 +28,12 @@ final class ValidationPanel
     {
         return array_map(static fn (Validator $validator): array => $validator->observe($subject), $this->validators);
     }
+
+    /**
+     * @return list<array>
+     */
+    public function baseline(BaselineSubject $subject): array
+    {
+        return array_map(static fn (Validator $validator): array => $validator->baseline($subject), $this->validators);
+    }
 }

@@ -42,11 +42,11 @@ Each analyzer's verdict on the 27 inputs themselves, before signing. The verdict
 | Analyzer | `valid` | `invalid` | `inconclusive` | `not_applicable` |
 | -------- | ------: | --------: | -------------: | ---------------: |
 | `pyhanko` | 2 | 2 | 9 | 14 |
-| `pdfsig` | 2 | 1 | 4 | 20 |
-| `openssl-cms` | 2 | 3 | 2 | 20 |
+| `pdfsig` | 2 | 1 | 5 | 19 |
+| `openssl-cms` | 2 | 3 | 10 | 12 |
 | `qpdf` | 11 | 2 | 14 | 0 |
 
-The `qpdf` totals match the exit codes written by hand in the [pilot sample](pilot-sample.md). `not_applicable` is an analyzer that found no signature in the input.
+The `qpdf` totals match the exit codes written by hand in the [pilot sample](pilot-sample.md). `not_applicable` is an analyzer that read the input and found no signature in it. `openssl-cms` is `inconclusive` on 8 more inputs than it would be on readable files, because it does not take "no signature" from a listing of a file that qpdf had to recover, and `pdfsig` is `inconclusive` on `nontrivial-crypt-filter.pdf`, which it cannot decode without the password.
 
 ## Failures found
 

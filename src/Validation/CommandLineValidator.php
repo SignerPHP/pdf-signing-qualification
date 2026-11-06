@@ -86,7 +86,7 @@ abstract class CommandLineValidator implements Validator
             'policy' => $this->policy(),
             'property' => $this->property(),
             'input_artifact' => $subject->inputArtifact,
-            'verdict' => $judgement->noSignature ? 'not_applicable' : $judgement->verdict,
+            'verdict' => $judgement->inputVerdict ?? $judgement->verdict,
             'evidence' => self::evidence($judgement),
             'observed_at' => $this->now(),
         ];

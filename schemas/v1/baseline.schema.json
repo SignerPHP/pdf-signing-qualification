@@ -18,5 +18,7 @@
         "verdict": { "enum": ["valid", "invalid", "inconclusive", "not_applicable"] },
         "evidence": { "$ref": "observation.schema.json#/properties/evidence" },
         "observed_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" }
-    }
+    },
+    "if": { "properties": { "verdict": { "const": "not_applicable" } } },
+    "then": { "properties": { "property": { "const": "cms_signature" } } }
 }

@@ -72,7 +72,9 @@ final class OpenSslCmsValidator extends CommandLineValidator
         $byteRanges = [];
         self::collectByteRanges($objects, $objects, $byteRanges);
         if ($byteRanges === []) {
-            return new Judgement('invalid', 'No dictionary with a /ByteRange was found', null, '', noSignature: true);
+            $documentWasRead = $located->exitCode === 0;
+
+            return Judgement::noSignature($documentWasRead ? 'No dictionary with a /ByteRange was found' : 'No dictionary with a /ByteRange was found in a file qpdf had to recover', $located->exitCode, '', documentWasRead: $documentWasRead);
         }
 
         $signatures = [];

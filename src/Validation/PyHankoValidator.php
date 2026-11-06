@@ -49,7 +49,7 @@ final class PyHankoValidator extends CommandLineValidator
         $signatures = [];
         $pendingError = null;
         foreach (preg_split('/\R/', $result->output) ?: [] as $line) {
-            if (preg_match('/^(.+):([0-9a-f]{64}):(INTACT:\S*|INVALID)$/', $line, $match) === 1) {
+            if (preg_match('/^(.*):([0-9a-f]{64}):(INTACT:\S*|INVALID)$/', $line, $match) === 1) {
                 $signature = [
                     'field' => $match[1],
                     'signer_certificate_sha256' => $match[2],
@@ -73,7 +73,9 @@ final class PyHankoValidator extends CommandLineValidator
             return new Judgement('inconclusive', 'pyHanko '.$result->describe().' before reporting every signature', $result->exitCode, $result->output, $details);
         }
         if ($signatures === []) {
-            return new Judgement('invalid', 'pyHanko found no signature', $result->exitCode, $result->output, $details, noSignature: true);
+            return $result->exitCode === 0
+                ? Judgement::noSignature('pyHanko found no signature', $result->exitCode, $result->output, $details)
+                : new Judgement('inconclusive', 'pyHanko ended with a failed validation, but no signature line could be read', $result->exitCode, $result->output, $details);
         }
 
         $isRefused = static fn (array $signature): bool => ($signature['error'] ?? null) === self::HYBRID_REFERENCE_REFUSAL;

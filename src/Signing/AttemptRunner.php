@@ -63,8 +63,7 @@ final class AttemptRunner
             throw new RuntimeException("The available input {$acquisition['source_id']} has no file");
         }
 
-        $this->networkIsolation->assertIsolated();
-        $this->assertBoundedStorage();
+        $this->assertContained();
         $attemptDirectory = $this->createAttemptDirectory();
         $stagedOutputPath = null;
         try {
@@ -112,6 +111,12 @@ final class AttemptRunner
             ],
             'output' => $outputPath === null ? null : Artifact::describe($outputPath),
         ], $outputPath);
+    }
+
+    public function assertContained(): void
+    {
+        $this->networkIsolation->assertIsolated();
+        $this->assertBoundedStorage();
     }
 
     /**

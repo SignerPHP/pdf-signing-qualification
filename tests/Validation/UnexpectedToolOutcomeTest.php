@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
@@ -54,6 +55,58 @@ final class UnexpectedToolOutcomeTest extends TestCase
         $validator = new $validatorClass($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-29T12:00:03Z'));
 
         return $validator->observe(new ValidationSubject('run-20261029T120000Z/synthetic/1', self::INPUT_ARTIFACT, self::$signedPath));
+    }
+
+    /**
+     * @param  class-string<CommandLineValidator>  $validatorClass
+     */
+    private static function baseline(string $validatorClass, string $versionOutput, CommandResult $validationResult): array
+    {
+        $runner = new FakeCommandRunner(new CommandResult(0, $versionOutput), $validationResult);
+        $validator = new $validatorClass($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-29T12:00:03Z'));
+
+        return $validator->baseline(new BaselineSubject('run-20261029T120000Z', 'synthetic:input.pdf', self::INPUT_ARTIFACT, self::$signedPath));
+    }
+
+    /**
+     * @return iterable<string, array{class-string<CommandLineValidator>, string, CommandResult, string}>
+     */
+    public static function noSignatureReports(): iterable
+    {
+        $noByteRange = (string) json_encode(['qpdf' => [[], ['obj:1 0 R' => ['value' => ['/Type' => '/Catalog']]]]]);
+
+        yield 'pdfsig on a readable document' => [PdfsigValidator::class, "pdfsig version 22.12.0\n", new CommandResult(2, "File 'input.pdf' does not contain any signatures\n"), 'not_applicable'];
+        yield 'pdfsig after a syntax error' => [PdfsigValidator::class, "pdfsig version 22.12.0\n", new CommandResult(2, "Syntax Error (2): Unknown compression method in flate stream\nFile 'input.pdf' does not contain any signatures\n"), 'inconclusive'];
+        yield 'pdfsig after an internal error' => [PdfsigValidator::class, "pdfsig version 22.12.0\n", new CommandResult(2, "Internal Error: xref num 3 not found but needed\nFile 'input.pdf' does not contain any signatures\n"), 'inconclusive'];
+        yield 'qpdf listing without warnings' => [OpenSslCmsValidator::class, "OpenSSL 3.0.22 25 Aug 2026\n", new CommandResult(0, $noByteRange), 'not_applicable'];
+        yield 'qpdf listing of a recovered file' => [OpenSslCmsValidator::class, "OpenSSL 3.0.22 25 Aug 2026\n", new CommandResult(3, $noByteRange), 'inconclusive'];
+        yield 'pyHanko that finished without a signature' => [PyHankoValidator::class, "pyHanko, version 0.38.0 (CLI 0.6.0)\n", new CommandResult(0, ''), 'not_applicable'];
+    }
+
+    /**
+     * @param  class-string<CommandLineValidator>  $validatorClass
+     */
+    #[DataProvider('noSignatureReports')]
+    public function test_no_signature_is_not_applicable_to_an_input_only_when_the_tool_read_it_and_stays_invalid_on_an_output(string $validatorClass, string $versionOutput, CommandResult $validationResult, string $inputVerdict): void
+    {
+        $baseline = self::baseline($validatorClass, $versionOutput, $validationResult);
+        $observation = self::observe($validatorClass, $versionOutput, $validationResult);
+
+        self::assertSame($inputVerdict, $baseline['verdict']);
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertSame($validationResult->exitCode, $baseline['evidence']['exit_code']);
+    }
+
+    public function test_failed_pyhanko_validation_without_a_signature_line_is_not_read_as_no_signature(): void
+    {
+        $result = new CommandResult(1, "unparsed signature report\nError: Validation failed\n");
+
+        $baseline = self::baseline(PyHankoValidator::class, "pyHanko, version 0.38.0 (CLI 0.6.0)\n", $result);
+        $observation = self::observe(PyHankoValidator::class, "pyHanko, version 0.38.0 (CLI 0.6.0)\n", $result);
+
+        self::assertSame('inconclusive', $baseline['verdict']);
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertStringNotContainsString('found no signature', $baseline['evidence']['summary']);
     }
 
     /**

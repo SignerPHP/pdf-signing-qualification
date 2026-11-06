@@ -41,18 +41,20 @@ final class ValidatorsTest extends TestCase
         mkdir(self::$directory);
 
         $signed = SyntheticSignedPdf::create(self::$directory);
+        mkdir(self::$directory.'/without-field-name');
+        $signedWithoutFieldName = SyntheticSignedPdf::create(self::$directory.'/without-field-name', fieldName: '');
         self::$fixtures = [
             'signed' => $signed,
             'tampered' => SyntheticSignedPdf::tamperSignedRange($signed, self::$directory),
             'unsigned' => SyntheticSignedPdf::createUnsigned(self::$directory),
             'hybrid-reference' => SyntheticSignedPdf::create(self::$directory, 'hybrid-reference', hybridReference: true),
+            'tampered-without-field-name' => SyntheticSignedPdf::tamperSignedRange($signedWithoutFieldName, self::$directory.'/without-field-name'),
         ];
     }
 
     public static function tearDownAfterClass(): void
     {
-        array_map(unlink(...), glob(self::$directory.'/*') ?: []);
-        rmdir(self::$directory);
+        exec('rm -rf '.escapeshellarg(self::$directory));
     }
 
     /**
@@ -140,6 +142,18 @@ final class ValidatorsTest extends TestCase
         self::assertSame(self::RUN_ID, $baseline['run_id']);
         self::assertSame(self::SOURCE_ID, $baseline['source_id']);
         self::assertSame(Artifact::describe($inputPath), $baseline['input_artifact']);
+    }
+
+    public function test_pyhanko_judges_a_signature_whose_field_has_no_name(): void
+    {
+        $inputPath = self::$fixtures['tampered-without-field-name'];
+
+        $baseline = self::validator(PyHankoValidator::class)->baseline(new BaselineSubject(self::RUN_ID, self::SOURCE_ID, Artifact::describe($inputPath), $inputPath));
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $inputPath));
+
+        self::assertSame('invalid', $baseline['verdict'], $baseline['evidence']['summary']);
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertCount(1, $baseline['evidence']['details']['signatures']);
     }
 
     public function test_panel_records_one_baseline_per_analyzer_on_a_tampered_input(): void

@@ -68,6 +68,16 @@ final class BaselineSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_not_applicable_is_rejected_for_a_property_that_is_not_a_signature(): void
+    {
+        self::assertInvalid(self::mutate(function (array $baseline): array {
+            $baseline['property'] = 'structure';
+            $baseline['verdict'] = 'not_applicable';
+
+            return $baseline;
+        }));
+    }
+
     public function test_input_artifact_is_required(): void
     {
         self::assertInvalid(self::mutate(function (array $baseline): array {

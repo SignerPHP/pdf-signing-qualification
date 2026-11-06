@@ -44,6 +44,7 @@ final class Pilot
     public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration): array
     {
         $acquiredInputs = self::acquiredInputs($inputs, $acquisitions);
+        $this->attemptRunner->assertContained();
         $run = [
             'schema' => self::RUN_SCHEMA,
             'id' => $runId,

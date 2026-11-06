@@ -22,12 +22,12 @@ final class SummaryTest extends TestCase
         ];
     }
 
-    private static function attempt(string $sourceId, string $outcome, ?string $error = null): array
+    private static function attempt(string $sourceId, string $outcome, ?string $error = null, ?string $capability = null): array
     {
         return [
             'id' => "run-20261031T120000Z/basic-invisible-sha256/pdf-signer/{$sourceId}",
             'input' => ['source_id' => $sourceId],
-            'capability' => $outcome === 'not_run' ? 'not_evaluated' : 'supported',
+            'capability' => $capability ?? ($outcome === 'not_run' ? 'not_evaluated' : 'supported'),
             'execution' => ['outcome' => $outcome, 'error' => $error === null ? null : ['message' => $error]],
         ];
     }
@@ -68,13 +68,13 @@ final class SummaryTest extends TestCase
 
             ## Executions
 
-            | Outcome | Attempts |
-            | ------- | -------: |
-            | `succeeded` | 2 |
-            | `failed` | 1 |
-            | `timed_out` | 0 |
-            | `not_run` | 1 |
-            | Total | 4 |
+            | Outcome | Other attempts | Expected rejections | Total |
+            | ------- | -------------: | ------------------: | ----: |
+            | `succeeded` | 2 | 0 | 2 |
+            | `failed` | 1 | 0 | 1 |
+            | `timed_out` | 0 | 0 | 0 |
+            | `not_run` | 1 | 0 | 1 |
+            | Total | 4 | 0 | 4 |
 
             ## Verdicts
 
@@ -102,6 +102,61 @@ final class SummaryTest extends TestCase
             MARKDOWN;
 
         self::assertSame($expected, Summary::markdown(self::runRecord(), $attempts, $observations));
+    }
+
+    public function test_expected_rejections_are_totaled_and_listed_apart_from_failures(): void
+    {
+        $attempts = [
+            self::attempt('qpdf:good.pdf', 'succeeded'),
+            self::attempt('qpdf:bad1.pdf', 'failed', 'pdf-signer exited with code 1: PDF version not found', 'expected_rejection'),
+            self::attempt('qpdf:bad35.pdf', 'failed', 'pdf-signer exited with code 1: Object 1 is not an object stream'),
+        ];
+        $observations = [self::observation('qpdf:good.pdf', 'qpdf', 'valid', 'ok')];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+
+        self::assertStringContainsString("| `succeeded` | 1 | 0 | 1 |\n| `failed` | 1 | 1 | 2 |\n", $markdown);
+        self::assertStringContainsString("| Total | 2 | 1 | 3 |\n", $markdown);
+        self::assertStringContainsString("## Expected rejections\n\n| Input | Error |\n| ----- | ----- |\n| `qpdf:bad1.pdf` | pdf-signer exited with code 1: PDF version not found |\n", $markdown);
+        $failures = substr($markdown, (int) strpos($markdown, '## Failures'));
+        self::assertStringContainsString('`qpdf:bad35.pdf`', $failures);
+        self::assertStringNotContainsString('`qpdf:bad1.pdf`', $failures);
+    }
+
+    public function test_run_whose_only_problem_is_an_expected_rejection_does_not_claim_every_attempt_succeeded(): void
+    {
+        $attempts = [
+            self::attempt('qpdf:good.pdf', 'succeeded'),
+            self::attempt('qpdf:bad1.pdf', 'failed', 'pdf-signer exited with code 1: PDF version not found', 'expected_rejection'),
+        ];
+        $observations = [self::observation('qpdf:good.pdf', 'qpdf', 'valid', 'ok')];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+
+        self::assertStringContainsString("## Failures\n\nEvery other attempt succeeded and every output was judged valid.\n", $markdown);
+    }
+
+    public function test_expected_rejection_that_succeeded_is_reported_as_observed(): void
+    {
+        $attempts = [self::attempt('qpdf:bad1.pdf', 'succeeded', capability: 'expected_rejection')];
+        $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'valid', 'ok')];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+
+        self::assertStringContainsString("| `succeeded` | 0 | 1 | 1 |\n", $markdown);
+        self::assertStringContainsString("### Expected rejections that succeeded\n\n| Input |\n| ----- |\n| `qpdf:bad1.pdf` |\n", $markdown);
+        self::assertStringNotContainsString('## Expected rejections'."\n", $markdown);
+    }
+
+    public function test_expected_rejection_that_timed_out_stays_a_failure(): void
+    {
+        $attempts = [self::attempt('qpdf:bad1.pdf', 'timed_out', 'pdf-signer did not finish within 120 seconds', 'expected_rejection')];
+        $observations = [self::observation('qpdf:bad1.pdf', 'qpdf', 'not_evaluated', 'The attempt produced no output to validate')];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations);
+
+        self::assertStringContainsString('| `qpdf:bad1.pdf` | `expected_rejection` | `timed_out` | pdf-signer did not finish within 120 seconds |', $markdown);
+        self::assertStringNotContainsString('## Expected rejections'."\n", $markdown);
     }
 
     public function test_table_cells_keep_their_row_when_the_text_has_pipes_or_is_long(): void

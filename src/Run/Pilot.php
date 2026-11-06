@@ -28,6 +28,7 @@ final class Pilot
         private readonly AttemptRunner $attemptRunner,
         private readonly SigningImplementation $implementation,
         private readonly ValidationPanel $panel,
+        private readonly ExpectedRejections $expectedRejections,
         private readonly string $cacheDirectory,
         private readonly Closure $clock,
     ) {}
@@ -51,6 +52,7 @@ final class Pilot
             'implementation' => ['id' => $this->implementation->id(), 'revision' => $this->implementation->revision()],
             'analyzers' => $this->panel->analyzers(),
             'source_configuration' => $sourceConfiguration,
+            'expected_rejections' => $this->expectedRejections->artifact,
         ];
         $runtime = $this->implementation->runtime();
         if ($runtime !== []) {
@@ -61,7 +63,7 @@ final class Pilot
         $observations = [];
         foreach ($acquiredInputs as [$input, $acquisition]) {
             $inputPath = $acquisition['status'] === 'available' ? Acquirer::filePath($this->cacheDirectory, $input) : null;
-            $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath);
+            $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']));
             $attempts[] = $result->record;
 
             $inputArtifact = $result->record['input']['status'] === 'available' ? ['sha256' => $result->record['input']['sha256'], 'byte_size' => $result->record['input']['byte_size']] : null;

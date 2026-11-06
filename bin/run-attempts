@@ -6,6 +6,7 @@ declare(strict_types=1);
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Run\Environment;
+use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
 use SignerPHP\PdfSigningQualification\Run\Pilot;
 use SignerPHP\PdfSigningQualification\Run\Summary;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -29,14 +30,16 @@ if (str_starts_with($arguments[0] ?? '', '--implementation=')) {
 }
 
 if ($arguments === [] || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
-    fwrite(STDERR, "Usage: run-attempts [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache]\n");
+    fwrite(STDERR, "Usage: run-attempts [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections]\n");
     exit(2);
 }
 
 $runDirectory = rtrim($arguments[0], '/');
 $configurationPath = $arguments[1] ?? __DIR__.'/../config/inputs.json';
 $cacheDirectory = $arguments[2] ?? __DIR__.'/../var/cache/inputs';
-$scenarioPath = __DIR__.'/../config/scenarios/basic-invisible-sha256.json';
+$expectedRejectionsPath = $arguments[3] ?? __DIR__.'/../config/expected-rejections.json';
+$scenarioDirectory = __DIR__.'/../config/scenarios';
+$scenarioPath = $scenarioDirectory.'/basic-invisible-sha256.json';
 $sandboxDirectory = '/sandbox';
 
 $readJson = static function (string $path): array {
@@ -62,6 +65,7 @@ $exitCode = 0;
 try {
     $implementation = Implementations::select($implementationId);
     $inputs = SourceConfiguration::fromFile($configurationPath);
+    $expectedRejections = ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, $scenarioDirectory);
     $acquisitions = array_values($readJson($runDirectory.'/acquisitions.json'));
 
     if (! mkdir($scratchDirectory, 0700) || ! mkdir($scratchDirectory.'/credential', 0700) || ! mkdir($scratchDirectory.'/work', 0700)) {
@@ -78,7 +82,7 @@ try {
         new QpdfCheckValidator(new ProcessRunner, $clock),
     ]);
 
-    $records = (new Pilot($attemptRunner, $implementation, $panel, $cacheDirectory, $clock))->run(
+    $records = (new Pilot($attemptRunner, $implementation, $panel, $expectedRejections, $cacheDirectory, $clock))->run(
         basename($runDirectory),
         $readJson($scenarioPath),
         $inputs,

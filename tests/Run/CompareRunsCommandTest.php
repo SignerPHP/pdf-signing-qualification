@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Run\RunComparison;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
@@ -111,6 +112,75 @@ final class CompareRunsCommandTest extends TestCase
 
         self::assertSame(0, $exitCode, $errorOutput);
         self::assertSame(1, $this->readComparison($this->directory.'/comparison')['totals']['changes']['fixed']);
+    }
+
+    public function test_a_regression_condition_that_reappears_exits_with_one(): void
+    {
+        [$reference, $candidate] = $this->writeRuns(
+            (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->regression('hybrid-xref', 'absent', ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+            (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->regression('hybrid-xref', 'present', ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+        );
+
+        [$exitCode, $output, $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');
+
+        self::assertSame(1, $exitCode, $errorOutput);
+        self::assertStringContainsString('| `hybrid-xref` | `paired` | `absent`: The condition of hybrid-xref is absent | `present`: The condition of hybrid-xref is present | `introduced` |', $output);
+        $comparison = $this->readComparison($this->directory.'/comparison');
+        self::assertSame(0, $comparison['totals']['changes']['introduced']);
+        self::assertSame(1, $comparison['totals']['regression_changes']['introduced']);
+    }
+
+    /**
+     * @return iterable<string, array{callable(array): array, string}>
+     */
+    public static function inconsistentRegressionReplays(): iterable
+    {
+        yield 'replay of another run' => [static function (array $regressions): array {
+            $regressions['run_id'] = 'run-20261107T000000Z';
+
+            return $regressions;
+        }, 'belongs to the run run-20261107T000000Z'];
+        yield 'case on an attempt that is not in the run' => [static function (array $regressions): array {
+            $regressions['cases'][0]['attempt_id'] = 'run-20261107T130000Z/basic-invisible-sha256/pdf-signer/regression:missing.pdf';
+
+            return $regressions;
+        }, 'which is not in the run'];
+        yield 'regression attempt without its observations' => [static function (array $regressions): array {
+            $regressions['observations'] = [];
+
+            return $regressions;
+        }, 'does not have one observation from each analyzer of the run'];
+        yield 'case recorded twice' => [static function (array $regressions): array {
+            $regressions['cases'][] = $regressions['cases'][0];
+
+            return $regressions;
+        }, 'The regression case hybrid-xref in'];
+        yield 'replay that does not follow its schema' => [static function (array $regressions): array {
+            unset($regressions['cases'][0]['condition']['evidence']);
+
+            return $regressions;
+        }, 'Invalid regression replay'];
+    }
+
+    /**
+     * @param  callable(array): array  $mutation
+     */
+    #[DataProvider('inconsistentRegressionReplays')]
+    public function test_an_inconsistent_regression_replay_is_refused(callable $mutation, string $message): void
+    {
+        [$reference, $candidate] = $this->writeRuns(
+            (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->regression('hybrid-xref', 'present'),
+            (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->regression('hybrid-xref', 'present'),
+        );
+        $regressions = json_decode((string) file_get_contents($candidate.'/regressions.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($regressions);
+        file_put_contents($candidate.'/regressions.json', json_encode($mutation($regressions), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        [$exitCode, , $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString($message, $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/comparison');
     }
 
     public function test_a_run_without_run_json_is_refused(): void

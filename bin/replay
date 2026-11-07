@@ -1,0 +1,63 @@
+#!/bin/sh
+set -eu
+
+cd "$(dirname "$0")/.."
+
+usage() {
+    echo "Usage: bin/replay <reference-revision> <candidate-revision>" >&2
+    echo "Each revision is a full pdf-signer commit hash or a release tag such as v0.3.0." >&2
+    exit 2
+}
+
+[ "$#" -eq 2 ] || usage
+for revision in "$1" "$2"; do
+    if ! printf '%s' "$revision" | grep -Eqx '[0-9a-f]{40}|v[0-9]+\.[0-9]+\.[0-9]+'; then
+        echo "$revision is not a full commit hash or a release tag; branch names, short hashes and other moving labels are refused." >&2
+        usage
+    fi
+done
+
+export HOST_UID="${HOST_UID:-$(id -u)}"
+export HOST_GID="${HOST_GID:-$(id -g)}"
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+replay_directory="var/replays/replay-$timestamp"
+
+docker compose build app >&2
+docker compose run --rm -T app composer install --no-interaction --no-progress >&2
+
+for revision in "$1" "$2"; do
+    if ! PDF_SIGNER_REVISION="$revision" QUALIFICATION_IMAGE_TAG="pdf-signer-$revision" docker compose build sandbox >&2; then
+        echo "pdf-signer $revision could not be installed with its locked dependencies; see the build output above. Nothing was replayed." >&2
+        exit 2
+    fi
+done
+
+mkdir -p "$replay_directory"
+
+acquisition_status=0
+docker compose run --rm -T app composer acquire > "$replay_directory/acquisitions.json" || acquisition_status=$?
+if [ "$acquisition_status" -gt 1 ]; then
+    echo "The acquisition was aborted; see the messages above. Nothing was signed." >&2
+    exit "$acquisition_status"
+fi
+
+run_side() {
+    side="$1"
+    revision="$2"
+    run_directory="$replay_directory/run-$timestamp-$side"
+    mkdir "$run_directory"
+    cp "$replay_directory/acquisitions.json" "$run_directory/acquisitions.json"
+    image_id="$(docker image inspect --format '{{.Id}}' "pdf-signing-qualification:pdf-signer-$revision")"
+    PDF_SIGNER_REVISION="$revision" QUALIFICATION_IMAGE_TAG="pdf-signer-$revision" \
+        docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "$run_directory" >&2
+}
+
+run_side reference "$1"
+run_side candidate "$2"
+
+comparison_status=0
+docker compose run --rm -T sandbox bin/compare-runs "$replay_directory/run-$timestamp-reference" "$replay_directory/run-$timestamp-candidate" "$replay_directory/comparison" || comparison_status=$?
+
+echo "Results written to $replay_directory" >&2
+exit "$comparison_status"

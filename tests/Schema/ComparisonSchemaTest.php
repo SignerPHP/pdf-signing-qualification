@@ -45,6 +45,7 @@ final class ComparisonSchemaTest extends SchemaTestCase
             'totals' => [
                 'inputs' => ['paired' => 1, 'only_in_reference' => 0, 'only_in_candidate' => 0, 'unavailable' => 0, 'input_changed' => 0],
                 'changes' => ['introduced' => 1, 'fixed' => 0, 'persistent' => 0, 'changed' => 0, 'unchanged' => 2],
+                'regression_changes' => ['introduced' => 0, 'fixed' => 1, 'persistent' => 0, 'changed' => 0, 'unchanged' => 0],
             ],
             'inputs' => [[
                 'source_id' => self::SOURCE_ID,
@@ -58,7 +59,84 @@ final class ComparisonSchemaTest extends SchemaTestCase
                     ['subject' => 'verdict', 'analyzer_id' => 'qpdf', 'reference' => 'valid', 'candidate' => 'invalid', 'change' => 'introduced'],
                 ],
             ]],
+            'regressions' => [[
+                'case_id' => 'hybrid-xref',
+                'status' => 'paired',
+                'reference' => self::regressionSide('run-20261107T120000Z', 'present'),
+                'candidate' => self::regressionSide('run-20261107T130000Z', 'absent'),
+                'items' => [
+                    ['subject' => 'condition', 'reference' => 'present', 'candidate' => 'absent', 'change' => 'fixed'],
+                ],
+            ]],
         ];
+    }
+
+    private static function regressionSide(string $runId, string $condition): array
+    {
+        return [
+            'attempt_id' => "{$runId}/basic-invisible-sha256/pdf-signer/regression:hybrid-xref.pdf",
+            'condition' => ['status' => $condition, 'evidence' => "The condition is {$condition}"],
+        ];
+    }
+
+    private static function withRegression(callable $mutation): array
+    {
+        return self::mutate(function (array $comparison) use ($mutation): array {
+            $comparison['regressions'][0] = $mutation($comparison['regressions'][0]);
+
+            return $comparison;
+        });
+    }
+
+    public function test_a_paired_regression_case_has_exactly_one_condition_item(): void
+    {
+        self::assertInvalid(self::withRegression(static function (array $regression): array {
+            $regression['items'] = [];
+
+            return $regression;
+        }));
+        self::assertInvalid(self::withRegression(static function (array $regression): array {
+            $regression['items'][] = $regression['items'][0];
+
+            return $regression;
+        }));
+        self::assertInvalid(self::withRegression(static function (array $regression): array {
+            $regression['items'][0]['candidate'] = 'valid';
+
+            return $regression;
+        }));
+    }
+
+    public function test_a_regression_case_not_replayed_in_both_runs_has_no_item(): void
+    {
+        $notReplayed = static function (array $regression): array {
+            $regression['status'] = 'not_replayed';
+            $regression['candidate'] = ['attempt_id' => null, 'condition' => ['status' => 'not_evaluated', 'evidence' => 'The case runs under scenario other-scenario']];
+
+            return $regression;
+        };
+        self::assertInvalid(self::withRegression($notReplayed));
+        self::assertValid(self::withRegression(static function (array $regression) use ($notReplayed): array {
+            $regression = $notReplayed($regression);
+            $regression['items'] = [];
+
+            return $regression;
+        }));
+        self::assertInvalid(self::withRegression(static function (array $regression): array {
+            $regression['candidate']['attempt_id'] = null;
+
+            return $regression;
+        }));
+    }
+
+    public function test_a_regression_case_in_one_run_only_has_no_side_in_the_other(): void
+    {
+        self::assertValid(self::withRegression(static function (array $regression): array {
+            return ['case_id' => 'hybrid-xref', 'status' => 'only_in_candidate', 'reference' => null, 'candidate' => $regression['candidate'], 'items' => []];
+        }));
+        self::assertInvalid(self::withRegression(static function (array $regression): array {
+            return ['case_id' => 'hybrid-xref', 'status' => 'only_in_candidate', 'reference' => $regression['reference'], 'candidate' => $regression['candidate'], 'items' => []];
+        }));
     }
 
     private static function withInput(callable $mutation): array

@@ -301,12 +301,14 @@ final class RunComparisonTest extends TestCase
         $candidate->run['environment']['container_image']['id'] = 'sha256:'.str_repeat('9', 64);
         $candidate->run['environment']['resource_limits']['timeout_seconds'] = 60;
         $candidate->run['implementation_runtime'] = ['engine' => 'OpenPDF'];
+        $candidate->compatibility(['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']);
 
         $comparison = self::compare($reference, $candidate);
 
         self::assertSame([
             ['subject' => 'implementation', 'reference' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]], 'candidate' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)]]],
             ['subject' => 'implementation_runtime', 'reference' => null, 'candidate' => ['engine' => 'OpenPDF']],
+            ['subject' => 'implementation_compatibility', 'reference' => null, 'candidate' => ['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']],
             ['subject' => 'analyzer', 'analyzer_id' => 'pdfsig', 'reference' => ['kind' => 'version', 'value' => '22.12.0'], 'candidate' => ['kind' => 'version', 'value' => '24.02.0']],
             ['subject' => 'analyzer', 'analyzer_id' => 'pyhanko', 'reference' => ['kind' => 'version', 'value' => '0.38.0'], 'candidate' => null],
             ['subject' => 'analyzer', 'analyzer_id' => 'cmp', 'reference' => null, 'candidate' => ['kind' => 'version', 'value' => '3.8']],
@@ -323,5 +325,121 @@ final class RunComparisonTest extends TestCase
             'verdict qpdf' => ['valid', 'valid', 'unchanged'],
         ], self::items($comparison));
         self::assertFalse(RunComparison::hasNewFailures($comparison));
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    private static function regressionItems(array $comparison, string $caseId = 'hybrid-xref'): array
+    {
+        $items = [];
+        foreach (self::regression($comparison, $caseId)['items'] as $item) {
+            $items[$item['subject'].(isset($item['analyzer_id']) ? ' '.$item['analyzer_id'] : '')] = [$item['reference'], $item['candidate'], $item['change']];
+        }
+
+        return $items;
+    }
+
+    private static function regression(array $comparison, string $caseId): array
+    {
+        foreach ($comparison['regressions'] as $regression) {
+            if ($regression['case_id'] === $caseId) {
+                return $regression;
+            }
+        }
+        self::fail("{$caseId} is not in the comparison");
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function conditionChanges(): iterable
+    {
+        yield 'present in both runs' => ['present', 'present', 'persistent'];
+        yield 'present only in the candidate run' => ['absent', 'present', 'introduced'];
+        yield 'no longer present' => ['present', 'absent', 'fixed'];
+        yield 'absent from both runs' => ['absent', 'absent', 'unchanged'];
+        yield 'present, then undetermined' => ['present', 'undetermined', 'changed'];
+        yield 'not evaluated, then present' => ['not_evaluated', 'present', 'introduced'];
+        yield 'present, then not evaluated' => ['present', 'not_evaluated', 'changed'];
+    }
+
+    #[DataProvider('conditionChanges')]
+    public function test_each_regression_condition_is_classified_by_whether_the_defect_is_present(string $referenceCondition, string $candidateCondition, string $change): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', $referenceCondition, self::VALID),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', $candidateCondition, self::VALID),
+        );
+
+        self::assertSame('paired', self::regression($comparison, 'hybrid-xref')['status']);
+        self::assertSame([$referenceCondition, $candidateCondition, $change], self::regressionItems($comparison)['condition']);
+        self::assertSame($change === 'introduced', RunComparison::hasNewFailures($comparison));
+        self::assertSame(0, $comparison['totals']['changes']['introduced']);
+        self::assertSame($change === 'introduced' ? 1 : 0, $comparison['totals']['regression_changes']['introduced']);
+    }
+
+    public function test_a_synthetic_case_compares_its_own_attempt_like_an_input(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', 'present', ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', 'not_evaluated', outcome: 'failed'),
+        );
+
+        self::assertSame([
+            'capability' => ['supported', 'supported', 'unchanged'],
+            'execution' => ['succeeded', 'failed', 'introduced'],
+            'verdict pdfsig' => ['valid', 'not_evaluated', 'changed'],
+            'verdict qpdf' => ['valid', 'not_evaluated', 'changed'],
+            'condition' => ['present', 'not_evaluated', 'changed'],
+        ], self::regressionItems($comparison));
+        self::assertSame(['input' => 0, 'regression' => 1], ['input' => $comparison['totals']['changes']['introduced'], 'regression' => $comparison['totals']['regression_changes']['introduced']]);
+        self::assertTrue(RunComparison::hasNewFailures($comparison));
+        self::assertSame([self::INPUT], array_column($comparison['inputs'], 'source_id'));
+    }
+
+    public function test_a_case_on_a_declared_input_compares_only_its_condition(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regressionOnInput('hybrid-xref', self::INPUT, 'present'),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regressionOnInput('hybrid-xref', self::INPUT, 'absent'),
+        );
+
+        self::assertSame(['condition' => ['present', 'absent', 'fixed']], self::regressionItems($comparison));
+    }
+
+    public function test_cases_missing_from_a_run_or_not_replayed_in_one_are_reported_without_items(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regression('removed-case', 'present')->regressionNotReplayed('other-scenario-case'),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regression('new-case', 'present')->regression('other-scenario-case', 'present'),
+        );
+
+        self::assertSame(
+            ['removed-case' => 'only_in_reference', 'other-scenario-case' => 'not_replayed', 'new-case' => 'only_in_candidate'],
+            array_column($comparison['regressions'], 'status', 'case_id'),
+        );
+        self::assertSame([[], [], []], array_column($comparison['regressions'], 'items'));
+        self::assertFalse(RunComparison::hasNewFailures($comparison));
+    }
+
+    public function test_a_synthetic_input_that_changed_is_not_compared(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', 'absent'),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regression('hybrid-xref', 'present', inputContent: 'regenerated input'),
+        );
+
+        self::assertSame('input_changed', self::regression($comparison, 'hybrid-xref')['status']);
+        self::assertSame([], self::regression($comparison, 'hybrid-xref')['items']);
+        self::assertFalse(RunComparison::hasNewFailures($comparison));
+    }
+
+    public function test_runs_without_regression_cases_have_none_to_compare(): void
+    {
+        $comparison = self::compare(self::reference()->succeeded(self::INPUT, self::VALID), self::candidate()->succeeded(self::INPUT, self::VALID));
+
+        self::assertSame([], $comparison['regressions']);
+        self::assertSame(['introduced' => 0, 'fixed' => 0, 'persistent' => 0, 'changed' => 0, 'unchanged' => 0], $comparison['totals']['regression_changes']);
     }
 }

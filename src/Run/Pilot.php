@@ -11,6 +11,8 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Artifact;
+use SignerPHP\PdfSigningQualification\Regression\RegressionCase;
+use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\SigningImplementation;
@@ -34,16 +36,21 @@ final class Pilot
         private readonly ExpectedRejections $expectedRejections,
         private readonly string $cacheDirectory,
         private readonly Closure $clock,
+        private readonly ?RegressionReplay $regressionReplay = null,
     ) {}
 
     /**
      * @param  list<Input>  $inputs
      * @param  list<array>  $acquisitions
      * @param  array{sha256: string, byte_size: int}  $sourceConfiguration
-     * @return array{run: array, baselines: list<array>, attempts: list<array>, observations: list<array>}
+     * @param  list<RegressionCase>  $regressionCases
+     * @return array{run: array, baselines: list<array>, attempts: list<array>, observations: list<array>, regressions: ?array}
      */
-    public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration): array
+    public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration, array $regressionCases = []): array
     {
+        if ($regressionCases !== [] && $this->regressionReplay === null) {
+            throw new RuntimeException('The run has regression cases but nothing to replay them with');
+        }
         $acquiredInputs = self::acquiredInputs($inputs, $acquisitions);
         $this->attemptRunner->assertContained();
         $run = [
@@ -62,10 +69,12 @@ final class Pilot
         if ($runtime !== []) {
             $run['implementation_runtime'] = $runtime;
         }
+        $run['implementation_compatibility'] = $this->compatibility();
 
         $baselines = [];
         $attempts = [];
         $observations = [];
+        $runAttempts = [];
         foreach ($acquiredInputs as [$input, $acquisition]) {
             $inputPath = $acquisition['status'] === 'available' ? Acquirer::filePath($this->cacheDirectory, $input) : null;
             if ($inputPath !== null) {
@@ -73,6 +82,7 @@ final class Pilot
             }
             $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']));
             $attempts[] = $result->record;
+            $runAttempts[$input->id()] = ['attempt' => $result->record, 'input_path' => $inputPath, 'output_path' => $result->outputPath];
 
             $inputArtifact = $result->record['input']['status'] === 'available' ? ['sha256' => $result->record['input']['sha256'], 'byte_size' => $result->record['input']['byte_size']] : null;
             foreach ($this->panel->observe(new ValidationSubject($result->record['id'], $inputArtifact, $result->outputPath, $inputPath)) as $observation) {
@@ -81,10 +91,25 @@ final class Pilot
             }
         }
 
+        $regressions = $this->regressionReplay?->replay($runId, $scenario, $this->implementation, $regressionCases, $runAttempts);
+
         $run['finished_at'] = $this->now();
         (new SchemaValidator)->assertValid($run, self::RUN_SCHEMA, 'run record');
 
-        return ['run' => $run, 'baselines' => $baselines, 'attempts' => $attempts, 'observations' => $observations];
+        return ['run' => $run, 'baselines' => $baselines, 'attempts' => $attempts, 'observations' => $observations, 'regressions' => $regressions];
+    }
+
+    /**
+     * @return array{status: 'compatible'|'not_checked'}|array{status: 'incompatible', reason: string}
+     */
+    private function compatibility(): array
+    {
+        if ($this->implementation->compatibilityCheck() === null) {
+            return ['status' => 'not_checked'];
+        }
+        $reason = $this->attemptRunner->incompatibility($this->implementation);
+
+        return $reason === null ? ['status' => 'compatible'] : ['status' => 'incompatible', 'reason' => $reason];
     }
 
     /**

@@ -1,0 +1,55 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/regressions.schema.json",
+    "title": "Regression replay, version 1",
+    "description": "The regression cases replayed by one run: the attempts and observations on their synthetic inputs, and for each case whether its condition is present in the output.",
+    "type": "object",
+    "required": ["schema", "run_id", "attempts", "observations", "cases"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/regressions.schema.json" },
+        "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "attempts": {
+            "description": "Attempts on the inputs of synthetic cases. A case on an upstream input uses the attempt of the run on that input.",
+            "type": "array",
+            "items": { "$ref": "attempt.schema.json" }
+        },
+        "observations": {
+            "type": "array",
+            "items": { "$ref": "observation.schema.json" }
+        },
+        "cases": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/case" }
+        }
+    },
+    "$defs": {
+        "case": {
+            "type": "object",
+            "required": ["case_id", "scenario_id", "definition", "attempt_id", "condition"],
+            "additionalProperties": false,
+            "properties": {
+                "case_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+                "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+                "definition": {
+                    "description": "SHA-256 and size of the case file this run read.",
+                    "$ref": "common.schema.json#/$defs/artifact"
+                },
+                "attempt_id": {
+                    "oneOf": [{ "$ref": "common.schema.json#/$defs/inputIdentifier" }, { "type": "null" }]
+                },
+                "condition": {
+                    "type": "object",
+                    "required": ["status", "evidence"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "status": { "enum": ["present", "absent", "undetermined", "not_evaluated"] },
+                        "evidence": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                    }
+                }
+            },
+            "if": { "properties": { "attempt_id": { "type": "null" } } },
+            "then": { "properties": { "condition": { "properties": { "status": { "const": "not_evaluated" } } } } }
+        }
+    }
+}

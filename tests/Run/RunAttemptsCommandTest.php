@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -23,6 +24,8 @@ final class RunAttemptsCommandTest extends TestCase
     private const string PDF_SIGNER_COMMIT = 'f27e4064be107b8a662f370a9acdcecd786da9f7';
 
     private const string IMAGE_ID = 'sha256:cb78b6ec11b31a78d55de03bfb9a7710495733607537d9e079975701bef4e2da';
+
+    private const string REGRESSION_CASE_PATH = __DIR__.'/../../config/regressions/hybrid-xref.json';
 
     private const array ANALYZER_IDS = ['pyhanko', 'pdfsig', 'openssl-cms', 'qpdf', 'cmp', 'qpdf-prior-signatures', 'qpdf-byte-range'];
 
@@ -168,6 +171,18 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(PHP_VERSION, $run['environment']['php_version']);
         self::assertSame(['sha256' => hash_file('sha256', $this->configurationPath), 'byte_size' => filesize($this->configurationPath)], $run['source_configuration']);
         self::assertSame(['sha256' => hash_file('sha256', $this->expectedRejectionsPath), 'byte_size' => filesize($this->expectedRejectionsPath)], $run['expected_rejections']);
+        self::assertSame(['status' => 'compatible'], $run['implementation_compatibility']);
+
+        $regressions = $this->readRecords('run-20261031T120000Z', 'regressions.json');
+        self::assertSame([], $validator->errors($regressions, RegressionReplay::SCHEMA));
+        self::assertSame('run-20261031T120000Z', $regressions['run_id']);
+        self::assertSame(['hybrid-xref'], array_column($regressions['cases'], 'case_id'));
+        self::assertSame('present', $regressions['cases'][0]['condition']['status'], $regressions['cases'][0]['condition']['evidence']);
+        self::assertSame('The final trailer of the output has /XRefStm 445, inside the 721 bytes of the input', $regressions['cases'][0]['condition']['evidence']);
+        self::assertSame(['sha256' => hash_file('sha256', self::REGRESSION_CASE_PATH), 'byte_size' => filesize(self::REGRESSION_CASE_PATH)], $regressions['cases'][0]['definition']);
+        self::assertSame('run-20261031T120000Z/basic-invisible-sha256/pdf-signer/regression:hybrid-xref.pdf', $regressions['cases'][0]['attempt_id']);
+        self::assertSame(['succeeded'], array_column(array_column($regressions['attempts'], 'execution'), 'outcome'));
+        self::assertSame(self::ANALYZER_IDS, array_map(static fn (array $observation): string => $observation['analyzer']['id'], $regressions['observations']));
 
         $attempts = $this->readRecords('run-20261031T120000Z', 'attempts.json');
         self::assertSame(['local:unsigned.pdf', 'local:not-a-pdf.pdf', 'local:gone.pdf'], array_column(array_column($attempts, 'input'), 'source_id'));
@@ -196,6 +211,8 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame($summary, $output);
         self::assertStringContainsString("| `failed` | 1 |\n", $summary);
         self::assertStringContainsString('| `local:not-a-pdf.pdf` | `supported` | `failed` | pdf-signer exited with code 1', $summary);
+        self::assertStringContainsString('| `hybrid-xref` | `regression:hybrid-xref.pdf` | `succeeded` | `present` | The final trailer of the output has /XRefStm 445, inside the 721 bytes of the input | `pyhanko` `inconclusive`, `pdfsig` `valid`', $summary);
+        self::assertStringNotContainsString('regression:hybrid-xref.pdf` | `pyhanko`', $summary);
 
         [$secondExitCode, , $secondErrorOutput] = $this->runCommand('run-20261031T130000Z', $acquisitions);
 
@@ -328,6 +345,8 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame('21.0.13+9-LTS', $run['implementation_runtime']['java_version']);
         self::assertSame(1024 * 1024 * 1024, $run['environment']['resource_limits']['address_space_bytes']);
         self::assertSame('succeeded', $this->readRecords('run-jsignpdf', 'attempts.json')[0]['execution']['outcome']);
+        self::assertSame(['status' => 'not_checked'], $run['implementation_compatibility']);
+        self::assertSame(['hybrid-xref'], array_column($this->readRecords('run-jsignpdf', 'regressions.json')['cases'], 'case_id'));
     }
 
     /**

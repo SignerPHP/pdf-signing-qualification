@@ -17,6 +17,8 @@ final class PdfSignerImplementation implements SigningImplementation
         'revocation_info' => false,
     ];
 
+    private const array COMMAND_OPTIONS = ['--input', '--output', '--cert', '--password', '--no-default-appearance', '--no-default-timestamp'];
+
     public function __construct(
         private readonly string $installationDirectory = '/opt/implementations/pdf-signer',
     ) {}
@@ -64,6 +66,14 @@ final class PdfSignerImplementation implements SigningImplementation
             '--password='.$request->credential->password,
             '--no-default-appearance',
             '--no-default-timestamp',
+        ];
+    }
+
+    public function compatibilityCheck(): array
+    {
+        return [
+            'command' => ['php', '-d', 'memory_limit=-1', $this->installationDirectory.'/bin/signer-sign', '--help'],
+            'expected_output' => self::COMMAND_OPTIONS,
         ];
     }
 }

@@ -44,6 +44,32 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_implementation_compatibility_is_accepted_and_an_incompatibility_needs_its_reason(): void
+    {
+        foreach (['compatible', 'not_checked'] as $status) {
+            self::assertValid(self::mutate(function (array $run) use ($status): array {
+                $run['implementation_compatibility'] = ['status' => $status];
+
+                return $run;
+            }));
+        }
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['implementation_compatibility'] = ['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help'];
+
+            return $run;
+        }));
+        self::assertInvalid(self::mutate(function (array $run): array {
+            $run['implementation_compatibility'] = ['status' => 'incompatible'];
+
+            return $run;
+        }));
+        self::assertInvalid(self::mutate(function (array $run): array {
+            $run['implementation_compatibility'] = ['status' => 'compatible', 'reason' => 'Listed every option'];
+
+            return $run;
+        }));
+    }
+
     public function test_unidentified_container_image_is_accepted_with_its_reason(): void
     {
         self::assertValid(self::mutate(function (array $run): array {

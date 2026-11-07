@@ -120,10 +120,43 @@ final class ComparisonSummaryTest extends TestCase
             (new RunFixture('run-20261107T130000Z'))->succeeded('qpdf:good.pdf', self::VALID, 'second')->records(),
         ));
 
-        self::assertStringContainsString("## Differences between the runs\n\nThe two runs have the same scenario, implementation and implementation runtime, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.\n", $markdown);
+        self::assertStringContainsString("## Differences between the runs\n\nThe two runs have the same scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.\n", $markdown);
+        self::assertStringNotContainsString('## Regression cases', $markdown);
         self::assertStringContainsString("## New failures\n\nThe candidate run has no failure that the reference run did not have.\n", $markdown);
         self::assertStringNotContainsString('## Fixed', $markdown);
         self::assertStringNotContainsString('## Inputs not compared', $markdown);
         self::assertStringEndsWith("The candidate run introduced no failure.\n", $markdown);
+    }
+
+    public function test_summary_gives_the_condition_of_each_regression_case_in_both_runs(): void
+    {
+        $reference = (new RunFixture('run-20261107T120000Z'))
+            ->succeeded('qpdf:good.pdf', self::VALID)
+            ->regression('hybrid-xref', 'absent', self::VALID)
+            ->regression('removed-case', 'present');
+        $candidate = (new RunFixture('run-20261107T130000Z'))
+            ->compatibility(['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help'])
+            ->succeeded('qpdf:good.pdf', self::VALID)
+            ->regression('hybrid-xref', 'present', ['pdfsig' => 'inconclusive', 'qpdf' => 'valid']);
+
+        $markdown = ComparisonSummary::markdown(RunComparison::compare($reference->records(), $candidate->records()));
+
+        self::assertStringContainsString('| `implementation_compatibility` |  | absent | `{"status":"incompatible","reason":"pdf-signer does not list --no-default-timestamp in its help"}` |', $markdown);
+        self::assertStringContainsString("## New failures\n\nNo input has a failure that the reference run did not have; the regression cases below do.\n", $markdown);
+        self::assertStringContainsString(<<<'MARKDOWN'
+            | Case | Status | Reference | Candidate | Change |
+            | ---- | ------ | --------- | --------- | ------ |
+            | `hybrid-xref` | `paired` | `absent`: The condition of hybrid-xref is absent | `present`: The condition of hybrid-xref is present | `introduced` |
+            | `removed-case` | `only_in_reference` | `present`: The condition of removed-case is present | absent from the run |  |
+
+            Other items of the regression cases that are not unchanged:
+
+            | Case | Item | Reference | Candidate | Change |
+            | ---- | ---- | --------- | --------- | ------ |
+            | `hybrid-xref` | verdict of `pdfsig` | `valid` | `inconclusive` | `introduced` |
+
+            The candidate run introduced 2 failure(s).
+
+            MARKDOWN, $markdown);
     }
 }

@@ -19,6 +19,8 @@ final class RunFixture
     /** @var list<array> */
     private array $observations = [];
 
+    private ?array $regressions = null;
+
     /**
      * @param  array<string, string>  $analyzerVersions
      */
@@ -104,9 +106,65 @@ final class RunFixture
         return $this;
     }
 
+    /**
+     * @param  array<string, string>  $verdicts
+     */
+    public function regression(string $caseId, string $condition, array $verdicts = [], string $outcome = 'succeeded', string $inputContent = 'input'): self
+    {
+        $this->regressions ??= ['schema' => self::PREFIX.'regressions.schema.json', 'run_id' => $this->run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
+        $sourceId = "regression:{$caseId}.pdf";
+        $attempts = $this->attempts;
+        $observations = $this->observations;
+        if ($outcome === 'succeeded') {
+            $this->succeeded($sourceId, $verdicts, inputContent: $inputContent);
+        } else {
+            $this->failed($sourceId, $outcome);
+        }
+        array_push($this->regressions['attempts'], ...array_slice($this->attempts, count($attempts)));
+        array_push($this->regressions['observations'], ...array_slice($this->observations, count($observations)));
+        $this->attempts = $attempts;
+        $this->observations = $observations;
+
+        return $this->regressionCase($caseId, $this->attemptId($sourceId), $condition);
+    }
+
+    public function regressionOnInput(string $caseId, string $sourceId, string $condition): self
+    {
+        $this->regressions ??= ['schema' => self::PREFIX.'regressions.schema.json', 'run_id' => $this->run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
+
+        return $this->regressionCase($caseId, $this->attemptId($sourceId), $condition);
+    }
+
+    public function regressionNotReplayed(string $caseId): self
+    {
+        $this->regressions ??= ['schema' => self::PREFIX.'regressions.schema.json', 'run_id' => $this->run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
+
+        return $this->regressionCase($caseId, null, 'not_evaluated');
+    }
+
+    public function compatibility(array $compatibility): self
+    {
+        $this->run['implementation_compatibility'] = $compatibility;
+
+        return $this;
+    }
+
     public function records(): RunRecords
     {
-        return new RunRecords($this->run, $this->attempts, $this->observations);
+        return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions);
+    }
+
+    private function regressionCase(string $caseId, ?string $attemptId, string $condition): self
+    {
+        $this->regressions['cases'][] = [
+            'case_id' => $caseId,
+            'scenario_id' => $this->run['scenario_id'],
+            'definition' => ['sha256' => hash('sha256', $caseId), 'byte_size' => 600],
+            'attempt_id' => $attemptId,
+            'condition' => ['status' => $condition, 'evidence' => "The condition of {$caseId} is {$condition}"],
+        ];
+
+        return $this;
     }
 
     public function write(string $directory): string
@@ -115,6 +173,9 @@ final class RunFixture
         $encode = static fn (array $document): string => json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         file_put_contents($directory.'/attempts.json', $encode($this->attempts));
         file_put_contents($directory.'/observations.json', $encode($this->observations));
+        if ($this->regressions !== null) {
+            file_put_contents($directory.'/regressions.json', $encode($this->regressions));
+        }
         file_put_contents($directory.'/run.json', $encode($this->run));
 
         return $directory;

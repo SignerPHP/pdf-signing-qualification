@@ -7,6 +7,7 @@ namespace SignerPHP\PdfSigningQualification\Tests\Regression;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Regression\HybridXrefCondition;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
@@ -186,6 +187,7 @@ final class HybridXrefRegressionTest extends TestCase
         $xrefStreamOffset = self::finalTrailerXrefStreamOffset($result->outputPath);
         self::assertSame(HybridXrefPdf::XREF_STREAM_OFFSET, $xrefStreamOffset, 'The signed revision no longer carries the /XRefStm of the original revision; update the baseline of this case');
         self::assertLessThan($case['input']['byte_size'], $xrefStreamOffset);
+        self::assertSame('present', (new HybridXrefCondition(new ProcessRunner))->evaluate(self::$inputPath, $result->outputPath)['status']);
 
         $clock = static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-31T12:00:02Z');
         $panel = new ValidationPanel([

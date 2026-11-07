@@ -98,6 +98,11 @@ final class JSignPdfImplementation implements SigningImplementation
         ];
     }
 
+    public function compatibilityCheck(): ?array
+    {
+        return null;
+    }
+
     private function javaVersion(): string
     {
         $releasePath = dirname($this->javaBinary, 2).'/release';

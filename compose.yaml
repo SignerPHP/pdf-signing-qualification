@@ -7,8 +7,11 @@ services:
       - .:/app:z
 
   sandbox:
-    build: .
-    image: pdf-signing-qualification:local
+    build:
+      context: .
+      args:
+        - PDF_SIGNER_REVISION
+    image: pdf-signing-qualification:${QUALIFICATION_IMAGE_TAG:-local}
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     network_mode: none
     init: true

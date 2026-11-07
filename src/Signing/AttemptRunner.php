@@ -113,6 +113,31 @@ final class AttemptRunner
         ], $outputPath);
     }
 
+    public function incompatibility(SigningImplementation $implementation): ?string
+    {
+        $check = $implementation->compatibilityCheck();
+        if ($check === null) {
+            return null;
+        }
+
+        $this->assertContained();
+        $attemptDirectory = $this->createAttemptDirectory();
+        try {
+            $result = $this->runner->run($this->sandboxed($check['command'], $attemptDirectory), $this->limits->timeoutSeconds);
+        } finally {
+            $this->removeDirectory($attemptDirectory);
+        }
+
+        if ($result->timedOut || $result->exitCode !== 0) {
+            $output = trim(mb_scrub(substr($result->output, -self::ERROR_OUTPUT_BYTES), 'UTF-8'));
+
+            return "The help of {$implementation->id()} {$result->describe()}".($output === '' ? '' : ": {$output}");
+        }
+        $missing = array_values(array_filter($check['expected_output'], static fn (string $expected): bool => ! str_contains($result->output, $expected)));
+
+        return $missing === [] ? null : "{$implementation->id()} does not list ".implode(', ', $missing).' in its help, so the adapter cannot run this revision';
+    }
+
     public function assertContained(): void
     {
         $this->networkIsolation->assertIsolated();

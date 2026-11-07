@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Acquisition\HttpFetcher;
+use SignerPHP\PdfSigningQualification\Panel\PanelSelector;
+use SignerPHP\PdfSigningQualification\Panel\SelectionPlan;
+use SignerPHP\PdfSigningQualification\Panel\StrataClassifier;
+use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) > 3 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: select-panel [selection-plan] [output-directory] [candidate-cache]\n");
+    exit(2);
+}
+$planPath = $arguments[0] ?? __DIR__.'/../config/main-panel/selection.json';
+$outputDirectory = rtrim($arguments[1] ?? dirname($planPath), '/');
+$cacheDirectory = $arguments[2] ?? __DIR__.'/../var/cache/candidates';
+
+try {
+    $plan = SelectionPlan::fromFile($planPath);
+    $runner = new ProcessRunner;
+    $versionOutput = $runner->run(['qpdf', '--version'], 30.0)->output;
+    if (preg_match('/^qpdf version (\S+)/', $versionOutput, $matches) !== 1) {
+        throw new RuntimeException("Unable to read the qpdf version: {$versionOutput}");
+    }
+
+    $selector = new PanelSelector(
+        new HttpFetcher,
+        new StrataClassifier($runner, $plan->largeByteSize, $plan->largePageCount),
+        $cacheDirectory,
+        static function (string $message): void {
+            fwrite(STDERR, $message."\n");
+        },
+    );
+    $selection = $selector->select($plan, $matches[1]);
+
+    foreach (['inputs' => 'inputs.json', 'pool' => 'pool.json'] as $key => $fileName) {
+        $path = "{$outputDirectory}/{$fileName}";
+        $json = json_encode($selection[$key], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+        if (file_put_contents("{$path}.partial", $json) !== strlen($json) || ! rename("{$path}.partial", $path)) {
+            throw new RuntimeException("Unable to write {$path}");
+        }
+    }
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+fwrite(STDERR, "Selected {$selection['pool']['selected']} of {$selection['pool']['candidates']} candidates into {$outputDirectory}\n");

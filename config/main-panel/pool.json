@@ -1,0 +1,153 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-pool.schema.json",
+    "plan_sha256": "885df5fed8bdbf1830f9391fa6daac29b59daf533d046c0a8f26926f09795df3",
+    "analyzer": {
+        "name": "qpdf",
+        "version": "11.3.0"
+    },
+    "candidates": 3405,
+    "selected": 106,
+    "sources": [
+        {
+            "id": "qpdf",
+            "candidates": 676,
+            "selected": 51,
+            "excluded": [
+                {
+                    "pattern": "qpdf/qtest/qpdf/short-O-U.pdf",
+                    "reason": "The test suite says it copies the encryption parameters of a file that was sent privately",
+                    "files": 1
+                },
+                {
+                    "pattern": "*/issue-*.pdf",
+                    "reason": "Reproduces a bug report, so it may derive from a file a reporter attached rather than one written by the qpdf maintainers",
+                    "files": 25
+                },
+                {
+                    "pattern": "*/fuzz-*.pdf",
+                    "reason": "Produced by a fuzzer from inputs whose origin is not recorded",
+                    "files": 1
+                }
+            ],
+            "unaddressable": 14
+        },
+        {
+            "id": "verapdf-corpus",
+            "candidates": 2599,
+            "selected": 32,
+            "excluded": [
+                {
+                    "pattern": "Isartor test files/*",
+                    "reason": "The Isartor test suite is published by the PDF Association, not by veraPDF, so the corpus README does not establish its license",
+                    "files": 205
+                },
+                {
+                    "pattern": "TWG test files/*",
+                    "reason": "Written by the PDF Association Technical Working Group, not by veraPDF, so the corpus README does not establish their license",
+                    "files": 85
+                }
+            ],
+            "unaddressable": 17
+        },
+        {
+            "id": "pyhanko",
+            "candidates": 130,
+            "selected": 23,
+            "excluded": [
+                {
+                    "pattern": "*/safedocs/*",
+                    "reason": "Comes from the DARPA SafeDocs project, not from the pyHanko maintainer, so the repository license does not establish its license",
+                    "files": 1
+                },
+                {
+                    "pattern": "*/layout-tests/default-font.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it",
+                    "files": 1
+                },
+                {
+                    "pattern": "*/layout-tests/text-stamp-color.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it",
+                    "files": 1
+                },
+                {
+                    "pattern": "*/malformed-xref-space-padded.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it",
+                    "files": 1
+                }
+            ],
+            "unaddressable": 0
+        }
+    ],
+    "strata": [
+        {
+            "stratum": "classic",
+            "candidates": 2805,
+            "selected": 53
+        },
+        {
+            "stratum": "stream",
+            "candidates": 572,
+            "selected": 34
+        },
+        {
+            "stratum": "hybrid",
+            "candidates": 6,
+            "selected": 6
+        },
+        {
+            "stratum": "none",
+            "candidates": 21,
+            "selected": 12
+        },
+        {
+            "stratum": "objstm",
+            "candidates": 156,
+            "selected": 24
+        },
+        {
+            "stratum": "encrypted",
+            "candidates": 45,
+            "selected": 14
+        },
+        {
+            "stratum": "incremental",
+            "candidates": 320,
+            "selected": 32
+        },
+        {
+            "stratum": "signed",
+            "candidates": 43,
+            "selected": 17
+        },
+        {
+            "stratum": "malformed",
+            "candidates": 58,
+            "selected": 20
+        },
+        {
+            "stratum": "forms",
+            "candidates": 148,
+            "selected": 15
+        },
+        {
+            "stratum": "legacy",
+            "candidates": 5,
+            "selected": 5
+        },
+        {
+            "stratum": "large",
+            "candidates": 13,
+            "selected": 12
+        },
+        {
+            "stratum": "timestamped",
+            "candidates": 5,
+            "selected": 5
+        },
+        {
+            "stratum": "revocation",
+            "candidates": 3,
+            "selected": 3
+        }
+    ]
+}

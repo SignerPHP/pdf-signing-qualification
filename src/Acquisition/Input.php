@@ -26,11 +26,6 @@ final readonly class Input
 
     public function fileUrl(): string
     {
-        $encodedPath = implode('/', array_map(rawurlencode(...), explode('/', $this->path)));
-
-        return strtr($this->source->fileUrlTemplate, [
-            '{revision}' => rawurlencode($this->source->revision['value']),
-            '{path}' => $encodedPath,
-        ]);
+        return $this->source->fileUrl($this->path);
     }
 }

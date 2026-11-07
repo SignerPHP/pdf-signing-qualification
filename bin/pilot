@@ -6,6 +6,32 @@ cd "$(dirname "$0")/.."
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 
+panel=pilot
+case "${1:-}" in
+    --panel=*)
+        panel="${1#--panel=}"
+        shift
+        ;;
+esac
+case "$panel" in
+    pilot)
+        inputs_configuration=config/inputs.json
+        expected_rejections=config/expected-rejections.json
+        ;;
+    main)
+        inputs_configuration=config/main-panel/inputs.json
+        expected_rejections=config/main-panel/expected-rejections.json
+        ;;
+    *)
+        echo "Unknown panel $panel; use pilot or main." >&2
+        exit 2
+        ;;
+esac
+if [ "$#" -gt 1 ]; then
+    echo "Usage: bin/pilot [--panel=pilot|main] [implementation]" >&2
+    exit 2
+fi
+
 run_id="run-$(date -u +%Y%m%dT%H%M%SZ)"
 run_directory="var/runs/$run_id"
 
@@ -19,14 +45,14 @@ mkdir -p var/runs
 mkdir "$run_directory"
 
 acquisition_status=0
-docker compose run --rm -T app composer acquire > "$run_directory/acquisitions.json" || acquisition_status=$?
+docker compose run --rm -T app composer acquire -- "$inputs_configuration" > "$run_directory/acquisitions.json" || acquisition_status=$?
 if [ "$acquisition_status" -gt 1 ]; then
     echo "The acquisition was aborted; see the messages above. Nothing was signed." >&2
     exit "$acquisition_status"
 fi
 
 image_id="$(docker image inspect --format '{{.Id}}' pdf-signing-qualification:local)"
-docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "$run_directory"
+docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections"
 report_status=0
 docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null || report_status=$?
 

@@ -36,7 +36,7 @@ Every stratum the pilot requires is covered. The encrypted inputs do not all ope
 - `minimal-signed-restricted.pdf`, `V4-aes.pdf`, `leading-junk.pdf`, the PDF/A-4 `6-1-3-t02-fail-a` and the PDF/UA-1 `7.16-t01-fail-a` open with the empty user password in qpdf 11.3.0.
 - `nontrivial-crypt-filter.pdf` needs the user password `asdfqwer`, which the qpdf test suite passes to it; with it, `qpdf --check` exits with 3. A signer that is not given the password cannot open it, so its failure on this input is expected and is not a defect.
 
-Not deliberately covered, and left for the main panel: form fields other than signature fields, visible signature appearances, PDF versions below 1.3, large documents (several megabytes or thousands of pages), and signatures with timestamps or revocation information.
+Not deliberately covered, and left for the main panel: form fields other than signature fields, visible signature appearances, PDF versions below 1.3, large documents (several megabytes or thousands of pages), and signatures with timestamps or revocation information. The [main panel](main-panel.md) has strata for all of them except visible appearances, and records the gaps that remain.
 
 ## Inputs
 

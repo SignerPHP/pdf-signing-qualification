@@ -29,6 +29,10 @@
             "Composer\\Config::disableProcessTimeout",
             "bin/acquire-inputs"
         ],
+        "select-panel": [
+            "Composer\\Config::disableProcessTimeout",
+            "bin/select-panel"
+        ],
         "run-attempts": [
             "Composer\\Config::disableProcessTimeout",
             "bin/run-attempts"

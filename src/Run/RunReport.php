@@ -141,6 +141,9 @@ final class RunReport
         if ($selection === 'failure_enriched') {
             return ['**This sample is failure-enriched, so no count or share in this report is a compatibility rate.** Its inputs were chosen for the defects and edge cases they hold, not to stand for the documents found in practice.', ''];
         }
+        if ($selection === 'stratified') {
+            return ['**This sample is stratified, so a share in this report holds for one stratum of its pool of candidates, not for the whole pool nor for PDFs in general.** Its inputs were drawn by a quota per stratum, so rare strata weigh more here than in the pool.', ''];
+        }
 
         return ['The source configuration declares this sample representative of the documents found in practice.', ''];
     }

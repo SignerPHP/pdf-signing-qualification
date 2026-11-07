@@ -1,0 +1,90 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-selection.schema.json",
+    "title": "Panel selection plan, version 1",
+    "description": "How a stratified panel is drawn: the pinned sources whose files form the pool of candidates, the files left out of the pool with their reasons, the sources rejected outright and the quota drawn from each stratum. `bin/select-panel` turns the plan into a source configuration and a description of the pool.",
+    "type": "object",
+    "required": ["schema", "seed", "quota_per_stratum", "large", "sources", "rejected_sources"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-selection.schema.json" },
+        "seed": {
+            "description": "Fixes the order in which candidates are drawn: candidates are taken by ascending SHA-256 of `<seed>:<source>:<path>`.",
+            "$ref": "common.schema.json#/$defs/nonEmptyString"
+        },
+        "quota_per_stratum": {
+            "description": "Candidates are drawn until each stratum holds at least this many inputs, or all of its candidates when it has fewer.",
+            "type": "integer",
+            "minimum": 1
+        },
+        "large": {
+            "description": "Thresholds of the `large` stratum: a candidate is large when it has at least this byte size or this page count.",
+            "type": "object",
+            "required": ["byte_size", "page_count"],
+            "additionalProperties": false,
+            "properties": {
+                "byte_size": { "type": "integer", "minimum": 1 },
+                "page_count": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["id", "url", "revision", "file_url", "license", "listing_url", "document_license", "include", "exclude"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": { "$ref": "common.schema.json#/$defs/sourceId" },
+                    "url": { "$ref": "common.schema.json#/$defs/httpsUrl" },
+                    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+                    "file_url": { "$ref": "../v2/sources.schema.json#/properties/sources/items/properties/file_url" },
+                    "license": { "$ref": "common.schema.json#/$defs/license" },
+                    "listing_url": {
+                        "description": "URL of the recursive file listing at the pinned revision, in the format of the GitHub Git trees API. `{revision}` is replaced by the revision value.",
+                        "type": "string",
+                        "allOf": [
+                            { "pattern": "^https://\\S+$" },
+                            { "pattern": "\\{revision\\}" }
+                        ]
+                    },
+                    "document_license": {
+                        "description": "The license of every candidate document of this source, with the evidence that establishes it for the documents themselves.",
+                        "$ref": "common.schema.json#/$defs/license"
+                    },
+                    "include": {
+                        "description": "Shell patterns, matched case-insensitively against the whole path with `*` crossing directories; a file is a candidate when it matches one and no exclusion.",
+                        "type": "array",
+                        "minItems": 1,
+                        "items": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                    },
+                    "exclude": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["pattern", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "pattern": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                                "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "rejected_sources": {
+            "description": "Sources considered and not used, each with the reason.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["url", "reason"],
+                "additionalProperties": false,
+                "properties": {
+                    "url": { "$ref": "common.schema.json#/$defs/httpsUrl" },
+                    "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                }
+            }
+        }
+    }
+}

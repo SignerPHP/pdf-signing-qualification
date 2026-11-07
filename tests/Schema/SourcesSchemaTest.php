@@ -69,8 +69,13 @@ final class SourcesSchemaTest extends SchemaTestCase
 
             return $configuration;
         })];
+        yield 'stratified selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'stratified';
+
+            return $configuration;
+        })];
         yield 'every stratum' => [self::mutate(function (array $configuration): array {
-            $configuration['inputs'][0]['strata'] = ['classic', 'stream', 'hybrid', 'none', 'objstm', 'encrypted', 'incremental', 'signed', 'malformed'];
+            $configuration['inputs'][0]['strata'] = ['classic', 'stream', 'hybrid', 'none', 'objstm', 'encrypted', 'incremental', 'signed', 'malformed', 'forms', 'legacy', 'large', 'timestamped', 'revocation'];
 
             return $configuration;
         })];

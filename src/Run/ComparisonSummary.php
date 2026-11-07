@@ -35,9 +35,9 @@ final class ComparisonSummary
             '| ------------ | -----: |',
             ...array_map(static fn (string $status, int $count): string => "| `{$status}` | {$count} |", array_keys($comparison['totals']['inputs']), $comparison['totals']['inputs']),
             '',
-            '| Change | Items |',
-            '| ------ | ----: |',
-            ...array_map(static fn (string $change, int $count): string => "| `{$change}` | {$count} |", array_keys($comparison['totals']['changes']), $comparison['totals']['changes']),
+            '| Change | Items of inputs | Items of regression cases |',
+            '| ------ | --------------: | ------------------------: |',
+            ...array_map(static fn (string $change, int $count): string => "| `{$change}` | {$count} | {$comparison['totals']['regression_changes'][$change]} |", array_keys($comparison['totals']['changes']), $comparison['totals']['changes']),
             '',
         ];
 

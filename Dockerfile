@@ -37,17 +37,13 @@ RUN set -eux; \
     revision="$PDF_SIGNER_REVISION"; \
     directory=/opt/implementations/pdf-signer; \
     git init -q "$directory"; \
-    if printf '%s' "$revision" | grep -Eqx '[0-9a-f]{40}'; then \
-        git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "$revision"; \
-        git -C "$directory" checkout -q FETCH_HEAD; \
-        test "$(git -C "$directory" rev-parse HEAD)" = "$revision"; \
-    elif printf '%s' "$revision" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then \
-        git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "refs/tags/$revision:refs/tags/$revision"; \
-        git -C "$directory" checkout -q "refs/tags/$revision"; \
-    else \
-        echo "PDF_SIGNER_REVISION must be a full commit hash or a release tag such as v0.3.0, got: $revision" >&2; \
+    if ! printf '%s' "$revision" | grep -Eqx '[0-9a-f]{40}'; then \
+        echo "PDF_SIGNER_REVISION must be a full commit hash, got: $revision" >&2; \
         exit 1; \
     fi; \
+    git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "$revision"; \
+    git -C "$directory" checkout -q FETCH_HEAD; \
+    test "$(git -C "$directory" rev-parse HEAD)" = "$revision"; \
     if [ ! -f "$directory/composer.lock" ]; then \
         echo "pdf-signer $revision has no composer.lock, so its dependencies are not locked" >&2; \
         exit 1; \

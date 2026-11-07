@@ -174,6 +174,7 @@ final class RunComparison
             $status = match (true) {
                 $candidateCase === null => 'only_in_reference',
                 $referenceCase === null => 'only_in_candidate',
+                $referenceCase['definition'] !== $candidateCase['definition'] => 'definition_changed',
                 $referenceAttempt === null || $candidateAttempt === null => 'not_replayed',
                 default => self::inputStatus($referenceAttempt, $candidateAttempt),
             };
@@ -191,8 +192,8 @@ final class RunComparison
             $regressions[] = [
                 'case_id' => (string) $caseId,
                 'status' => $status,
-                'reference' => $referenceCase === null ? null : ['attempt_id' => $referenceCase['attempt_id'], 'condition' => $referenceCase['condition']],
-                'candidate' => $candidateCase === null ? null : ['attempt_id' => $candidateCase['attempt_id'], 'condition' => $candidateCase['condition']],
+                'reference' => $referenceCase === null ? null : ['definition' => $referenceCase['definition'], 'attempt_id' => $referenceCase['attempt_id'], 'condition' => $referenceCase['condition']],
+                'candidate' => $candidateCase === null ? null : ['definition' => $candidateCase['definition'], 'attempt_id' => $candidateCase['attempt_id'], 'condition' => $candidateCase['condition']],
                 'items' => $items,
             ];
         }

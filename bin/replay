@@ -17,6 +17,29 @@ for revision in "$1" "$2"; do
     fi
 done
 
+resolve() {
+    if printf '%s' "$1" | grep -Eqx '[0-9a-f]{40}'; then
+        printf '%s\n' "$1"
+        return
+    fi
+    references="$(git ls-remote https://github.com/SignerPHP/pdf-signer.git "refs/tags/$1" "refs/tags/$1^{}")" || return 1
+    commit="$(printf '%s\n' "$references" | awk '$2 ~ /\^\{\}$/ { print $1 }')"
+    [ -n "$commit" ] || commit="$(printf '%s\n' "$references" | awk '{ print $1 }')"
+    printf '%s' "$commit" | grep -Eqx '[0-9a-f]{40}' || return 1
+    printf '%s\n' "$commit"
+}
+
+if ! reference_commit="$(resolve "$1")"; then
+    echo "The release tag $1 does not exist in pdf-signer." >&2
+    exit 2
+fi
+if ! candidate_commit="$(resolve "$2")"; then
+    echo "The release tag $2 does not exist in pdf-signer." >&2
+    exit 2
+fi
+echo "Reference: $1 is commit $reference_commit" >&2
+echo "Candidate: $2 is commit $candidate_commit" >&2
+
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 
@@ -26,8 +49,8 @@ replay_directory="var/replays/replay-$timestamp"
 docker compose build app >&2
 docker compose run --rm -T app composer install --no-interaction --no-progress >&2
 
-for revision in "$1" "$2"; do
-    if ! PDF_SIGNER_REVISION="$revision" QUALIFICATION_IMAGE_TAG="pdf-signer-$revision" docker compose build sandbox >&2; then
+for revision in "$reference_commit" "$candidate_commit"; do
+    if ! PDF_SIGNER_REVISION="$revision" docker compose build sandbox >&2; then
         echo "pdf-signer $revision could not be installed with its locked dependencies; see the build output above. Nothing was replayed." >&2
         exit 2
     fi
@@ -49,12 +72,12 @@ run_side() {
     mkdir "$run_directory"
     cp "$replay_directory/acquisitions.json" "$run_directory/acquisitions.json"
     image_id="$(docker image inspect --format '{{.Id}}' "pdf-signing-qualification:pdf-signer-$revision")"
-    PDF_SIGNER_REVISION="$revision" QUALIFICATION_IMAGE_TAG="pdf-signer-$revision" \
+    PDF_SIGNER_REVISION="$revision" \
         docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "$run_directory" >&2
 }
 
-run_side reference "$1"
-run_side candidate "$2"
+run_side reference "$reference_commit"
+run_side candidate "$candidate_commit"
 
 comparison_status=0
 docker compose run --rm -T sandbox bin/compare-runs "$replay_directory/run-$timestamp-reference" "$replay_directory/run-$timestamp-candidate" "$replay_directory/comparison" || comparison_status=$?

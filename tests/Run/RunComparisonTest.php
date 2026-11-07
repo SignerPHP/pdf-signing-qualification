@@ -423,6 +423,18 @@ final class RunComparisonTest extends TestCase
         self::assertFalse(RunComparison::hasNewFailures($comparison));
     }
 
+    public function test_a_case_whose_definition_changed_is_not_compared(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID)->regressionOnInput('hybrid-xref', self::INPUT, 'present'),
+            self::candidate()->succeeded(self::INPUT, self::VALID)->regressionOnInput('hybrid-xref', self::INPUT, 'absent', 'redefined condition'),
+        );
+
+        self::assertSame('definition_changed', self::regression($comparison, 'hybrid-xref')['status']);
+        self::assertSame([], self::regression($comparison, 'hybrid-xref')['items']);
+        self::assertSame(0, $comparison['totals']['regression_changes']['fixed']);
+    }
+
     public function test_a_synthetic_input_that_changed_is_not_compared(): void
     {
         $comparison = self::compare(

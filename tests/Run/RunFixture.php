@@ -128,11 +128,11 @@ final class RunFixture
         return $this->regressionCase($caseId, $this->attemptId($sourceId), $condition);
     }
 
-    public function regressionOnInput(string $caseId, string $sourceId, string $condition): self
+    public function regressionOnInput(string $caseId, string $sourceId, string $condition, string $definitionContent = ''): self
     {
         $this->regressions ??= ['schema' => self::PREFIX.'regressions.schema.json', 'run_id' => $this->run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
 
-        return $this->regressionCase($caseId, $this->attemptId($sourceId), $condition);
+        return $this->regressionCase($caseId, $this->attemptId($sourceId), $condition, $definitionContent);
     }
 
     public function regressionNotReplayed(string $caseId): self
@@ -154,12 +154,12 @@ final class RunFixture
         return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions);
     }
 
-    private function regressionCase(string $caseId, ?string $attemptId, string $condition): self
+    private function regressionCase(string $caseId, ?string $attemptId, string $condition, string $definitionContent = ''): self
     {
         $this->regressions['cases'][] = [
             'case_id' => $caseId,
             'scenario_id' => $this->run['scenario_id'],
-            'definition' => ['sha256' => hash('sha256', $caseId), 'byte_size' => 600],
+            'definition' => ['sha256' => hash('sha256', $caseId.$definitionContent), 'byte_size' => 600],
             'attempt_id' => $attemptId,
             'condition' => ['status' => $condition, 'evidence' => "The condition of {$caseId} is {$condition}"],
         ];

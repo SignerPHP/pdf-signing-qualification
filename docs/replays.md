@@ -8,13 +8,15 @@ A replay runs the complete pilot, every [regression case](regressions.md) includ
 bin/replay v0.2.0 v0.3.0
 ```
 
+The replay resolved `v0.2.0` to commit `4229c83ea51170303f6f8e005767b358ed9e756a` and `v0.3.0` to commit `f27e4064be107b8a662f370a9acdcecd786da9f7`, and built each image from its commit.
+
 ### Revisions and environment
 
 | Item | Reference | Candidate |
 | ---- | --------- | --------- |
 | `pdf-signer` | `v0.2.0`, commit `4229c83ea51170303f6f8e005767b358ed9e756a` | `v0.3.0`, commit `f27e4064be107b8a662f370a9acdcecd786da9f7` |
 | `pdf-core`, from each revision's `composer.lock` | v0.1.1 | v0.1.1 |
-| Image | `sha256:981239f2abb9298b096b73c4857bf4c2ec72a06eec10f349250f8d1252959c27` | `sha256:f468158c1b5a569ffdb0d9eebd96b89d43416c5ca676a0921d74c7a0d512032a` |
+| Image | `sha256:19c328ea3896092974910ff6efc83ddb0e95046be41bb8d4e30c9a83971fccad` | `sha256:5f06c07ed60b98fe4e96cec10382bd4526e923434701ab91d2e2df6c8785be1e` |
 | Compatibility with the adapter | `compatible` | `compatible` |
 
 Both runs used the same analyzers (`pyhanko` 0.38.0, `pdfsig` 22.12.0, `openssl-cms` 3.0.22, `qpdf` 11.3.0, `cmp` 3.8, `qpdf-prior-signatures` 11.3.0 and `qpdf-byte-range` 11.3.0), the source configuration with SHA-256 `c6ca54495ff2d87abe592c552792ed468b5419db392b6e59237d3ccb753952cc`, the expected rejections with SHA-256 `fd1c9906de8e57f60706d3aa035a53f4c148fbd5b6ca3b63593f30670dd33b21`, and the `hybrid-xref` case with SHA-256 `74ddb1f357d435611e3c4d1ca9b13e0e482ab9cb24ef529506aecdbbe96d6a3b`. The comparison states only the implementation and the container image as differences between the runs.
@@ -64,4 +66,4 @@ The two revisions behave the same on every input and on the regression case. Bot
 bin/replay v0.1.0 v0.3.0
 ```
 
-`v0.1.0` (commit `80f7963fba633bdaa2c329f0a1ccba6812c70b81`) cannot be installed with its locked dependencies: its `composer.lock` takes `signerphp/pdf-core` from a path repository, `../pdf-core`, which does not exist outside the developer's checkout. The image build fails with `Source path "../pdf-core" is not found for package signerphp/pdf-core`, and the replay stops with exit 2 and `pdf-signer v0.1.0 could not be installed with its locked dependencies`, before anything is acquired or signed. No run is recorded for it, because no attempt could have run the revision that the lock describes.
+`v0.1.0` (commit `80f7963fba633bdaa2c329f0a1ccba6812c70b81`) cannot be installed with its locked dependencies: its `composer.lock` takes `signerphp/pdf-core` from a path repository, `../pdf-core`, which does not exist outside the developer's checkout. The image build fails with `Source path "../pdf-core" is not found for package signerphp/pdf-core`, and the replay stops with exit 2 and `pdf-signer 80f7963fba633bdaa2c329f0a1ccba6812c70b81 could not be installed with its locked dependencies`, before anything is acquired or signed. No run is recorded for it, because no attempt could have run the revision that the lock describes.

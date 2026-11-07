@@ -59,9 +59,10 @@
         },
         "regressionSide": {
             "type": "object",
-            "required": ["attempt_id", "condition"],
+            "required": ["definition", "attempt_id", "condition"],
             "additionalProperties": false,
             "properties": {
+                "definition": { "$ref": "common.schema.json#/$defs/artifact" },
                 "attempt_id": {
                     "oneOf": [{ "$ref": "common.schema.json#/$defs/inputIdentifier" }, { "type": "null" }]
                 },
@@ -74,7 +75,7 @@
             "additionalProperties": false,
             "properties": {
                 "case_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
-                "status": { "enum": ["paired", "only_in_reference", "only_in_candidate", "not_replayed", "unavailable", "input_changed"] },
+                "status": { "enum": ["paired", "only_in_reference", "only_in_candidate", "definition_changed", "not_replayed", "unavailable", "input_changed"] },
                 "reference": {
                     "oneOf": [{ "$ref": "#/$defs/regressionSide" }, { "type": "null" }]
                 },
@@ -107,7 +108,7 @@
                     "then": { "properties": { "reference": { "type": "null" }, "candidate": { "type": "object" } } }
                 },
                 {
-                    "if": { "properties": { "status": { "enum": ["not_replayed", "unavailable", "input_changed"] } } },
+                    "if": { "properties": { "status": { "enum": ["definition_changed", "not_replayed", "unavailable", "input_changed"] } } },
                     "then": { "properties": { "reference": { "type": "object" }, "candidate": { "type": "object" } } }
                 }
             ]

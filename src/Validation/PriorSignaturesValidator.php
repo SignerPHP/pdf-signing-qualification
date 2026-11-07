@@ -60,9 +60,8 @@ final class PriorSignaturesValidator extends ComparisonValidator
             return new Judgement('inconclusive', 'qpdf could not list the signatures of the output: qpdf '.$outputListing->result->describe(), $outputListing->result->exitCode, $outputListing->result->output);
         }
 
-        $input = self::read($inputPath);
-        $output = self::read($outputPath);
-        $signatures = array_map(fn (array $signature): array => $signature + self::check($signature, $input, $output, $outputListing), $inputListing->signatures);
+        $inputSize = self::size($inputPath);
+        $signatures = array_map(static fn (array $signature): array => $signature + self::check($signature, $inputPath, $inputSize, $outputPath, $outputListing), $inputListing->signatures);
         $details = ['signatures' => array_map(static fn (array $signature): array => array_diff_key($signature, ['contents' => true]), $signatures)];
         $exitCode = $outputListing->result->exitCode;
 
@@ -76,6 +75,10 @@ final class PriorSignaturesValidator extends ComparisonValidator
             return new Judgement('inconclusive', implode('; ', array_map($describe, $undecided)), $exitCode, '', $details);
         }
 
+        if (! $inputListing->isComplete()) {
+            return new Judgement('inconclusive', 'The output keeps the '.count($signatures).' signature(s) qpdf listed in the input unchanged, but qpdf had to recover the input, so it may not have listed every signature', $exitCode, '', $details);
+        }
+
         return new Judgement('valid', 'The output keeps the '.count($signatures).' signature(s) of the input unchanged', $exitCode, '', $details);
     }
 
@@ -83,14 +86,14 @@ final class PriorSignaturesValidator extends ComparisonValidator
      * @param  array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}  $signature
      * @return array{outcome: string, problem?: string}
      */
-    private static function check(array $signature, string $input, string $output, SignatureListing $outputListing): array
+    private static function check(array $signature, string $inputPath, int $inputSize, string $outputPath, SignatureListing $outputListing): array
     {
         $byteRange = $signature['byte_range'];
         if ($byteRange === null || $signature['contents'] === null) {
             return ['outcome' => 'inconclusive', 'problem' => 'its /ByteRange or /Contents in the input cannot be read'];
         }
         [$firstOffset, $firstLength, $secondOffset, $secondLength] = $byteRange;
-        if ($firstOffset + $firstLength > strlen($input) || $secondOffset + $secondLength > strlen($input)) {
+        if ($firstOffset + $firstLength > $inputSize || $secondOffset + $secondLength > $inputSize) {
             return ['outcome' => 'inconclusive', 'problem' => 'its byte range extends past the end of the input, so the input does not hold every byte it covers'];
         }
 
@@ -105,21 +108,46 @@ final class PriorSignaturesValidator extends ComparisonValidator
             return ['outcome' => 'broken', 'problem' => "it is no longer the value of the field {$signature['field']}"];
         }
 
-        $covered = static fn (string $document): string => substr($document, $firstOffset, $firstLength).substr($document, $secondOffset, $secondLength);
-        if ($covered($input) !== $covered($output)) {
+        if (self::coveredDigest($inputPath, $byteRange) !== self::coveredDigest($outputPath, $byteRange)) {
             return ['outcome' => 'broken', 'problem' => 'the bytes its range covers changed'];
         }
 
         return ['outcome' => 'intact'];
     }
 
-    private static function read(string $path): string
+    private static function size(string $path): int
     {
-        $document = file_get_contents($path);
-        if ($document === false) {
+        $size = filesize($path);
+        if ($size === false) {
+            throw new RuntimeException("Unable to read the size of the document {$path}");
+        }
+
+        return $size;
+    }
+
+    /**
+     * @param  list<int>  $byteRange
+     */
+    private static function coveredDigest(string $path, array $byteRange): string
+    {
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
             throw new RuntimeException("Unable to read the document {$path}");
         }
 
-        return $document;
+        try {
+            $context = hash_init('sha256');
+            foreach (array_chunk($byteRange, 2) as [$offset, $length]) {
+                if (fseek($handle, $offset) !== 0) {
+                    throw new RuntimeException("Unable to read the document {$path}");
+                }
+                $hashed = hash_update_stream($context, $handle, $length);
+                hash_update($context, pack('J', $hashed));
+            }
+
+            return hash_final($context);
+        } finally {
+            fclose($handle);
+        }
     }
 }

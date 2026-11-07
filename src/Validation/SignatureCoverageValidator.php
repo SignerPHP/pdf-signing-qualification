@@ -66,14 +66,17 @@ final class SignatureCoverageValidator extends ComparisonValidator
                 : new Judgement('inconclusive', 'No signature that is not already in the input was found in an output qpdf had to recover', $exitCode, '');
         }
 
-        $output = file_get_contents($outputPath);
-        if ($output === false) {
-            throw new RuntimeException("Unable to read the document {$outputPath}");
+        $outputSize = filesize($outputPath);
+        if ($outputSize === false) {
+            throw new RuntimeException("Unable to read the size of the document {$outputPath}");
         }
 
-        $signatures = array_map(static fn (array $signature): array => $signature + self::check($signature, $output), $added);
+        $signatures = array_map(static fn (array $signature): array => $signature + self::check($signature, $outputPath, $outputSize), $added);
+        if (! $inputListing->isComplete()) {
+            $signatures = array_map(static fn (array $signature): array => $signature['outcome'] === 'valid' ? $signature : ['outcome' => 'inconclusive', 'problem' => $signature['problem'].', but qpdf had to recover the input, so this may be a signature of the input'] + $signature, $signatures);
+        }
         $details = [
-            'output_byte_size' => strlen($output),
+            'output_byte_size' => $outputSize,
             'signatures' => array_map(static fn (array $signature): array => array_diff_key($signature, ['contents' => true]), $signatures),
         ];
 
@@ -93,7 +96,7 @@ final class SignatureCoverageValidator extends ComparisonValidator
      * @param  array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}  $signature
      * @return array{outcome: string, problem?: string}
      */
-    private static function check(array $signature, string $output): array
+    private static function check(array $signature, string $outputPath, int $size): array
     {
         $byteRange = $signature['byte_range'];
         if ($byteRange === null) {
@@ -101,7 +104,6 @@ final class SignatureCoverageValidator extends ComparisonValidator
         }
 
         [$firstOffset, $firstLength, $secondOffset, $secondLength] = $byteRange;
-        $size = strlen($output);
         if ($firstOffset !== 0) {
             return ['outcome' => 'invalid', 'problem' => "the byte range starts at byte {$firstOffset}, leaving the bytes before it uncovered"];
         }
@@ -113,7 +115,7 @@ final class SignatureCoverageValidator extends ComparisonValidator
         }
 
         $whitespace = preg_quote(self::PDF_WHITESPACE, '/');
-        $gap = substr($output, $firstLength, $secondOffset - $firstLength);
+        $gap = self::readBytes($outputPath, $firstLength, $secondOffset - $firstLength);
         if (preg_match('/\A<([0-9A-Fa-f'.$whitespace.']*)>\z/', $gap, $match) !== 1) {
             return ['outcome' => 'invalid', 'problem' => 'the bytes the range leaves out are not the hexadecimal string of its /Contents'];
         }
@@ -130,5 +132,24 @@ final class SignatureCoverageValidator extends ComparisonValidator
         }
 
         return ['outcome' => 'valid'];
+    }
+
+    private static function readBytes(string $path, int $offset, int $length): string
+    {
+        $handle = fopen($path, 'rb');
+        if ($handle === false || fseek($handle, $offset) !== 0) {
+            throw new RuntimeException("Unable to read the document {$path}");
+        }
+
+        try {
+            $bytes = stream_get_contents($handle, $length);
+            if ($bytes === false) {
+                throw new RuntimeException("Unable to read the document {$path}");
+            }
+
+            return $bytes;
+        } finally {
+            fclose($handle);
+        }
     }
 }

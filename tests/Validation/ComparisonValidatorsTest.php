@@ -11,6 +11,7 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\ComparisonValidator;
 use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
 use SignerPHP\PdfSigningQualification\Validation\PriorSignaturesValidator;
@@ -135,6 +136,83 @@ final class ComparisonValidatorsTest extends TestCase
 
         self::assertSame([], (new SchemaValidator)->errors($observation, ToolValidator::OBSERVATION_SCHEMA));
         self::assertSame('b:f9934d8a covers every byte of the output except its /Contents', $observation['evidence']['summary']);
+    }
+
+    private static function alteredValidator(string $validatorClass, string $documentPath, callable $alter): ToolValidator
+    {
+        return new $validatorClass(new AlteredListingRunner($documentPath, $alter(...)), static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-07T12:00:03Z'));
+    }
+
+    public function test_prior_signatures_of_an_input_qpdf_had_to_recover_are_not_all_known(): void
+    {
+        $validator = self::alteredValidator(PriorSignaturesValidator::class, self::$fixtures['signed'], static fn (CommandResult $result): CommandResult => new CommandResult(3, $result->output));
+
+        $observation = $validator->observe(self::subject('signed', 'appended to signed'));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('The output keeps the 1 signature(s) qpdf listed in the input unchanged, but qpdf had to recover the input, so it may not have listed every signature', $observation['evidence']['summary']);
+    }
+
+    public function test_signature_lost_from_a_recovered_input_listing_is_not_judged_as_the_added_one(): void
+    {
+        $unsignedListing = AlteredListingRunner::listingOf(self::$fixtures['unsigned']);
+        $validator = self::alteredValidator(SignatureCoverageValidator::class, self::$fixtures['signed'], static fn (CommandResult $result): CommandResult => new CommandResult(3, $unsignedListing));
+
+        $observation = $validator->observe(self::subject('signed', 'appended to signed'));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        $uncovered = filesize(self::$fixtures['appended to signed']) - filesize(self::$fixtures['signed']);
+        self::assertSame("Signature1: the byte range does not reach the end of the file, leaving {$uncovered} bytes uncovered, but qpdf had to recover the input, so this may be a signature of the input", $observation['evidence']['summary']);
+        self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'valid'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+    }
+
+    public function test_prior_signature_whose_range_extends_past_the_end_of_the_input_is_inconclusive(): void
+    {
+        $inputPath = SyntheticSignedPdf::rewriteFirstByteRange(self::$fixtures['signed'], self::$directory, 'range-past-end', static fn (int $firstLength, int $secondOffset, int $secondLength): string => sprintf('/ByteRange [0 %d %d %d]', $firstLength, $secondOffset, $secondLength + 1000));
+        $outputPath = SyntheticSignedPdf::appendSignature($inputPath, self::$directory, 'appended-to-range-past-end');
+
+        $observation = self::validator(PriorSignaturesValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($inputPath), $outputPath, $inputPath));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('Signature1: its byte range extends past the end of the input, so the input does not hold every byte it covers', $observation['evidence']['summary']);
+    }
+
+    public function test_prior_signature_whose_byte_range_cannot_be_read_is_inconclusive(): void
+    {
+        $inputPath = SyntheticSignedPdf::rewriteFirstByteRange(self::$fixtures['signed'], self::$directory, 'three-element-range', static fn (int $firstLength, int $secondOffset): string => sprintf('/ByteRange [0 %d %d]', $firstLength, $secondOffset));
+        $outputPath = SyntheticSignedPdf::appendSignature($inputPath, self::$directory, 'appended-to-three-element-range');
+
+        $observation = self::validator(PriorSignaturesValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($inputPath), $outputPath, $inputPath));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('Signature1: its /ByteRange or /Contents in the input cannot be read', $observation['evidence']['summary']);
+    }
+
+    public function test_prior_signature_missing_from_an_output_qpdf_had_to_recover_is_inconclusive(): void
+    {
+        $unsignedListing = AlteredListingRunner::listingOf(self::$fixtures['unsigned']);
+        $validator = self::alteredValidator(PriorSignaturesValidator::class, self::$fixtures['appended to signed'], static fn (CommandResult $result): CommandResult => new CommandResult(3, $unsignedListing));
+
+        $observation = $validator->observe(self::subject('signed', 'appended to signed'));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('Signature1: no dictionary with the same /ByteRange and /Contents was found in an output qpdf had to recover', $observation['evidence']['summary']);
+    }
+
+    public function test_added_signature_whose_contents_qpdf_does_not_give_is_inconclusive(): void
+    {
+        $withoutContents = static function (CommandResult $result): CommandResult {
+            $listing = json_decode($result->output, true, flags: JSON_THROW_ON_ERROR);
+            $listing['qpdf'][1]['obj:8 0 R']['value']['/Contents'] = 'u:é';
+
+            return new CommandResult($result->exitCode, json_encode($listing, JSON_THROW_ON_ERROR));
+        };
+        $validator = self::alteredValidator(SignatureCoverageValidator::class, self::$fixtures['appended to signed'], $withoutContents);
+
+        $observation = $validator->observe(self::subject('signed', 'appended to signed'));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('Signature2: qpdf did not give the bytes of its /Contents, so the bytes the range leaves out cannot be explained', $observation['evidence']['summary']);
     }
 
     public static function coverageProblems(): iterable

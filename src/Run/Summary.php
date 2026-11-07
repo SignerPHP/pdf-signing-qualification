@@ -125,6 +125,26 @@ final class Summary
             $outputVerdicts[$sourceIds[$observation['attempt_id']]][$observation['analyzer']['id']] = $observation['verdict'];
         }
 
+        $unavailableAttempts = array_values(array_filter($attempts, static fn (array $attempt): bool => $attempt['input']['status'] === 'unavailable'));
+        $unavailableLines = [];
+        if ($unavailableAttempts !== []) {
+            array_push($unavailableLines, 'Inputs without a baseline, because they were unavailable:', '', '| Input | Reason |', '| ----- | ------ |');
+            foreach ($unavailableAttempts as $attempt) {
+                $unavailableLines[] = "| `{$attempt['input']['source_id']}` | `{$attempt['input']['reason']}` |";
+            }
+            $unavailableLines[] = '';
+        }
+
+        if ($baselines === []) {
+            return [
+                '## Baseline',
+                '',
+                count($unavailableAttempts) === count($attempts) ? 'No input was available, so there is no baseline.' : 'No analyzer of this run judges one document, so there is no baseline.',
+                '',
+                ...$unavailableLines,
+            ];
+        }
+
         $analyzerIds = array_column($analyzers, 'id');
         $lines = [
             '## Baseline',
@@ -134,7 +154,7 @@ final class Summary
             ...self::verdicts($analyzers, $baselines),
             '',
         ];
-        if ($baselines !== [] && $comparisonAnalyzerIds !== []) {
+        if ($comparisonAnalyzerIds !== []) {
             $comparisonAnalyzers = self::sentence(array_map(static fn (string $analyzerId): string => "`{$analyzerId}`", $comparisonAnalyzerIds));
             array_push($lines, count($comparisonAnalyzerIds) === 1
                 ? "{$comparisonAnalyzers} compares the output with its input, so it has no baseline."
@@ -147,11 +167,8 @@ final class Summary
             '| Input | '.implode(' | ', array_map(static fn (string $analyzerId): string => "`{$analyzerId}`", $analyzerIds)).' |',
             '| ----- | '.implode(' | ', array_map(static fn (string $analyzerId): string => str_repeat('-', strlen($analyzerId) + 2), $analyzerIds)).' |',
         );
-        $unavailableAttempts = [];
         foreach ($attempts as $attempt) {
             if ($attempt['input']['status'] === 'unavailable') {
-                $unavailableAttempts[] = $attempt;
-
                 continue;
             }
             $sourceId = $attempt['input']['source_id'];
@@ -160,15 +177,7 @@ final class Summary
         }
         $lines[] = '';
 
-        if ($unavailableAttempts !== []) {
-            array_push($lines, 'Inputs without a baseline, because they were unavailable:', '', '| Input | Reason |', '| ----- | ------ |');
-            foreach ($unavailableAttempts as $attempt) {
-                $lines[] = "| `{$attempt['input']['source_id']}` | `{$attempt['input']['reason']}` |";
-            }
-            $lines[] = '';
-        }
-
-        return $lines;
+        return [...$lines, ...$unavailableLines];
     }
 
     /**

@@ -26,7 +26,7 @@ final class ComparisonSummaryTest extends TestCase
             ->succeeded('qpdf:introduced.pdf', ['pdfsig' => 'invalid', 'qpdf' => 'valid'])
             ->succeeded('qpdf:fixed.pdf', self::VALID)
             ->succeeded('qpdf:persistent.pdf', ['pdfsig' => 'invalid', 'qpdf' => 'valid'])
-            ->succeeded('qpdf:changed.pdf', ['pdfsig' => 'valid', 'qpdf' => 'inconclusive'])
+            ->succeeded('qpdf:changed.pdf', ['pdfsig' => 'valid', 'qpdf' => 'not_applicable'])
             ->succeeded('qpdf:unavailable.pdf', self::VALID);
         $candidate->run['source_configuration']['sha256'] = str_repeat('f', 64);
         $candidate->run['environment']['resource_limits']['timeout_seconds'] = 60;
@@ -44,7 +44,7 @@ final class ComparisonSummaryTest extends TestCase
             Reference run `run-20261107T120000Z`: scenario `basic-invisible-sha256`, implementation `pdf-signer` at commit `{$a}`.
             Candidate run `run-20261107T130000Z`: scenario `basic-invisible-sha256`, implementation `pdf-signer` at commit `{$b}`.
 
-            Attempts are paired by input and scenario. An item is `introduced` when the candidate run fails it and the reference run did not, `fixed` when the reference run failed it and the candidate run executed it successfully or judged it `valid`, `persistent` when both runs fail it, and `changed` for any other difference. A failure is an execution that failed or timed out, unless it was a rejection that was expected, or a verdict of `invalid`. Output hashes are not compared.
+            Attempts are paired by input and scenario. A failure is what the summary of a run lists under its failures: an execution that did not succeed, unless it was a rejection that was expected, an expected rejection that succeeded, and a verdict of `invalid` or `inconclusive`. An item is `introduced` when the candidate run fails it and the reference run did not, `fixed` when the reference run failed it and the candidate run succeeded without an expected rejection or judged it `valid`, `persistent` when both runs fail it, and `changed` for any other difference. Output hashes are not compared.
 
             ## Differences between the runs
 
@@ -97,7 +97,7 @@ final class ComparisonSummaryTest extends TestCase
             | ----- | ---- | --------- | --------- |
             | `qpdf:fixed.pdf` | verdict of `pdfsig` | `not_evaluated` | `valid` |
             | `qpdf:fixed.pdf` | verdict of `qpdf` | `not_evaluated` | `valid` |
-            | `qpdf:changed.pdf` | verdict of `qpdf` | `valid` | `inconclusive` |
+            | `qpdf:changed.pdf` | verdict of `qpdf` | `valid` | `not_applicable` |
 
             ## Inputs not compared
 

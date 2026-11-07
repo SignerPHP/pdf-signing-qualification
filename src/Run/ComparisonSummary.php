@@ -20,10 +20,10 @@ final class ComparisonSummary
         $lines = [
             "# Comparison of {$reference['run_id']} with {$candidate['run_id']}",
             '',
-            "Reference run `{$reference['run_id']}`: scenario `{$reference['scenario_id']}`, implementation ".self::tool($reference['implementation']).'.',
-            "Candidate run `{$candidate['run_id']}`: scenario `{$candidate['scenario_id']}`, implementation ".self::tool($candidate['implementation']).'.',
+            "Reference run `{$reference['run_id']}`: scenario `{$reference['scenario_id']}`, implementation ".Summary::tool($reference['implementation']).'.',
+            "Candidate run `{$candidate['run_id']}`: scenario `{$candidate['scenario_id']}`, implementation ".Summary::tool($candidate['implementation']).'.',
             '',
-            'Attempts are paired by input and scenario. An item is `introduced` when the candidate run fails it and the reference run did not, `fixed` when the reference run failed it and the candidate run executed it successfully or judged it `valid`, `persistent` when both runs fail it, and `changed` for any other difference. A failure is an execution that failed or timed out, unless it was a rejection that was expected, or a verdict of `invalid`. Output hashes are not compared.',
+            'Attempts are paired by input and scenario. A failure is what the summary of a run lists under its failures: an execution that did not succeed, unless it was a rejection that was expected, an expected rejection that succeeded, and a verdict of `invalid` or `inconclusive`. An item is `introduced` when the candidate run fails it and the reference run did not, `fixed` when the reference run failed it and the candidate run succeeded without an expected rejection or judged it `valid`, `persistent` when both runs fail it, and `changed` for any other difference. Output hashes are not compared.',
             '',
             '## Differences between the runs',
             '',
@@ -125,20 +125,10 @@ final class ComparisonSummary
         }
 
         return match ($subject) {
-            'implementation' => self::tool($value),
-            'analyzer' => self::revision($value),
+            'implementation' => Summary::tool($value),
+            'analyzer' => Summary::revision($value),
             'source_configuration', 'expected_rejections' => "SHA-256 `{$value['sha256']}`, {$value['byte_size']} bytes",
             default => '`'.str_replace('|', '\|', is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)).'`',
         };
-    }
-
-    private static function tool(array $tool): string
-    {
-        return "`{$tool['id']}` ".self::revision($tool['revision']);
-    }
-
-    private static function revision(array $revision): string
-    {
-        return $revision['kind'] === 'commit' ? "at commit `{$revision['value']}`" : $revision['value'];
     }
 }

@@ -6,6 +6,7 @@ namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SignerPHP\PdfSigningQualification\Run\RunComparison;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
@@ -78,7 +79,7 @@ final class RunComparisonTest extends TestCase
 
         self::assertSame([], $comparison['differences']);
         self::assertSame(['paired' => 4, 'only_in_reference' => 0, 'only_in_candidate' => 0, 'unavailable' => 0, 'input_changed' => 0], $comparison['totals']['inputs']);
-        self::assertSame(['introduced' => 0, 'fixed' => 0, 'persistent' => 2, 'changed' => 0, 'unchanged' => 14], $comparison['totals']['changes']);
+        self::assertSame(['introduced' => 0, 'fixed' => 0, 'persistent' => 4, 'changed' => 0, 'unchanged' => 12], $comparison['totals']['changes']);
         self::assertFalse(RunComparison::hasNewFailures($comparison));
         self::assertSame([
             'capability' => ['supported', 'supported', 'unchanged'],
@@ -93,19 +94,20 @@ final class RunComparisonTest extends TestCase
     public static function classifiedVerdicts(): iterable
     {
         yield 'valid to invalid is introduced' => ['valid', 'invalid', 'introduced'];
-        yield 'inconclusive to invalid is introduced' => ['inconclusive', 'invalid', 'introduced'];
+        yield 'valid to inconclusive is introduced' => ['valid', 'inconclusive', 'introduced'];
         yield 'not applicable to invalid is introduced' => ['not_applicable', 'invalid', 'introduced'];
+        yield 'not applicable to inconclusive is introduced' => ['not_applicable', 'inconclusive', 'introduced'];
         yield 'invalid to valid is fixed' => ['invalid', 'valid', 'fixed'];
+        yield 'inconclusive to valid is fixed' => ['inconclusive', 'valid', 'fixed'];
         yield 'invalid to invalid is persistent' => ['invalid', 'invalid', 'persistent'];
-        yield 'invalid to inconclusive is changed, not fixed' => ['invalid', 'inconclusive', 'changed'];
+        yield 'inconclusive to invalid is persistent' => ['inconclusive', 'invalid', 'persistent'];
+        yield 'invalid to inconclusive is persistent, not fixed' => ['invalid', 'inconclusive', 'persistent'];
         yield 'invalid to not applicable is changed, not fixed' => ['invalid', 'not_applicable', 'changed'];
-        yield 'valid to inconclusive is changed' => ['valid', 'inconclusive', 'changed'];
-        yield 'inconclusive to valid is changed' => ['inconclusive', 'valid', 'changed'];
-        yield 'inconclusive to inconclusive is unchanged' => ['inconclusive', 'inconclusive', 'unchanged'];
+        yield 'valid to not applicable is changed' => ['valid', 'not_applicable', 'changed'];
     }
 
     #[DataProvider('classifiedVerdicts')]
-    public function test_each_verdict_is_classified_by_whether_either_run_judged_the_output_invalid(string $referenceVerdict, string $candidateVerdict, string $change): void
+    public function test_each_verdict_is_classified_by_whether_the_summary_of_either_run_lists_it_as_a_failure(string $referenceVerdict, string $candidateVerdict, string $change): void
     {
         $comparison = self::compare(
             self::reference()->succeeded(self::INPUT, ['pdfsig' => $referenceVerdict, 'qpdf' => 'valid']),
@@ -192,10 +194,21 @@ final class RunComparisonTest extends TestCase
         );
 
         self::assertSame(['failed', 'timed_out', 'introduced'], self::items($comparison)['execution']);
-        self::assertSame(['failed', 'succeeded', 'changed'], self::items($comparison, 'qpdf:qpdf/qtest/qpdf/not-a-pdf.pdf')['execution']);
+        self::assertSame(['failed', 'succeeded', 'introduced'], self::items($comparison, 'qpdf:qpdf/qtest/qpdf/not-a-pdf.pdf')['execution']);
     }
 
-    public function test_a_capability_change_is_reported_as_a_change(): void
+    public function test_an_expected_rejection_that_rejects_again_after_succeeding_is_a_change_not_a_fix(): void
+    {
+        $comparison = self::compare(
+            self::reference()->succeeded(self::INPUT, self::VALID, capability: 'expected_rejection'),
+            self::candidate()->failed(self::INPUT, capability: 'expected_rejection'),
+        );
+
+        self::assertSame(['succeeded', 'failed', 'changed'], self::items($comparison)['execution']);
+        self::assertFalse(RunComparison::hasNewFailures($comparison));
+    }
+
+    public function test_an_input_that_is_no_longer_supported_is_a_new_failure_of_its_execution(): void
     {
         $comparison = self::compare(
             self::reference()->succeeded(self::INPUT, self::VALID),
@@ -204,11 +217,11 @@ final class RunComparisonTest extends TestCase
 
         self::assertSame([
             'capability' => ['supported', 'unsupported', 'changed'],
-            'execution' => ['succeeded', 'not_run', 'changed'],
+            'execution' => ['succeeded', 'not_run', 'introduced'],
             'verdict pdfsig' => ['valid', 'not_evaluated', 'changed'],
             'verdict qpdf' => ['valid', 'not_evaluated', 'changed'],
         ], self::items($comparison));
-        self::assertFalse(RunComparison::hasNewFailures($comparison));
+        self::assertTrue(RunComparison::hasNewFailures($comparison));
     }
 
     public function test_inputs_present_in_one_run_unavailable_in_one_or_changed_are_reported_and_never_fixed(): void
@@ -217,8 +230,10 @@ final class RunComparisonTest extends TestCase
             ->failed('qpdf:only-in-reference.pdf')
             ->failed('qpdf:unavailable-in-candidate.pdf')
             ->unavailable('qpdf:unavailable-in-reference.pdf')
-            ->failed('qpdf:changed.pdf');
+            ->failed('qpdf:changed.pdf')
+            ->succeeded(self::INPUT, self::VALID);
         $candidate = self::candidate()
+            ->succeeded(self::INPUT, self::VALID)
             ->unavailable('qpdf:unavailable-in-candidate.pdf')
             ->succeeded('qpdf:unavailable-in-reference.pdf', ['pdfsig' => 'invalid', 'qpdf' => 'valid'])
             ->succeeded('qpdf:changed.pdf', self::VALID, inputContent: 'another input')
@@ -226,8 +241,8 @@ final class RunComparisonTest extends TestCase
 
         $comparison = self::compare($reference, $candidate);
 
-        self::assertSame(['paired' => 0, 'only_in_reference' => 1, 'only_in_candidate' => 1, 'unavailable' => 2, 'input_changed' => 1], $comparison['totals']['inputs']);
-        self::assertSame(['introduced' => 0, 'fixed' => 0, 'persistent' => 0, 'changed' => 0, 'unchanged' => 0], $comparison['totals']['changes']);
+        self::assertSame(['paired' => 1, 'only_in_reference' => 1, 'only_in_candidate' => 1, 'unavailable' => 2, 'input_changed' => 1], $comparison['totals']['inputs']);
+        self::assertSame(['introduced' => 0, 'fixed' => 0, 'persistent' => 0, 'changed' => 0, 'unchanged' => 4], $comparison['totals']['changes']);
         self::assertFalse(RunComparison::hasNewFailures($comparison));
         self::assertSame(
             [
@@ -235,6 +250,7 @@ final class RunComparisonTest extends TestCase
                 'qpdf:unavailable-in-candidate.pdf' => 'unavailable',
                 'qpdf:unavailable-in-reference.pdf' => 'unavailable',
                 'qpdf:changed.pdf' => 'input_changed',
+                self::INPUT => 'paired',
                 'qpdf:only-in-candidate.pdf' => 'only_in_candidate',
             ],
             array_column($comparison['inputs'], 'status', 'source_id'),
@@ -246,19 +262,29 @@ final class RunComparisonTest extends TestCase
         self::assertSame(hash('sha256', 'another input'), self::input($comparison, 'qpdf:changed.pdf')['candidate']['input']['sha256']);
     }
 
-    public function test_attempts_of_different_scenarios_are_not_paired_and_the_difference_is_stated(): void
+    public static function runsWithoutAnyPair(): iterable
     {
-        $comparison = self::compare(
+        yield 'different scenarios' => [
             self::reference()->succeeded(self::INPUT, self::VALID),
             (new RunFixture('run-20261107T130000Z', scenarioId: 'visible-sha256'))->succeeded(self::INPUT, ['pdfsig' => 'invalid', 'qpdf' => 'valid']),
-        );
+        ];
+        yield 'input unavailable in the candidate run' => [
+            self::reference()->succeeded(self::INPUT, self::VALID),
+            self::candidate()->unavailable(self::INPUT),
+        ];
+        yield 'no input in common' => [
+            self::reference()->succeeded(self::INPUT, self::VALID),
+            self::candidate()->succeeded('qpdf:qpdf/qtest/qpdf/other.pdf', self::VALID),
+        ];
+    }
 
-        self::assertSame([['subject' => 'scenario', 'reference' => 'basic-invisible-sha256', 'candidate' => 'visible-sha256']], $comparison['differences']);
-        self::assertSame(
-            [[self::INPUT, 'basic-invisible-sha256', 'only_in_reference'], [self::INPUT, 'visible-sha256', 'only_in_candidate']],
-            array_map(static fn (array $input): array => [$input['source_id'], $input['scenario_id'], $input['status']], $comparison['inputs']),
-        );
-        self::assertFalse(RunComparison::hasNewFailures($comparison));
+    #[DataProvider('runsWithoutAnyPair')]
+    public function test_runs_without_any_paired_input_are_refused(RunFixture $reference, RunFixture $candidate): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('The runs run-20261107T120000Z and run-20261107T130000Z have no available input in common under the same scenario and with the same content, so there is nothing to compare');
+
+        RunComparison::compare($reference->records(), $candidate->records());
     }
 
     public function test_differences_in_implementation_analyzers_policies_and_configuration_are_stated(): void

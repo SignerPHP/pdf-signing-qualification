@@ -133,7 +133,7 @@ final class AttemptRunner
 
             return "The help of {$implementation->id()} {$result->describe()}".($output === '' ? '' : ": {$output}");
         }
-        $missing = array_values(array_filter($check['expected_output'], static fn (string $expected): bool => ! str_contains($result->output, $expected)));
+        $missing = array_values(array_filter($check['options'], static fn (string $option): bool => preg_match('/(?<![A-Za-z0-9-])'.preg_quote($option, '/').'(?![A-Za-z0-9-])/', $result->output) !== 1));
 
         return $missing === [] ? null : "{$implementation->id()} does not list ".implode(', ', $missing).' in its help, so the adapter cannot run this revision';
     }

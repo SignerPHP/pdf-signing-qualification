@@ -74,6 +74,7 @@ final class ComparisonSchemaTest extends SchemaTestCase
     private static function regressionSide(string $runId, string $condition): array
     {
         return [
+            'definition' => ['sha256' => str_repeat('a', 64), 'byte_size' => 600],
             'attempt_id' => "{$runId}/basic-invisible-sha256/pdf-signer/regression:hybrid-xref.pdf",
             'condition' => ['status' => $condition, 'evidence' => "The condition is {$condition}"],
         ];
@@ -111,7 +112,7 @@ final class ComparisonSchemaTest extends SchemaTestCase
     {
         $notReplayed = static function (array $regression): array {
             $regression['status'] = 'not_replayed';
-            $regression['candidate'] = ['attempt_id' => null, 'condition' => ['status' => 'not_evaluated', 'evidence' => 'The case runs under scenario other-scenario']];
+            $regression['candidate'] = ['definition' => ['sha256' => str_repeat('a', 64), 'byte_size' => 600], 'attempt_id' => null, 'condition' => ['status' => 'not_evaluated', 'evidence' => 'The case runs under scenario other-scenario']];
 
             return $regression;
         };

@@ -73,7 +73,7 @@ final class PdfSignerImplementation implements SigningImplementation
     {
         return [
             'command' => ['php', '-d', 'memory_limit=-1', $this->installationDirectory.'/bin/signer-sign', '--help'],
-            'expected_output' => self::COMMAND_OPTIONS,
+            'options' => self::COMMAND_OPTIONS,
         ];
     }
 }

@@ -192,6 +192,17 @@ final class AttemptRunnerTest extends TestCase
         $this->assertWorkDirectoryIsEmpty();
     }
 
+    public function test_option_is_listed_only_under_its_own_name_and_not_inside_a_longer_one(): void
+    {
+        $installationDirectory = self::$directory.'/pdf-signer-with-renamed-certificate-option';
+        mkdir($installationDirectory.'/bin', 0777, true);
+        file_put_contents($installationDirectory.'/bin/signer-sign', "<?php\necho \"Usage: --input=/in.pdf --output=/out.pdf --certificate=/c.pfx --password=secret\\n  --certification-level=2\\n  --no-default-appearance\\n  --no-default-timestamp\\n\";\n");
+
+        $reason = $this->runner()->incompatibility(new PdfSignerImplementation($installationDirectory));
+
+        self::assertSame('pdf-signer does not list --cert in its help, so the adapter cannot run this revision', $reason);
+    }
+
     public function test_revision_without_the_entry_point_of_the_adapter_is_incompatible(): void
     {
         $installationDirectory = self::$directory.'/pdf-signer-without-entry-point';

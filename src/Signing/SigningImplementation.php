@@ -29,7 +29,7 @@ interface SigningImplementation
     public function command(SigningRequest $request): array;
 
     /**
-     * @return array{command: list<string>, expected_output: list<string>}|null
+     * @return array{command: list<string>, options: list<string>}|null
      */
     public function compatibilityCheck(): ?array;
 }

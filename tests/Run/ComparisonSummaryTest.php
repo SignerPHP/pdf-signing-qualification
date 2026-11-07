@@ -65,13 +65,13 @@ final class ComparisonSummaryTest extends TestCase
             | `unavailable` | 1 |
             | `input_changed` | 0 |
 
-            | Change | Items |
-            | ------ | ----: |
-            | `introduced` | 1 |
-            | `fixed` | 1 |
-            | `persistent` | 1 |
-            | `changed` | 3 |
-            | `unchanged` | 10 |
+            | Change | Items of inputs | Items of regression cases |
+            | ------ | --------------: | ------------------------: |
+            | `introduced` | 1 | 0 |
+            | `fixed` | 1 | 0 |
+            | `persistent` | 1 | 0 |
+            | `changed` | 3 | 0 |
+            | `unchanged` | 10 | 0 |
 
             ## New failures
 
@@ -142,6 +142,7 @@ final class ComparisonSummaryTest extends TestCase
         $markdown = ComparisonSummary::markdown(RunComparison::compare($reference->records(), $candidate->records()));
 
         self::assertStringContainsString('| `implementation_compatibility` |  | absent | `{"status":"incompatible","reason":"pdf-signer does not list --no-default-timestamp in its help"}` |', $markdown);
+        self::assertStringContainsString("| `introduced` | 0 | 2 |\n", $markdown);
         self::assertStringContainsString("## New failures\n\nNo input has a failure that the reference run did not have; the regression cases below do.\n", $markdown);
         self::assertStringContainsString(<<<'MARKDOWN'
             | Case | Status | Reference | Candidate | Change |

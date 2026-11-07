@@ -15,7 +15,7 @@ The pdf.js files suggested in the issue were not selected: the PDFs in its `test
 
 ## Strata
 
-Strata overlap: one input usually belongs to several. They were recorded from the bytes at the pinned revisions, with qpdf 11.3.0 from the project container where it could open the file and from the PDF syntax markers otherwise.
+Strata overlap: one input usually belongs to several. They were recorded from the bytes at the pinned revisions, with qpdf 11.3.0 from the project container where it could open the file and from the PDF syntax markers otherwise. The strata of each input are versioned in `config/inputs.json` and validated by its schema, which also declares the sample `failure_enriched`; this document has to agree with it, and a test checks that it does. `bin/report` groups the results of a run by these strata.
 
 | Stratum | Meaning | Inputs |
 | ------- | ------- | -----: |

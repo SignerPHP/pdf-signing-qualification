@@ -74,6 +74,7 @@ run_side() {
     image_id="$(docker image inspect --format '{{.Id}}' "pdf-signing-qualification:pdf-signer-$revision")"
     PDF_SIGNER_REVISION="$revision" \
         docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "$run_directory" >&2
+    PDF_SIGNER_REVISION="$revision" docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null
 }
 
 run_side reference "$reference_commit"

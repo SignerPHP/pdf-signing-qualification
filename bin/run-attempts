@@ -11,6 +11,7 @@ use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Run\Environment;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
 use SignerPHP\PdfSigningQualification\Run\Pilot;
+use SignerPHP\PdfSigningQualification\Run\RunReport;
 use SignerPHP\PdfSigningQualification\Run\Summary;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\Implementations;
@@ -71,7 +72,11 @@ $exitCode = 0;
 
 try {
     $implementation = Implementations::select($implementationId);
-    $inputs = SourceConfiguration::fromFile($configurationPath);
+    $runConfigurationPath = $runDirectory.'/'.RunReport::SOURCE_CONFIGURATION_FILE;
+    if (! copy($configurationPath, $runConfigurationPath)) {
+        throw new RuntimeException("Unable to copy {$configurationPath} to {$runConfigurationPath}");
+    }
+    $inputs = SourceConfiguration::fromFile($runConfigurationPath);
     $expectedRejections = ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, $scenarioDirectory);
     $regressionCases = RegressionCases::fromDirectory($regressionDirectory, $scenarioDirectory);
     $regressionConditions = new RegressionConditions(new ProcessRunner);
@@ -105,7 +110,7 @@ try {
         $inputs,
         $acquisitions,
         Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits),
-        Artifact::describe($configurationPath),
+        Artifact::describe($runConfigurationPath),
         $regressionCases,
     );
     $regressions = $records['regressions'] ?? throw new RuntimeException('The run did not replay its regression cases');

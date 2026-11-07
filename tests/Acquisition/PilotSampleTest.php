@@ -66,19 +66,42 @@ final class PilotSampleTest extends TestCase
         self::assertSame([], $nonFreeLicenses);
     }
 
-    public function test_stratum_counts_match_the_documented_inputs(): void
+    public function test_documented_strata_of_each_input_match_the_configuration(): void
     {
-        $document = (string) file_get_contents(self::DOCUMENT);
-        preg_match_all('/^\| `([a-z]+)` \| [^|]+ \| (\d+) \|$/m', $document, $strata);
-        $declaredCounts = array_map(intval(...), array_combine($strata[1], $strata[2]));
-        ksort($declaredCounts);
+        preg_match_all('/^\| `([a-z0-9-]+:[^`]+)` \| [^|]+ \| ([^|]+) \|/m', (string) file_get_contents(self::DOCUMENT), $rows, PREG_SET_ORDER);
+        $documentedStrata = [];
+        foreach ($rows as [, $id, $strataCell]) {
+            preg_match_all('/`([a-z]+)`/', $strataCell, $strata);
+            $documentedStrata[$id] = $strata[1];
+        }
+        ksort($documentedStrata);
 
-        preg_match_all('/^\| `[a-z0-9-]+:[^`]+` \| [^|]+ \| ([^|]+) \|/m', $document, $rows);
-        preg_match_all('/`([a-z]+)`/', implode(' ', $rows[1]), $tags);
-        $countedStrata = array_count_values($tags[1]);
-        ksort($countedStrata);
+        $configuredStrata = [];
+        foreach (SourceConfiguration::fromFile(self::CONFIGURATION) as $input) {
+            $configuredStrata[$input->id()] = $input->strata;
+        }
+        ksort($configuredStrata);
 
-        self::assertNotSame([], $declaredCounts);
-        self::assertSame($declaredCounts, $countedStrata);
+        self::assertSame($configuredStrata, $documentedStrata);
+    }
+
+    public function test_documented_stratum_counts_match_the_configuration(): void
+    {
+        preg_match_all('/^\| `([a-z]+)` \| [^|]+ \| (\d+) \|$/m', (string) file_get_contents(self::DOCUMENT), $strata);
+        $documentedCounts = array_map(intval(...), array_combine($strata[1], $strata[2]));
+        ksort($documentedCounts);
+
+        $configuredCounts = array_count_values(array_merge(...array_map(static fn (Input $input): array => $input->strata, SourceConfiguration::fromFile(self::CONFIGURATION))));
+        ksort($configuredCounts);
+
+        self::assertNotSame([], $documentedCounts);
+        self::assertSame($configuredCounts, $documentedCounts);
+    }
+
+    public function test_sample_is_declared_failure_enriched(): void
+    {
+        $configuration = json_decode((string) file_get_contents(self::CONFIGURATION), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame('failure_enriched', $configuration['selection']);
     }
 }

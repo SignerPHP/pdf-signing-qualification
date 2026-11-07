@@ -142,6 +142,42 @@ final class RunReportTest extends TestCase
         self::assertStringContainsString('| Output | `pyhanko` | `invalid` | pyHanko judged the signature(s) <signature>, <signature> not intact or not cryptographically valid | 1 | `qpdf:signed.pdf` |', $this->report($fixture));
     }
 
+    public function test_signature_named_by_its_object_falls_in_the_same_cause_as_one_named_by_its_field(): void
+    {
+        $problem = 'its byte range extends past the end of the input, so the input does not hold every byte it covers';
+        $fixture = (new RunFixture('run-20261107T120000Z', ['pdfsig' => '22.12.0']))
+            ->succeeded('verapdf:by-object.pdf', ['pdfsig' => 'inconclusive'])->stratify('verapdf:by-object.pdf', ['signed'])
+            ->evidence('verapdf:by-object.pdf', 'pdfsig', "5 0 R: {$problem}", ['signatures' => [['object' => '5 0 R', 'field' => null]]])
+            ->succeeded('verapdf:by-field.pdf', ['pdfsig' => 'inconclusive'])->stratify('verapdf:by-field.pdf', ['signed'])
+            ->evidence('verapdf:by-field.pdf', 'pdfsig', "Signature2: {$problem}", ['signatures' => [['object' => '21 0 R', 'field' => 'Signature2']]]);
+
+        self::assertStringContainsString("| Output | `pdfsig` | `inconclusive` | <signature>: {$problem} | 2 | `verapdf:by-object.pdf`, `verapdf:by-field.pdf` |\n", $this->report($fixture));
+    }
+
+    public function test_work_paths_of_the_runner_do_not_split_an_execution_cause(): void
+    {
+        $message = static fn (string $attempt): string => 'jsignpdf exited with code 1: Error to sign PDF. ["INFO Opening input PDF file: \\/sandbox\\/run-a74df68773cf0d84\\/work\\/attempt-'.$attempt.'\\/'.md5($attempt).'.pdf","SEVERE Problem occured"]';
+        $fixture = (new RunFixture('run-20261107T120000Z'))
+            ->failed('qpdf:first.pdf', message: $message('a4e7270155e29487'))->stratify('qpdf:first.pdf', ['encrypted'])
+            ->failed('qpdf:second.pdf', message: $message('5f8c7f33bad46ef6'))->stratify('qpdf:second.pdf', ['encrypted']);
+
+        self::assertStringContainsString('| Execution | none | `failed` | jsignpdf exited with code 1: Error to sign PDF. ["INFO Opening input PDF file: <work path>","SEVERE Problem occured"] | 2 | `qpdf:first.pdf`, `qpdf:second.pdf` |', $this->report($fixture));
+    }
+
+    public function test_cause_is_shown_whole_so_long_causes_stay_distinguishable(): void
+    {
+        $preamble = 'jsignpdf exited with code 1: '.str_repeat('INFO Getting certificate chain | ', 10);
+        $fixture = (new RunFixture('run-20261107T120000Z'))
+            ->failed('qpdf:locked.pdf', message: $preamble.'BadPasswordException: Bad user password')->stratify('qpdf:locked.pdf', ['encrypted'])
+            ->failed('qpdf:headless.pdf', message: $preamble.'InvalidPdfException: PDF header signature not found.')->stratify('qpdf:headless.pdf', ['malformed']);
+        $escapedPreamble = str_replace('|', '\\|', $preamble);
+
+        $report = $this->report($fixture);
+
+        self::assertStringContainsString("| `failed` | {$escapedPreamble}BadPasswordException: Bad user password | 1 | `qpdf:locked.pdf` |", $report);
+        self::assertStringContainsString("| `failed` | {$escapedPreamble}InvalidPdfException: PDF header signature not found. | 1 | `qpdf:headless.pdf` |", $report);
+    }
+
     public function test_failures_are_grouped_by_input_source(): void
     {
         $report = $this->report();

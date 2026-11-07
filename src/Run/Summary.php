@@ -339,7 +339,7 @@ final class Summary
         return $items === [] ? (string) $last : implode(', ', $items)." and {$last}";
     }
 
-    public static function cell(string $text): string
+    private static function cell(string $text): string
     {
         $firstLine = trim(explode("\n", $text, 2)[0]);
         if (mb_strlen($firstLine) > self::CELL_CHARACTERS) {

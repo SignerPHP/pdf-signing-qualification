@@ -4,7 +4,6 @@
 declare(strict_types=1);
 
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
-use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Regression\RegressionCases;
 use SignerPHP\PdfSigningQualification\Regression\RegressionConditions;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
@@ -72,11 +71,11 @@ $exitCode = 0;
 
 try {
     $implementation = Implementations::select($implementationId);
-    $runConfigurationPath = $runDirectory.'/'.RunReport::SOURCE_CONFIGURATION_FILE;
-    if (! copy($configurationPath, $runConfigurationPath)) {
-        throw new RuntimeException("Unable to copy {$configurationPath} to {$runConfigurationPath}");
+    $configuration = @file_get_contents($configurationPath);
+    if ($configuration === false) {
+        throw new RuntimeException("Unable to read the source configuration {$configurationPath}");
     }
-    $inputs = SourceConfiguration::fromFile($runConfigurationPath);
+    $inputs = SourceConfiguration::fromJson($configuration);
     $expectedRejections = ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, $scenarioDirectory);
     $regressionCases = RegressionCases::fromDirectory($regressionDirectory, $scenarioDirectory);
     $regressionConditions = new RegressionConditions(new ProcessRunner);
@@ -110,12 +109,13 @@ try {
         $inputs,
         $acquisitions,
         Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits),
-        Artifact::describe($runConfigurationPath),
+        ['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)],
         $regressionCases,
     );
     $regressions = $records['regressions'] ?? throw new RuntimeException('The run did not replay its regression cases');
 
     $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations'], $records['baselines'], $regressions);
+    $writeFile($runDirectory.'/'.RunReport::SOURCE_CONFIGURATION_FILE, $configuration);
     $writeFile($runDirectory.'/baselines.json', $encodeJson($records['baselines']));
     $writeFile($runDirectory.'/attempts.json', $encodeJson($records['attempts']));
     $writeFile($runDirectory.'/observations.json', $encodeJson($records['observations']));

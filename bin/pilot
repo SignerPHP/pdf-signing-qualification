@@ -27,6 +27,11 @@ fi
 
 image_id="$(docker image inspect --format '{{.Id}}' pdf-signing-qualification:local)"
 docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "$run_directory"
-docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null
+report_status=0
+docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null || report_status=$?
 
 echo "Results written to $run_directory" >&2
+if [ "$report_status" -ne 0 ]; then
+    echo "The report of $run_directory could not be written; see the messages above. The run records are complete." >&2
+    exit 1
+fi

@@ -109,7 +109,9 @@ final class RunAttemptsCommandTest extends TestCase
     private function runCommand(string $runId, array $acquisitions, array $environment = [], array $options = [], bool $passExpectedRejections = true): array
     {
         $runDirectory = $this->directory.'/runs/'.$runId;
-        mkdir($runDirectory, 0777, true);
+        if (! is_dir($runDirectory)) {
+            mkdir($runDirectory, 0777, true);
+        }
         file_put_contents($runDirectory.'/acquisitions.json', json_encode($acquisitions, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $process = proc_open(
@@ -274,6 +276,23 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(1, $exitCode);
         self::assertStringContainsString('does not match its acquisition record for local:unsigned.pdf', $errorOutput);
         self::assertFileDoesNotExist("{$this->directory}/runs/run-changed-input/baselines.json");
+        self::assertFileDoesNotExist("{$this->directory}/runs/run-changed-input/inputs.json");
+    }
+
+    public function test_copy_of_the_configuration_in_the_run_directory_can_be_the_configuration_itself(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+        $configuration = (string) file_get_contents($this->configurationPath);
+        mkdir($this->directory.'/runs/run-own-copy', 0777, true);
+        $this->configurationPath = $this->directory.'/runs/run-own-copy/inputs.json';
+        file_put_contents($this->configurationPath, $configuration);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-own-copy', $acquisitions);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertStringEqualsFile($this->configurationPath, $configuration);
+        self::assertSame(['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)], $this->readRecords('run-own-copy', 'run.json')['source_configuration']);
     }
 
     public function test_declared_input_is_an_expected_rejection_and_the_others_stay_supported(): void

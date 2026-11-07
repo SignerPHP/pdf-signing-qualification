@@ -9,7 +9,7 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class SourceConfiguration
 {
-    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/sources.schema.json';
+    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
 
     /**
      * @return list<Input>
@@ -21,6 +21,14 @@ final class SourceConfiguration
             throw new InvalidArgumentException("Unable to read the source configuration {$path}");
         }
 
+        return self::fromJson($contents);
+    }
+
+    /**
+     * @return list<Input>
+     */
+    public static function fromJson(string $contents): array
+    {
         self::assertFollowsSchema(json_decode($contents, flags: JSON_THROW_ON_ERROR));
 
         /** @var array $configuration */

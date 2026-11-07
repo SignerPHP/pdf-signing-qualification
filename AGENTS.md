@@ -28,7 +28,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | File | Contents |
 | ---- | -------- |
 | `acquisitions.json` | One acquisition record per declared input |
-| `inputs.json` | A byte-for-byte copy of the source configuration the run used, whose SHA-256 and size `run.json` records; it carries the strata of each input and how the sample was selected |
+| `inputs.json` | A byte-for-byte copy of the source configuration the run used, whose SHA-256 and size `run.json` records, written with the other records; it carries the strata of each input and how the sample was selected |
 | `run.json` | The run record: scenario, environment, container image, resource limits, implementation revision and runtime, analyzer versions, and the hashes of `config/inputs.json` and `config/expected-rejections.json` |
 | `baselines.json` | One baseline per available input and analyzer that judges one document: each validator's verdict on the input itself, before signing |
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
@@ -38,7 +38,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | `summary.md` | Whether the adapter can run the installed revision when it cannot, totals per execution outcome and of the attempts rejected as expected, totals per analyzer and verdict, the baseline of each input next to the verdict on its output, the inputs without a baseline, the rejections that were expected, the condition of each regression case, and every other attempt or output that was not successful or not `valid`; also printed |
 | `report.md` | The coverage and failure report of `bin/report`, generated from the files above only |
 
-An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues. `run.json` is written last, so a run directory without it holds an aborted or unfinished run, not results. `bin/pilot` writes `report.md` after the run; `bin/replay` writes one into each of its two run directories.
+An aborted acquisition (exit 2) stops it before anything is signed; unavailable inputs (exit 1) are recorded and the run continues. `run.json` is written last, so a run directory without it holds an aborted or unfinished run, not results. `bin/pilot` writes `report.md` after the run; `bin/replay` writes one into each of its two run directories. A report that cannot be written does not stop either of them: the pilot still says where the results are and then exits with 1, and the replay warns and still compares the runs.
 
 ## Replaying another revision
 

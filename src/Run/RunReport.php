@@ -7,7 +7,6 @@ namespace SignerPHP\PdfSigningQualification\Run;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
-use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class RunReport
@@ -26,22 +25,27 @@ final class RunReport
 
     private const string SIGNATURE_PLACEHOLDER = '<signature>';
 
+    private const string WORK_PATH_PATTERN = '~\\\\?/sandbox\\\\?/run-[0-9a-f]+[^\s"\',;\]]*~';
+
+    private const string WORK_PATH_PLACEHOLDER = '<work path>';
+
     public static function fromDirectory(string $directory): string
     {
         $directory = rtrim($directory, '/');
         $records = RunRecords::fromDirectory($directory);
         $configurationPath = $directory.'/'.self::SOURCE_CONFIGURATION_FILE;
-        if (! is_file($configurationPath)) {
+        $configuration = is_file($configurationPath) ? @file_get_contents($configurationPath) : false;
+        if ($configuration === false) {
             throw new RuntimeException("{$directory} has no ".self::SOURCE_CONFIGURATION_FILE.', the copy of the source configuration used by the run, so its inputs have no strata to report');
         }
-        if (Artifact::describe($configurationPath) !== $records->run['source_configuration']) {
+        if (['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)] !== $records->run['source_configuration']) {
             throw new RuntimeException("{$configurationPath} is not the source configuration recorded in the run.json of {$directory}");
         }
-        $inputs = SourceConfiguration::fromFile($configurationPath);
-        /** @var array{selection: string} $configuration */
-        $configuration = json_decode((string) file_get_contents($configurationPath), true, flags: JSON_THROW_ON_ERROR);
+        $inputs = SourceConfiguration::fromJson($configuration);
+        /** @var array{selection: string} $declaration */
+        $declaration = json_decode($configuration, true, flags: JSON_THROW_ON_ERROR);
 
-        return self::markdown($records, $configuration['selection'], $inputs);
+        return self::markdown($records, $declaration['selection'], $inputs);
     }
 
     /**
@@ -89,7 +93,7 @@ final class RunReport
             '',
             "Each analyzer judges on its own and its verdicts are never combined with another analyzer's. Every attempt has one verdict from each analyzer, so a row has the same denominator as in the coverage table: an attempt without an output is `not_evaluated`.",
             '',
-            ...self::verdictsByStratum($records->run['analyzers'], $records->observations, $attemptsByStratum, $records->attempts),
+            ...self::verdictsByStratum($records->run['analyzers'], $records->observations, $verdicts, $attemptsByStratum, $records->attempts),
             '## Validator disagreements',
             '',
             ...self::disagreements($records->attempts, $observationsByAttempt),
@@ -107,7 +111,7 @@ final class RunReport
      */
     public static function strata(): array
     {
-        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v1/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
+        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v2/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
 
         return array_values(array_column($schema['$defs']['stratum']['oneOf'], 'const'));
     }
@@ -144,7 +148,7 @@ final class RunReport
     private static function coverageCategory(array $attempt): string
     {
         return match (true) {
-            $attempt['capability'] === 'not_evaluated' => 'unavailable',
+            self::isUnavailable($attempt) => 'unavailable',
             $attempt['capability'] === 'unsupported' => 'unsupported',
             Summary::isRejectedAsExpected($attempt) => 'rejected_as_expected',
             $attempt['execution']['outcome'] === 'succeeded' => 'signed',
@@ -160,14 +164,7 @@ final class RunReport
     private static function coverage(array $attemptsByStratum, array $attempts): array
     {
         $lines = self::header(['Stratum', 'Attempts', ...array_values(self::COVERAGE_COLUMNS)]);
-        $row = static function (string $label, array $rowAttempts): string {
-            $counts = array_fill_keys(array_keys(self::COVERAGE_COLUMNS), 0);
-            foreach ($rowAttempts as $attempt) {
-                $counts[self::coverageCategory($attempt)]++;
-            }
-
-            return self::row([$label, count($rowAttempts), ...array_values($counts)]);
-        };
+        $row = static fn (string $label, array $rowAttempts): string => self::row([$label, count($rowAttempts), ...array_values(self::countCoverage($rowAttempts))]);
         foreach ($attemptsByStratum as $stratum => $stratumAttempts) {
             $lines[] = $row("`{$stratum}`", $stratumAttempts);
         }
@@ -179,18 +176,14 @@ final class RunReport
     /**
      * @param  list<array>  $analyzers
      * @param  list<array>  $observations
+     * @param  array<string, array<string, string>>  $verdicts
      * @param  array<string, list<array>>  $attemptsByStratum
      * @param  list<array>  $attempts
      * @return list<string>
      */
-    private static function verdictsByStratum(array $analyzers, array $observations, array $attemptsByStratum, array $attempts): array
+    private static function verdictsByStratum(array $analyzers, array $observations, array $verdicts, array $attemptsByStratum, array $attempts): array
     {
-        $verdicts = [];
-        $properties = [];
-        foreach ($observations as $observation) {
-            $verdicts[$observation['analyzer']['id']][$observation['attempt_id']] = $observation['verdict'];
-            $properties[$observation['analyzer']['id']] = $observation['property'];
-        }
+        $properties = array_column(array_map(static fn (array $observation): array => ['analyzer' => $observation['analyzer']['id'], 'property' => $observation['property']], $observations), 'property', 'analyzer');
 
         $lines = [];
         foreach ($analyzers as $analyzer) {
@@ -198,7 +191,7 @@ final class RunReport
             $row = static function (string $label, array $rowAttempts) use ($verdicts, $analyzerId): string {
                 $counts = array_fill_keys(self::VERDICTS, 0);
                 foreach ($rowAttempts as $attempt) {
-                    $counts[$verdicts[$analyzerId][$attempt['id']]]++;
+                    $counts[$verdicts[$attempt['id']][$analyzerId]]++;
                 }
 
                 return self::row([$label, count($rowAttempts), ...array_values($counts)]);
@@ -277,7 +270,7 @@ final class RunReport
                 $outcome = $attempt['execution']['outcome'];
                 $cause = match (true) {
                     $outcome === 'succeeded' => 'Expected to be rejected, but signed',
-                    $attempt['execution']['error'] !== null => self::firstLine($attempt['execution']['error']['message']),
+                    $attempt['execution']['error'] !== null => (string) preg_replace(self::WORK_PATH_PATTERN, self::WORK_PATH_PLACEHOLDER, self::firstLine($attempt['execution']['error']['message'])),
                     $attempt['capability'] === 'unsupported' => 'The scenario is not supported',
                     default => 'No error was recorded',
                 };
@@ -315,7 +308,7 @@ final class RunReport
             });
             array_push(
                 $lines,
-                'Signature field names that an analyzer reports in its details are replaced by `'.self::SIGNATURE_PLACEHOLDER.'`, because they change from one output to another. An attempt can show several causes, one per analyzer.',
+                'Each cause is shown whole, as it is compared. The names of signatures that an analyzer reports in its details are replaced by `'.self::SIGNATURE_PLACEHOLDER.'`, and paths in the work directory of the runner by `'.self::WORK_PATH_PLACEHOLDER.'`, because they change from one attempt to another. An attempt can show several causes, one per analyzer.',
                 '',
                 ...self::header(['Stage', 'Analyzer', 'Result', 'Cause', "Attempts (of {$total})", 'Inputs'], numericFrom: 4, numericTo: 4),
             );
@@ -325,7 +318,7 @@ final class RunReport
                     $analyzerId === '' ? 'Execution' : 'Output',
                     $analyzerId === '' ? 'none' : "`{$analyzerId}`",
                     "`{$result}`",
-                    Summary::cell($cause),
+                    str_replace('|', '\\|', $cause),
                     count($sourceIds),
                     implode(', ', array_map(static fn (string $sourceId): string => "`{$sourceId}`", $sourceIds)),
                 ]);
@@ -393,10 +386,17 @@ final class RunReport
     {
         $cause = self::firstLine($observation['evidence']['summary']);
         $signatures = $observation['evidence']['details']['signatures'] ?? [];
-        $fields = is_array($signatures) ? array_filter(array_map(static fn (mixed $signature): mixed => is_array($signature) ? ($signature['field'] ?? null) : null, $signatures), static fn (mixed $field): bool => is_string($field) && $field !== '') : [];
-        usort($fields, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
-        foreach ($fields as $field) {
-            $cause = (string) preg_replace('/(?<![\w.])'.preg_quote($field, '/').'(?![\w.])/u', self::SIGNATURE_PLACEHOLDER, $cause);
+        $names = [];
+        foreach (is_array($signatures) ? $signatures : [] as $signature) {
+            foreach (['field', 'object'] as $key) {
+                if (is_array($signature) && is_string($signature[$key] ?? null) && $signature[$key] !== '') {
+                    $names[] = $signature[$key];
+                }
+            }
+        }
+        usort($names, static fn (string $left, string $right): int => strlen($right) <=> strlen($left));
+        foreach ($names as $name) {
+            $cause = (string) preg_replace('/(?<![\w.])'.preg_quote($name, '/').'(?![\w.])/u', self::SIGNATURE_PLACEHOLDER, $cause);
         }
 
         return $cause;

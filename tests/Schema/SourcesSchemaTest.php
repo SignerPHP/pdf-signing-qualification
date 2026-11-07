@@ -10,7 +10,7 @@ final class SourcesSchemaTest extends SchemaTestCase
 {
     protected static function schemaPath(): string
     {
-        return 'v1/sources.schema.json';
+        return 'v2/sources.schema.json';
     }
 
     protected static function validDocument(): array

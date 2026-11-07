@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Run\RunRecords;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
@@ -139,7 +140,7 @@ final class RunFixture
             $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $license, 'strata' => $strata];
         }
 
-        return ['schema' => self::PREFIX.'sources.schema.json', 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];
+        return ['schema' => SourceConfiguration::SCHEMA, 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];
     }
 
     public function policy(string $analyzerId, string $policyId): self

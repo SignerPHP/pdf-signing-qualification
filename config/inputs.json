@@ -1,5 +1,5 @@
 {
-    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/sources.schema.json",
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json",
     "selection": "failure_enriched",
     "sources": [
         {

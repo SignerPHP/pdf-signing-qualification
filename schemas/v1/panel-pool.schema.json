@@ -28,7 +28,7 @@
             "type": "array",
             "items": {
                 "type": "object",
-                "required": ["id", "candidates", "selected", "excluded", "unaddressable"],
+                "required": ["id", "candidates", "selected", "excluded", "unaddressable", "unclassified", "analyzer_failures"],
                 "additionalProperties": false,
                 "properties": {
                     "id": { "$ref": "common.schema.json#/$defs/sourceId" },
@@ -38,6 +38,24 @@
                         "description": "Files that matched an include pattern and no exclusion but whose path the sources schema cannot express as an input path, such as one with parentheses, commas or equals signs; they are not candidates.",
                         "type": "integer",
                         "minimum": 0
+                    },
+                    "unclassified": {
+                        "description": "Files the classifier gave no stratum, such as one with both a cross-reference table and a cross-reference stream in one revision without `/XRefStm`; they cannot be drawn, so they are not candidates.",
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "analyzer_failures": {
+                        "description": "Files whose strata could not be recorded because qpdf crashed, did not finish or ended with an unknown status; they are not candidates.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["path", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "path": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                                "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
                     },
                     "excluded": {
                         "type": "array",

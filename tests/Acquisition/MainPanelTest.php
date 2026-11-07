@@ -11,7 +11,6 @@ use SignerPHP\PdfSigningQualification\Panel\PanelSelector;
 use SignerPHP\PdfSigningQualification\Panel\PlanSource;
 use SignerPHP\PdfSigningQualification\Panel\SelectionPlan;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
-use SignerPHP\PdfSigningQualification\Run\RunReport;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class MainPanelTest extends TestCase
@@ -78,7 +77,7 @@ final class MainPanelTest extends TestCase
             if ($planSource === null
                 || $input->source != $planSource->source
                 || ! $planSource->isIncluded($input->path)
-                || $planSource->exclusion($input->path) !== null
+                || $planSource->exclusionIndex($input->path) !== null
                 || $input->license !== $planSource->documentLicense) {
                 $outsideThePlan[] = $input->id();
             }
@@ -120,7 +119,7 @@ final class MainPanelTest extends TestCase
             $inputsOfSource = array_filter($inputs, static fn (Input $input): bool => $input->source->id === $source['id']);
             self::assertSame(count($inputsOfSource), $source['selected'], $source['id']);
         }
-        self::assertSame(RunReport::strata(), array_column($pool['strata'], 'stratum'));
+        self::assertSame(SourceConfiguration::strata(), array_column($pool['strata'], 'stratum'));
         foreach ($pool['strata'] as $stratum) {
             $inputsOfStratum = array_filter($inputs, static fn (Input $input): bool => in_array($stratum['stratum'], $input->strata, true));
             self::assertSame(count($inputsOfStratum), $stratum['selected'], $stratum['stratum']);
@@ -181,5 +180,27 @@ final class MainPanelTest extends TestCase
         $rejections = ExpectedRejections::fromFile(self::EXPECTED_REJECTIONS, self::inputs(), __DIR__.'/../../config/scenarios');
 
         self::assertInstanceOf(ExpectedRejections::class, $rejections);
+    }
+
+    public function test_input_declared_in_the_pilot_sample_too_has_the_same_strata_there(): void
+    {
+        $pilotStrata = [];
+        foreach (SourceConfiguration::fromFile(__DIR__.'/../../config/inputs.json') as $input) {
+            $pilotStrata[$input->sha256] = $input->strata;
+        }
+
+        $shared = 0;
+        foreach (self::inputs() as $input) {
+            if (! isset($pilotStrata[$input->sha256])) {
+                continue;
+            }
+            $shared++;
+            $panelStrata = $input->strata;
+            $strataInPilot = $pilotStrata[$input->sha256];
+            sort($panelStrata);
+            sort($strataInPilot);
+            self::assertSame($strataInPilot, $panelStrata, $input->id());
+        }
+        self::assertGreaterThan(0, $shared);
     }
 }

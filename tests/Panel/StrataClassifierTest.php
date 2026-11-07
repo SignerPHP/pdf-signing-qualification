@@ -6,9 +6,13 @@ namespace SignerPHP\PdfSigningQualification\Tests\Panel;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SignerPHP\PdfSigningQualification\Panel\StrataClassifier;
+use SignerPHP\PdfSigningQualification\Panel\UnclassifiableFile;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\HybridXrefPdf;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SyntheticPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 
 final class StrataClassifierTest extends TestCase
@@ -74,6 +78,89 @@ final class StrataClassifierTest extends TestCase
         $document = SyntheticPdf::appendUpdate(SyntheticPdf::classic(SyntheticPdf::onePage()), [3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 200] >>']);
 
         self::assertSame(['classic', 'incremental'], $this->classify($document));
+    }
+
+    public function test_linearized_file_with_one_revision_is_not_incremental(): void
+    {
+        $linearized = $this->linearized();
+
+        self::assertSame(2, substr_count((string) file_get_contents($linearized), 'startxref'));
+        self::assertNotContains('incremental', self::classifier()->classify($linearized));
+    }
+
+    public function test_linearized_file_with_an_update_is_incremental(): void
+    {
+        $document = SyntheticPdf::appendUpdate((string) file_get_contents($this->linearized()), [3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 200] >>']);
+
+        self::assertContains('incremental', $this->classify($document));
+    }
+
+    public function test_table_with_a_damaged_subsection_header_is_classic_and_malformed(): void
+    {
+        $document = str_replace("xref\n0 1\n", "xref\nx0 1\n", SyntheticPdf::classic(SyntheticPdf::onePage()));
+
+        self::assertSame(['classic', 'malformed'], $this->classify($document));
+    }
+
+    public function test_table_keyword_after_endobj_on_the_same_line_is_classic(): void
+    {
+        $document = (string) preg_replace('/endobj\nxref\n/', "endobj xref\n", SyntheticPdf::classic(SyntheticPdf::onePage()), 1, $replacements);
+        self::assertSame(1, $replacements);
+
+        self::assertSame(['classic'], $this->classify($document));
+    }
+
+    public function test_table_and_stream_in_one_revision_without_xrefstm_have_no_cross_reference_stratum(): void
+    {
+        $objects = SyntheticPdf::onePage() + [4 => '<< /Type /XRef >>'];
+
+        self::assertSame([], $this->classify(SyntheticPdf::classic($objects)));
+    }
+
+    public function test_qpdf_that_does_not_finish_stops_the_classification(): void
+    {
+        $path = SyntheticPdf::write($this->directory, 'input.pdf', SyntheticPdf::classic(SyntheticPdf::onePage()));
+        $runner = new class implements CommandRunner
+        {
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return new CommandResult(null, '', timedOut: true);
+            }
+        };
+
+        $this->expectException(RuntimeException::class);
+        $this->expectException(UnclassifiableFile::class);
+        $this->expectExceptionMessage('qpdf did not finish in time');
+
+        (new StrataClassifier($runner, 1_000_000, 1000))->classify($path);
+    }
+
+    public function test_qpdf_check_that_ends_with_an_unknown_status_stops_the_classification(): void
+    {
+        $path = SyntheticPdf::write($this->directory, 'input.pdf', SyntheticPdf::classic(SyntheticPdf::onePage()));
+        $runner = new class implements CommandRunner
+        {
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return new CommandResult(in_array('--check', $command, true) ? 139 : 0, '{}');
+            }
+        };
+
+        $this->expectException(RuntimeException::class);
+        $this->expectException(UnclassifiableFile::class);
+        $this->expectExceptionMessage('qpdf exited with code 139');
+
+        (new StrataClassifier($runner, 1_000_000, 1000))->classify($path);
+    }
+
+    private function linearized(): string
+    {
+        $input = SyntheticPdf::write($this->directory, 'plain.pdf', SyntheticPdf::classic(SyntheticPdf::onePage()));
+        $output = $this->directory.'/linearized.pdf';
+        exec('qpdf --linearize '.escapeshellarg($input).' '.escapeshellarg($output), result_code: $exitCode);
+        self::assertSame(0, $exitCode);
+
+        return $output;
     }
 
     public function test_startxref_that_points_to_no_cross_reference_is_none_and_malformed(): void

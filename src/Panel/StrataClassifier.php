@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Panel;
 
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 
 final class StrataClassifier
 {
     private const float TIMEOUT_SECONDS = 120.0;
+
+    private const array QPDF_EXIT_CODES = [0, 2, 3];
 
     private const string MALFORMED_WARNING = "/file is damaged|can't find PDF header|xref|cross-reference stream data|object stream/i";
 
@@ -38,7 +41,7 @@ final class StrataClassifier
         if (preg_match('#/Filter\s*/Standard(?![A-Za-z0-9])#', $bytes) === 1) {
             $strata[] = 'encrypted';
         }
-        if (substr_count($bytes, 'startxref') > 1) {
+        if (self::revisionCount($bytes) > 1) {
             $strata[] = 'incremental';
         }
 
@@ -82,6 +85,14 @@ final class StrataClassifier
         return preg_match('/%PDF-(\d\.\d)/', substr($bytes, 0, 1024), $matches) === 1 ? $matches[1] : null;
     }
 
+    private static function revisionCount(string $bytes): int
+    {
+        $headerOffset = strpos($bytes, '%PDF-');
+        $isLinearized = preg_match('#/Linearized\s#', substr($bytes, $headerOffset === false ? 0 : $headerOffset, 1024)) === 1;
+
+        return substr_count($bytes, 'startxref') - ($isLinearized ? 1 : 0);
+    }
+
     /**
      * @return list<string>
      */
@@ -94,7 +105,7 @@ final class StrataClassifier
             return ['hybrid'];
         }
 
-        $hasTable = preg_match('/(?<![A-Za-z])xref\s+\d+\s+\d+\s/', $bytes) === 1;
+        $hasTable = preg_match('/(?<![A-Za-z])xref[ \t]*[\r\n]/', $bytes) === 1;
         $hasStream = preg_match('#/Type\s*/XRef(?![A-Za-z0-9])#', $bytes) === 1;
 
         return match (true) {
@@ -124,7 +135,7 @@ final class StrataClassifier
 
     private function isMalformed(string $path): bool
     {
-        $result = $this->runner->run(['qpdf', '--check', $path], self::TIMEOUT_SECONDS);
+        $result = $this->qpdf(['qpdf', '--check', $path], $path);
         foreach (explode("\n", $result->output) as $line) {
             if ((str_starts_with($line, 'WARNING:') || str_starts_with($line, 'qpdf:')) && preg_match(self::MALFORMED_WARNING, $line) === 1) {
                 return true;
@@ -139,11 +150,11 @@ final class StrataClassifier
      */
     private function documentStructure(string $path): array
     {
-        $result = $this->runner->run(
+        $result = $this->qpdf(
             ['sh', '-c', 'exec qpdf "$@" 2>/dev/null', 'qpdf', '--json=2', '--json-key=qpdf', '--json-key=pages', '--json-key=acroform', $path],
-            self::TIMEOUT_SECONDS,
+            $path,
         );
-        if (! in_array($result->exitCode, [0, 3], true)) {
+        if ($result->exitCode === 2) {
             return [];
         }
         $document = json_decode($result->output, true);
@@ -157,6 +168,19 @@ final class StrataClassifier
         }
 
         return $structure;
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function qpdf(array $command, string $path): CommandResult
+    {
+        $result = $this->runner->run($command, self::TIMEOUT_SECONDS);
+        if ($result->timedOut || ! in_array($result->exitCode, self::QPDF_EXIT_CODES, true)) {
+            throw new UnclassifiableFile("qpdf {$result->describe()}");
+        }
+
+        return $result;
     }
 
     private static function hasFormFields(mixed $acroform): bool

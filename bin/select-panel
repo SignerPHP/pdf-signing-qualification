@@ -38,11 +38,18 @@ try {
     );
     $selection = $selector->select($plan, $matches[1]);
 
+    $paths = [];
     foreach (['inputs' => 'inputs.json', 'pool' => 'pool.json'] as $key => $fileName) {
         $path = "{$outputDirectory}/{$fileName}";
         $json = json_encode($selection[$key], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
-        if (file_put_contents("{$path}.partial", $json) !== strlen($json) || ! rename("{$path}.partial", $path)) {
-            throw new RuntimeException("Unable to write {$path}");
+        if (file_put_contents("{$path}.partial", $json) !== strlen($json)) {
+            throw new RuntimeException("Unable to write {$path}.partial; {$outputDirectory} is unchanged");
+        }
+        $paths[] = $path;
+    }
+    foreach ($paths as $path) {
+        if (! rename("{$path}.partial", $path)) {
+            throw new RuntimeException("Unable to replace {$path}; inputs.json and pool.json may now come from different selections, so run select-panel again");
         }
     }
 } catch (Throwable $exception) {

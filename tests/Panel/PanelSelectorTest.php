@@ -14,6 +14,8 @@ use SignerPHP\PdfSigningQualification\Panel\StrataClassifier;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Tests\Acquisition\InMemoryFetcher;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SyntheticPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 
 final class PanelSelectorTest extends TestCase
@@ -70,6 +72,9 @@ final class PanelSelectorTest extends TestCase
             'tests/reported-1.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage(), '1.2'),
             'tests/notes.txt' => 'not a candidate',
             'tests/enc-R2,V1.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage(), '1.0'),
+            'tests/link.pdf' => 'classic-a.pdf',
+            'tests/crashes-qpdf.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage('/Crash true')),
+            'tests/without-strata.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage() + [4 => '<< /Type /XRef >>']),
             'docs/manual.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage()),
         ];
     }
@@ -82,7 +87,8 @@ final class PanelSelectorTest extends TestCase
         $tree = [['path' => 'tests', 'type' => 'tree', 'sha' => str_repeat('0', 40)]];
         $responses = [];
         foreach ($files as $path => $content) {
-            $tree[] = ['path' => $path, 'type' => 'blob', 'sha' => sha1('blob '.strlen($content)."\0".$content), 'size' => strlen($content)];
+            $mode = $path === 'tests/link.pdf' ? '120000' : '100644';
+            $tree[] = ['path' => $path, 'mode' => $mode, 'type' => 'blob', 'sha' => sha1('blob '.strlen($content)."\0".$content), 'size' => strlen($content)];
             $responses['https://example.test/raw/'.self::REVISION.'/'.$path] = in_array($path, $corruptedPaths, true) ? $content.' ' : $content;
         }
         $responses[self::LISTING_URL] = (string) json_encode(['tree' => $tree, 'truncated' => false, ...$listingChanges]);
@@ -92,7 +98,18 @@ final class PanelSelectorTest extends TestCase
 
     private function select(InMemoryFetcher $fetcher, array $plan): array
     {
-        $selector = new PanelSelector($fetcher, new StrataClassifier(new ProcessRunner, 10_000_000, 1000), $this->cacheDirectory, static function (string $message): void {});
+        $runner = new class implements CommandRunner
+        {
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                if (str_contains((string) file_get_contents((string) end($command)), '/Crash true')) {
+                    return new CommandResult(null, '', terminationSignal: 11);
+                }
+
+                return (new ProcessRunner)->run($command, $timeoutSeconds);
+            }
+        };
+        $selector = new PanelSelector($fetcher, new StrataClassifier($runner, 10_000_000, 1000), $this->cacheDirectory, static function (string $message): void {});
 
         return $selector->select(SelectionPlan::fromJson((string) json_encode($plan)), '11.3.0');
     }
@@ -116,7 +133,7 @@ final class PanelSelectorTest extends TestCase
         self::assertSame([], (new SchemaValidator)->errors($pool, PanelSelector::POOL_SCHEMA));
         self::assertSame(3, $pool['candidates']);
         self::assertSame(count($inputs), $pool['selected']);
-        self::assertSame([['id' => 'fixture', 'candidates' => 3, 'selected' => count($inputs), 'excluded' => [['pattern' => '*/reported-*', 'reason' => 'Attached to a bug report', 'files' => 1]], 'unaddressable' => 1]], $pool['sources']);
+        self::assertSame([['id' => 'fixture', 'candidates' => 3, 'selected' => count($inputs), 'excluded' => [['pattern' => '*/reported-*', 'reason' => 'Attached to a bug report', 'files' => 1]], 'unaddressable' => 1, 'unclassified' => 1, 'analyzer_failures' => [['path' => 'tests/crashes-qpdf.pdf', 'reason' => 'qpdf was terminated by signal 11']]]], $pool['sources']);
         self::assertContains(['stratum' => 'classic', 'candidates' => 3, 'selected' => count($inputs)], $pool['strata']);
         self::assertContains(['stratum' => 'legacy', 'candidates' => 1, 'selected' => 1], $pool['strata']);
         self::assertContains(['stratum' => 'forms', 'candidates' => 0, 'selected' => 0], $pool['strata']);
@@ -130,6 +147,15 @@ final class PanelSelectorTest extends TestCase
 
         self::assertSame($first, $this->select($fetcher, self::plan()));
         self::assertSame([self::LISTING_URL], $fetcher->requestedUrls);
+    }
+
+    public function test_symbolic_link_is_not_a_candidate(): void
+    {
+        $fetcher = self::fetcher(self::files());
+
+        $this->select($fetcher, self::plan());
+
+        self::assertNotContains('https://example.test/raw/'.self::REVISION.'/tests/link.pdf', $fetcher->requestedUrls);
     }
 
     public function test_file_that_does_not_match_its_listed_object_stops_the_selection(): void

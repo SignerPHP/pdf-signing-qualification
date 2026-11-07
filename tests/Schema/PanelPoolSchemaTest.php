@@ -21,7 +21,7 @@ final class PanelPoolSchemaTest extends SchemaTestCase
             'analyzer' => ['name' => 'qpdf', 'version' => '11.3.0'],
             'candidates' => 3,
             'selected' => 2,
-            'sources' => [['id' => 'qpdf', 'candidates' => 3, 'selected' => 2, 'excluded' => [['pattern' => '*/issue-*.pdf', 'reason' => 'Reproduces a bug report', 'files' => 25]], 'unaddressable' => 14]],
+            'sources' => [['id' => 'qpdf', 'candidates' => 3, 'selected' => 2, 'excluded' => [['pattern' => '*/issue-*.pdf', 'reason' => 'Reproduces a bug report', 'files' => 25]], 'unaddressable' => 14, 'unclassified' => 0, 'analyzer_failures' => [['path' => 'qpdf/qtest/qpdf/xref-compressed-in-compressed.pdf', 'reason' => 'qpdf was terminated by signal 11']]]],
             'strata' => [['stratum' => 'classic', 'candidates' => 3, 'selected' => 2], ['stratum' => 'timestamped', 'candidates' => 0, 'selected' => 0]],
         ];
     }

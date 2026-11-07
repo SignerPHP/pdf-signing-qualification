@@ -7,7 +7,6 @@ namespace SignerPHP\PdfSigningQualification\Run;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
-use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class RunReport
 {
@@ -66,7 +65,7 @@ final class RunReport
             $observationsByAttempt[$observation['attempt_id']][] = $observation;
         }
         $analyzerIds = array_column($records->run['analyzers'], 'id');
-        $strata = self::strata();
+        $strata = SourceConfiguration::strata();
         $attemptsByStratum = array_fill_keys($strata, []);
         foreach ($records->attempts as $attempt) {
             foreach ($inputsById[$attempt['input']['source_id']]->strata as $stratum) {
@@ -104,16 +103,6 @@ final class RunReport
         ];
 
         return implode("\n", $lines)."\n";
-    }
-
-    /**
-     * @return list<string>
-     */
-    public static function strata(): array
-    {
-        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v2/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
-
-        return array_values(array_column($schema['$defs']['stratum']['oneOf'], 'const'));
     }
 
     /**

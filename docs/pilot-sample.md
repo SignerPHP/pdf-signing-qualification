@@ -15,7 +15,7 @@ The pdf.js files suggested in the issue were not selected: the PDFs in its `test
 
 ## Strata
 
-Strata overlap: one input usually belongs to several. They were recorded from the bytes at the pinned revisions, with qpdf 11.3.0 from the project container where it could open the file and from the PDF syntax markers otherwise. The strata of each input are versioned in `config/inputs.json` and validated by its schema, which also declares the sample `failure_enriched`; this document has to agree with it, and a test checks that it does. `bin/report` groups the results of a run by these strata.
+Strata overlap: one input usually belongs to several. They were recorded from the bytes at the pinned revisions, with qpdf 11.3.0 from the project container where it could open the file and from the PDF syntax markers otherwise. The strata of each input are versioned in `config/inputs.json` and validated by its schema, which also declares the sample `failure_enriched`; this document has to agree with it, and a test checks that it does. The strata classifier of the [main panel](main-panel.md) gives every input these strata. It corrected the first recording in two places: six linearized files with one revision had been counted `incremental` from their two `startxref`, and the signature of `minimal-signed-restricted.pdf` carries revocation lists. The files are unchanged; only the configuration and its hash changed. `bin/report` groups the results of a run by these strata.
 
 | Stratum | Meaning | Inputs |
 | ------- | ------- | -----: |
@@ -25,9 +25,10 @@ Strata overlap: one input usually belongs to several. They were recorded from th
 | `none` | No usable cross-reference section; a reader has to rebuild it | 3 |
 | `objstm` | Object streams | 9 |
 | `encrypted` | Standard security handler | 6 |
-| `incremental` | More than one revision (`startxref` sections) | 13 |
+| `incremental` | More than one revision: more than one `startxref`, not counting the first-page section of a linearized file | 7 |
 | `signed` | At least one signature dictionary with a `/ByteRange` | 5 |
 | `malformed` | qpdf reports the file as damaged, an invalid cross-reference entry or stream, or cannot recognize its header | 7 |
+| `revocation` | A signature carrying non-empty Adobe revocation information, or a document security store | 1 |
 
 PDF versions range from 1.3 to 2.0; two files have no recognizable header and one has junk before it. Sizes range from 5 bytes to 133 KiB.
 
@@ -47,11 +48,11 @@ The qpdf column is the exit code of `qpdf --check` on the input itself, without 
 | `qpdf:qpdf/qtest/qpdf/hybrid-xref.pdf` | 1.5 | `hybrid`, `objstm`, `incremental` | 0 | A hybrid file written for the qpdf test suite |
 | `qpdf:qpdf/qtest/qpdf/good17.pdf` | 1.5 | `hybrid`, `objstm`, `incremental` | 0 | Hybrid file with two object streams |
 | `qpdf:qpdf/qtest/qpdf/good18.pdf` | 1.5 | `hybrid`, `objstm`, `incremental` | 0 | Hybrid file with one object stream |
-| `qpdf:qpdf/qtest/qpdf/digitally-signed.pdf` | 1.6 | `stream`, `objstm`, `signed`, `incremental` | 3 | Linearized and signed with a self-signed test certificate (`CN=John Doe`, `example.org`); qpdf warns about its linearization hints |
-| `qpdf:qpdf/qtest/qpdf/minimal-signed-restricted.pdf` | 1.7 | `classic`, `encrypted`, `signed` | 0 | An encrypted document that is already signed (by Adobe Acrobat Sign), with restricted permissions |
-| `qpdf:qpdf/qtest/qpdf/nontrivial-crypt-filter.pdf` | 1.7 | `stream`, `objstm`, `encrypted`, `incremental` | 2 | AES-256 (R 6) with the user password `asdfqwer`, where streams and strings are left unencrypted and only embedded files use AES |
+| `qpdf:qpdf/qtest/qpdf/digitally-signed.pdf` | 1.6 | `stream`, `objstm`, `signed` | 3 | Linearized and signed with a self-signed test certificate (`CN=John Doe`, `example.org`); qpdf warns about its linearization hints |
+| `qpdf:qpdf/qtest/qpdf/minimal-signed-restricted.pdf` | 1.7 | `classic`, `encrypted`, `signed`, `revocation` | 0 | An encrypted document that is already signed (by Adobe Acrobat Sign), with the certificate revocation lists in its signature, with restricted permissions |
+| `qpdf:qpdf/qtest/qpdf/nontrivial-crypt-filter.pdf` | 1.7 | `stream`, `objstm`, `encrypted` | 2 | AES-256 (R 6) with the user password `asdfqwer`, where streams and strings are left unencrypted and only embedded files use AES |
 | `qpdf:qpdf/qtest/qpdf/V4-aes.pdf` | 1.6 | `classic`, `encrypted` | 0 | R 4 encryption with AES and the empty user password |
-| `qpdf:qpdf/qtest/qpdf/leading-junk.pdf` | 1.4 | `classic`, `encrypted`, `incremental` | 0 | Linearized and encrypted (R 3), with 14 bytes of junk before the `%PDF-1.4` header |
+| `qpdf:qpdf/qtest/qpdf/leading-junk.pdf` | 1.4 | `classic`, `encrypted` | 0 | Linearized and encrypted (R 3), with 14 bytes of junk before the `%PDF-1.4` header |
 | `qpdf:qpdf/qtest/qpdf/incremental-1.pdf` | 1.3 | `classic`, `incremental` | 0 | Three revisions, each with a classic table |
 | `qpdf:qpdf/qtest/qpdf/bad-xref-entry.pdf` | 1.3 | `classic`, `malformed` | 3 | A cross-reference entry with a wrong offset, so qpdf reconstructs the table |
 | `qpdf:qpdf/qtest/qpdf/xref-errors.pdf` | 1.3 | `classic`, `malformed` | 3 | Cross-reference entries with invalid syntax that qpdf accepts with warnings |
@@ -65,9 +66,9 @@ The qpdf column is the exit code of `qpdf --check` on the input itself, without 
 | `verapdf-corpus:PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-fail-a.pdf` | 1.4 | `stream` | 3 | A cross-reference stream without object streams in a file declared as PDF 1.4 |
 | `verapdf-corpus:PDF_A-1b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-pass-a.pdf` | 1.4 | `classic`, `incremental` | 0 | Three revisions, each with a classic table |
 | `verapdf-corpus:PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t02-pass-a.pdf` | 2.0 | `classic` | 3 | Control for PDF 2.0 with a classic table |
-| `verapdf-corpus:PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf` | 2.0 | `stream`, `objstm`, `encrypted`, `incremental` | 3 | Listed in the issue. PDF 2.0 with AES-256 (R 6), which PDF/A-4 forbids |
-| `verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf` | 1.6 | `stream`, `objstm`, `encrypted`, `incremental` | 3 | Listed in the issue. R 4 encryption whose permissions deny content extraction for accessibility |
+| `verapdf-corpus:PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf` | 2.0 | `stream`, `objstm`, `encrypted` | 3 | Listed in the issue. PDF 2.0 with AES-256 (R 6), which PDF/A-4 forbids |
+| `verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf` | 1.6 | `stream`, `objstm`, `encrypted` | 3 | Listed in the issue. R 4 encryption whose permissions deny content extraction for accessibility |
 | `verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-pass-a.pdf` | 1.6 | `stream`, `incremental` | 0 | Unencrypted counterpart of the previous input, with four revisions |
 | `verapdf-corpus:PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t01-pass-a.pdf` | 1.6 | `stream`, `signed` | 3 | Signed with usage rights (`/Perms` `/UR3`) |
-| `verapdf-corpus:PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-pass-a.pdf` | 1.6 | `stream`, `objstm`, `signed`, `incremental` | 3 | Certified (`/DocMDP`) with two revisions, so a new signature has to respect the certification permissions |
+| `verapdf-corpus:PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-pass-a.pdf` | 1.6 | `stream`, `objstm`, `signed` | 3 | Certified (`/DocMDP`) and linearized, so a new signature has to respect the certification permissions |
 | `verapdf-corpus:PDF_A-4/6.1 File structure/6.1.11 Permissions/veraPDF test suite 6-1-11-t01-pass-a.pdf` | 2.0 | `stream`, `signed` | 3 | Certified (`/DocMDP`) PDF 2.0 document |

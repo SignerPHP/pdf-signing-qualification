@@ -5,13 +5,13 @@
         "name": "qpdf",
         "version": "11.3.0"
     },
-    "candidates": 3405,
+    "candidates": 3404,
     "selected": 106,
     "sources": [
         {
             "id": "qpdf",
-            "candidates": 676,
-            "selected": 51,
+            "candidates": 675,
+            "selected": 49,
             "excluded": [
                 {
                     "pattern": "qpdf/qtest/qpdf/short-O-U.pdf",
@@ -29,12 +29,19 @@
                     "files": 1
                 }
             ],
-            "unaddressable": 14
+            "unaddressable": 14,
+            "unclassified": 0,
+            "analyzer_failures": [
+                {
+                    "path": "qpdf/qtest/qpdf/xref-compressed-in-compressed.pdf",
+                    "reason": "qpdf was terminated by signal 11"
+                }
+            ]
         },
         {
             "id": "verapdf-corpus",
             "candidates": 2599,
-            "selected": 32,
+            "selected": 34,
             "excluded": [
                 {
                     "pattern": "Isartor test files/*",
@@ -47,7 +54,9 @@
                     "files": 85
                 }
             ],
-            "unaddressable": 17
+            "unaddressable": 17,
+            "unclassified": 0,
+            "analyzer_failures": []
         },
         {
             "id": "pyhanko",
@@ -75,19 +84,21 @@
                     "files": 1
                 }
             ],
-            "unaddressable": 0
+            "unaddressable": 0,
+            "unclassified": 0,
+            "analyzer_failures": []
         }
     ],
     "strata": [
         {
             "stratum": "classic",
-            "candidates": 2805,
-            "selected": 53
+            "candidates": 2806,
+            "selected": 55
         },
         {
             "stratum": "stream",
-            "candidates": 572,
-            "selected": 34
+            "candidates": 571,
+            "selected": 33
         },
         {
             "stratum": "hybrid",
@@ -101,8 +112,8 @@
         },
         {
             "stratum": "objstm",
-            "candidates": 156,
-            "selected": 24
+            "candidates": 155,
+            "selected": 23
         },
         {
             "stratum": "encrypted",
@@ -111,8 +122,8 @@
         },
         {
             "stratum": "incremental",
-            "candidates": 320,
-            "selected": 32
+            "candidates": 251,
+            "selected": 26
         },
         {
             "stratum": "signed",
@@ -121,8 +132,8 @@
         },
         {
             "stratum": "malformed",
-            "candidates": 58,
-            "selected": 20
+            "candidates": 57,
+            "selected": 19
         },
         {
             "stratum": "forms",

@@ -37,14 +37,11 @@ final readonly class PlanSource
         return false;
     }
 
-    /**
-     * @return array{pattern: string, reason: string}|null
-     */
-    public function exclusion(string $path): ?array
+    public function exclusionIndex(string $path): ?int
     {
-        foreach ($this->exclude as $exclusion) {
+        foreach ($this->exclude as $index => $exclusion) {
             if (self::matches($exclusion['pattern'], $path)) {
-                return $exclusion;
+                return $index;
             }
         }
 

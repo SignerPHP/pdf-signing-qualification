@@ -7,12 +7,13 @@ namespace SignerPHP\PdfSigningQualification\Panel;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Fetcher;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
-use SignerPHP\PdfSigningQualification\Run\RunReport;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class PanelSelector
 {
     public const string POOL_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/panel-pool.schema.json';
+
+    private const array REGULAR_FILE_MODES = ['100644', '100755'];
 
     /**
      * @param  \Closure(string): void  $progress
@@ -29,52 +30,65 @@ final class PanelSelector
      */
     public function select(SelectionPlan $plan, string $analyzerVersion): array
     {
+        $inputPathPattern = self::inputPathPattern();
         $candidates = [];
         $poolSources = [];
         foreach ($plan->sources as $planSource) {
+            $sourceId = $planSource->source->id;
             $excluded = array_map(static fn (array $exclusion): array => [...$exclusion, 'files' => 0], $planSource->exclude);
-            $candidateCount = 0;
             $unaddressable = 0;
             foreach ($this->listing($planSource) as $file) {
                 if (! $planSource->isIncluded($file['path'])) {
                     continue;
                 }
-                $exclusion = $planSource->exclusion($file['path']);
-                if ($exclusion !== null) {
-                    $index = array_search($exclusion, $planSource->exclude, true);
-                    $excluded[(int) $index]['files']++;
+                $exclusionIndex = $planSource->exclusionIndex($file['path']);
+                if ($exclusionIndex !== null) {
+                    $excluded[$exclusionIndex]['files']++;
 
                     continue;
                 }
-                if (preg_match($this->inputPathPattern(), $file['path']) !== 1) {
+                if (preg_match($inputPathPattern, $file['path']) !== 1) {
                     $unaddressable++;
 
                     continue;
                 }
-                $candidateCount++;
-                $candidates[$planSource->source->id.':'.$file['path']] = [$planSource, $file];
+                $candidates[$sourceId.':'.$file['path']] = [$planSource, $file];
             }
-            $poolSources[] = ['id' => $planSource->source->id, 'candidates' => $candidateCount, 'selected' => 0, 'excluded' => $excluded, 'unaddressable' => $unaddressable];
+            $poolSources[$sourceId] = ['id' => $sourceId, 'candidates' => 0, 'selected' => 0, 'excluded' => $excluded, 'unaddressable' => $unaddressable, 'unclassified' => 0, 'analyzer_failures' => []];
         }
 
         $strataById = [];
         $describedById = [];
         $classified = 0;
         foreach ($candidates as $id => [$planSource, $file]) {
-            $path = $this->cachedFile($planSource, $file);
-            $strata = self::inSchemaOrder($this->classifier->classify($path));
+            $sourceId = $planSource->source->id;
+            $cached = $this->cachedFile($planSource, $file);
+            if (++$classified % 100 === 0) {
+                ($this->progress)("{$classified} of ".count($candidates).' files classified');
+            }
+            try {
+                $strata = self::inSchemaOrder($this->classifier->classify($cached['path']));
+            } catch (UnclassifiableFile $failure) {
+                $poolSources[$sourceId]['analyzer_failures'][] = ['path' => $file['path'], 'reason' => $failure->getMessage()];
+                ($this->progress)("{$id}: {$failure->getMessage()}");
+
+                continue;
+            }
+            if ($strata === []) {
+                $poolSources[$sourceId]['unclassified']++;
+
+                continue;
+            }
+            $poolSources[$sourceId]['candidates']++;
             $strataById[$id] = $strata;
             $describedById[$id] = [
-                'source' => $planSource->source->id,
+                'source' => $sourceId,
                 'path' => $file['path'],
-                'sha256' => (string) hash_file('sha256', $path),
-                'byte_size' => (int) filesize($path),
+                'sha256' => $cached['sha256'],
+                'byte_size' => $cached['byte_size'],
                 'license' => $planSource->documentLicense,
                 'strata' => $strata,
             ];
-            if (++$classified % 100 === 0) {
-                ($this->progress)("{$classified} of ".count($candidates).' candidates classified');
-            }
         }
 
         $selectedIds = QuotaSampler::sample($strataById, $plan->seed, $plan->quotaPerStratum);
@@ -94,28 +108,28 @@ final class PanelSelector
         ];
         SourceConfiguration::fromArray($configuration);
 
-        foreach ($poolSources as $index => $poolSource) {
-            $poolSources[$index]['selected'] = count(array_filter($selectedInputs, static fn (array $input): bool => $input['source'] === $poolSource['id']));
+        foreach ($selectedInputs as $input) {
+            $poolSources[$input['source']]['selected']++;
         }
         $pool = [
             'schema' => self::POOL_SCHEMA,
             'plan_sha256' => $plan->sha256,
             'analyzer' => ['name' => 'qpdf', 'version' => $analyzerVersion],
-            'candidates' => count($candidates),
+            'candidates' => count($strataById),
             'selected' => count($selectedInputs),
-            'sources' => $poolSources,
+            'sources' => array_values($poolSources),
             'strata' => array_map(static fn (string $stratum): array => [
                 'stratum' => $stratum,
                 'candidates' => count(array_filter($strataById, static fn (array $strata): bool => in_array($stratum, $strata, true))),
                 'selected' => count(array_filter($selectedInputs, static fn (array $input): bool => in_array($stratum, $input['strata'], true))),
-            ], RunReport::strata()),
+            ], SourceConfiguration::strata()),
         ];
         (new SchemaValidator)->assertValid($pool, self::POOL_SCHEMA, 'panel pool');
 
         return ['inputs' => $configuration, 'pool' => $pool];
     }
 
-    private function inputPathPattern(): string
+    private static function inputPathPattern(): string
     {
         /** @var array{'$defs': array{relativePath: array{pattern: string, maxLength: int}}} $schema */
         $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v1/common.schema.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -130,7 +144,7 @@ final class PanelSelector
      */
     private static function inSchemaOrder(array $strata): array
     {
-        return array_values(array_intersect(RunReport::strata(), $strata));
+        return array_values(array_intersect(SourceConfiguration::strata(), $strata));
     }
 
     /**
@@ -149,7 +163,11 @@ final class PanelSelector
 
         $files = [];
         foreach ($listing['tree'] as $entry) {
-            if (is_array($entry) && ($entry['type'] ?? null) === 'blob' && is_string($entry['path'] ?? null) && is_string($entry['sha'] ?? null)) {
+            if (is_array($entry)
+                && ($entry['type'] ?? null) === 'blob'
+                && in_array($entry['mode'] ?? null, self::REGULAR_FILE_MODES, true)
+                && is_string($entry['path'] ?? null)
+                && is_string($entry['sha'] ?? null)) {
                 $files[] = ['path' => $entry['path'], 'sha' => $entry['sha']];
             }
         }
@@ -160,16 +178,18 @@ final class PanelSelector
 
     /**
      * @param  array{path: string, sha: string}  $file
+     * @return array{path: string, sha256: string, byte_size: int}
      */
-    private function cachedFile(PlanSource $planSource, array $file): string
+    private function cachedFile(PlanSource $planSource, array $file): array
     {
         if (preg_match('/^[0-9a-f]{40}$/', $file['sha']) !== 1) {
             throw new RuntimeException("The listing gives {$file['path']} the invalid object id {$file['sha']}");
         }
         $directory = "{$this->cacheDirectory}/{$planSource->source->id}";
         $path = "{$directory}/{$file['sha']}";
-        if (is_file($path) && self::gitBlobId((string) file_get_contents($path)) === $file['sha']) {
-            return $path;
+        $content = is_file($path) ? (string) file_get_contents($path) : null;
+        if ($content !== null && self::gitBlobId($content) === $file['sha']) {
+            return ['path' => $path, 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content)];
         }
 
         $url = $planSource->source->fileUrl($file['path']);
@@ -185,7 +205,7 @@ final class PanelSelector
             throw new RuntimeException("Unable to write {$path}");
         }
 
-        return $path;
+        return ['path' => $path, 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content)];
     }
 
     private static function gitBlobId(string $content): string

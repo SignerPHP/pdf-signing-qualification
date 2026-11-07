@@ -224,6 +224,7 @@
                 "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
             },
             "strata": [
+                "classic",
                 "malformed"
             ]
         },
@@ -238,7 +239,6 @@
             },
             "strata": [
                 "classic",
-                "incremental",
                 "malformed"
             ]
         },
@@ -296,7 +296,6 @@
             "strata": [
                 "stream",
                 "objstm",
-                "incremental",
                 "signed"
             ]
         },
@@ -733,20 +732,6 @@
         },
         {
             "source": "qpdf",
-            "path": "qpdf/qtest/qpdf/short-id-linearized.pdf",
-            "sha256": "d1b2b5834fd8ba103820bd146e61ecb44f5db0c33880f7976e452d34f3eef380",
-            "byte_size": 1272,
-            "license": {
-                "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
-            },
-            "strata": [
-                "classic",
-                "incremental"
-            ]
-        },
-        {
-            "source": "qpdf",
             "path": "qpdf/qtest/qpdf/unfilterable-with-crypt.pdf",
             "sha256": "8c3bb2177b76d8340797e9d16469d083dfdacc45492a81241de6a9bb6df894c7",
             "byte_size": 17868,
@@ -757,23 +742,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "encrypted",
-                "incremental"
-            ]
-        },
-        {
-            "source": "qpdf",
-            "path": "qpdf/qtest/qpdf/xref-compressed-in-compressed.pdf",
-            "sha256": "c99080e8d936eeb40a08d7e596f4c10b959a245fe3cb5ddb971eb7f145baa4c2",
-            "byte_size": 11325,
-            "license": {
-                "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
-            },
-            "strata": [
-                "stream",
-                "objstm",
-                "malformed"
+                "encrypted"
             ]
         },
         {
@@ -827,7 +796,6 @@
             "strata": [
                 "stream",
                 "objstm",
-                "incremental",
                 "signed"
             ]
         },
@@ -843,7 +811,6 @@
             "strata": [
                 "stream",
                 "objstm",
-                "incremental",
                 "signed"
             ]
         },
@@ -1091,8 +1058,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "encrypted",
-                "incremental"
+                "encrypted"
             ]
         },
         {
@@ -1121,7 +1087,20 @@
             },
             "strata": [
                 "stream",
-                "objstm",
+                "objstm"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t03-pass-b.pdf",
+            "sha256": "cb58116ebca262e41cbc467a95340d681f490856dae142948676c44589051fb9",
+            "byte_size": 40251,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
                 "incremental"
             ]
         },
@@ -1207,6 +1186,20 @@
             },
             "strata": [
                 "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.21 Fonts/7.21.7 Unicode character maps/7.21.7-t02-fail-c.pdf",
+            "sha256": "087eb396f97371cc047e5b0b3d8932262995201586d2005b924ab466a744d47d",
+            "byte_size": 26044,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "incremental"
             ]
         },
         {

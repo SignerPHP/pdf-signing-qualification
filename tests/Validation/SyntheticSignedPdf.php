@@ -74,6 +74,78 @@ final class SyntheticSignedPdf
         return $path;
     }
 
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)'): string
+    {
+        $document = (string) file_get_contents($documentPath);
+        if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
+            throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
+        }
+
+        [$certificate, $privateKey] = self::generateCredentials();
+        $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? '5 0 R 7 0 R' : '7 0 R';
+        $objects = [
+            1 => "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>",
+            7 => "<< /Type /Annot /Subtype /Widget /FT /Sig /T {$fieldName} /Rect [0 0 0 0] /F 132 /P 3 0 R /V 8 0 R >>",
+            8 => '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
+        ];
+
+        $update = '';
+        $offsets = [];
+        foreach ($objects as $number => $object) {
+            $offsets[$number] = strlen($document) + strlen($update);
+            $update .= "{$number} 0 obj\n{$object}\nendobj\n";
+        }
+        $xrefOffset = strlen($document) + strlen($update);
+        $update .= "xref\n0 1\n0000000000 65535 f \n1 1\n".sprintf("%010d 00000 n \n", $offsets[1])."7 2\n".sprintf("%010d 00000 n \n", $offsets[7]).sprintf("%010d 00000 n \n", $offsets[8]);
+        $update .= "trailer\n<< /Size 9 /Root 1 0 R /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+
+        $signedDocument = $document.$update;
+        $contentsStart = (int) strpos($signedDocument, '/Contents <', $offsets[8]) + strlen('/Contents ');
+        $contentsEnd = $contentsStart + self::CONTENTS_HEX_LENGTH + 2;
+        $byteRange = sprintf('/ByteRange [0 %d %d %d]', $contentsStart, $contentsEnd, strlen($signedDocument) - $contentsEnd);
+        $signedDocument = substr_replace($signedDocument, str_pad($byteRange, strlen(self::BYTE_RANGE_PLACEHOLDER)), (int) strpos($signedDocument, self::BYTE_RANGE_PLACEHOLDER, $offsets[8]), strlen(self::BYTE_RANGE_PLACEHOLDER));
+
+        $signature = self::detachedCms($directory, substr($signedDocument, 0, $contentsStart).substr($signedDocument, $contentsEnd), $certificate, $privateKey);
+        $contents = '<'.str_pad(bin2hex($signature), self::CONTENTS_HEX_LENGTH, '0').'>';
+
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, substr_replace($signedDocument, $contents, $contentsStart, strlen($contents)).$unsignedSuffix);
+
+        return $path;
+    }
+
+    /**
+     * @param  callable(int, int, int): string  $byteRange
+     */
+    public static function rewriteFirstByteRange(string $signedPath, string $directory, string $name, callable $byteRange): string
+    {
+        $document = (string) file_get_contents($signedPath);
+        if (preg_match('#/ByteRange \[0 (\d+) (\d+) (\d+)\] *#', $document, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            throw new RuntimeException('No byte range was found in '.$signedPath);
+        }
+
+        $replacement = $byteRange((int) $match[1][0], (int) $match[2][0], (int) $match[3][0]);
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, substr_replace($document, str_pad($replacement, strlen($match[0][0])), $match[0][1], strlen($match[0][0])));
+
+        return $path;
+    }
+
+    public static function shiftLastByteRangeGap(string $signedPath, string $directory): string
+    {
+        $document = (string) file_get_contents($signedPath);
+        if (preg_match_all('#/ByteRange \[0 (\d+) (\d+) (\d+)\] *#', $document, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
+            throw new RuntimeException('No byte range was found in '.$signedPath);
+        }
+
+        $last = end($matches);
+        $byteRange = sprintf('/ByteRange [0 %d %d %d]', (int) $last[1][0] - 1, (int) $last[2][0], (int) $last[3][0]);
+        $path = $directory.'/shifted-gap.pdf';
+        file_put_contents($path, substr_replace($document, str_pad($byteRange, strlen($last[0][0])), $last[0][1], strlen($last[0][0])));
+
+        return $path;
+    }
+
     public static function replaceContents(string $signedPath, string $directory, string $contents): string
     {
         $document = (string) file_get_contents($signedPath);

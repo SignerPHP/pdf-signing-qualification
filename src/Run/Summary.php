@@ -25,6 +25,9 @@ final class Summary
         foreach ($baselines as $baseline) {
             $baselineVerdicts[$baseline['source_id']][$baseline['analyzer']['id']] = $baseline['verdict'];
         }
+        $baselineAnalyzerIds = array_unique(array_map(static fn (array $baseline): string => $baseline['analyzer']['id'], $baselines));
+        $baselineAnalyzers = array_values(array_filter($run['analyzers'], static fn (array $analyzer): bool => in_array($analyzer['id'], $baselineAnalyzerIds, true)));
+        $comparisonAnalyzerIds = array_values(array_diff(array_column($run['analyzers'], 'id'), $baselineAnalyzerIds));
 
         $lines = [
             "# Run {$run['id']}",
@@ -37,11 +40,11 @@ final class Summary
             '',
             ...self::verdicts($run['analyzers'], $observations),
             '',
-            ...self::baseline($run['analyzers'], $attempts, $observations, $baselines, $baselineVerdicts, $sourceIds),
+            ...self::baseline($baselineAnalyzers, $comparisonAnalyzerIds, $attempts, $observations, $baselines, $baselineVerdicts, $sourceIds),
             ...self::expectedRejections($attempts),
             '## Failures',
             '',
-            ...self::failures($attempts, $observations, $sourceIds, $baselineVerdicts),
+            ...self::failures($attempts, $observations, $sourceIds, $baselineVerdicts, $comparisonAnalyzerIds),
         ];
 
         return implode("\n", $lines)."\n";
@@ -107,6 +110,7 @@ final class Summary
 
     /**
      * @param  list<array>  $analyzers
+     * @param  list<string>  $comparisonAnalyzerIds
      * @param  list<array>  $attempts
      * @param  list<array>  $observations
      * @param  list<array>  $baselines
@@ -114,11 +118,31 @@ final class Summary
      * @param  array<string, string>  $sourceIds
      * @return list<string>
      */
-    private static function baseline(array $analyzers, array $attempts, array $observations, array $baselines, array $baselineVerdicts, array $sourceIds): array
+    private static function baseline(array $analyzers, array $comparisonAnalyzerIds, array $attempts, array $observations, array $baselines, array $baselineVerdicts, array $sourceIds): array
     {
         $outputVerdicts = [];
         foreach ($observations as $observation) {
             $outputVerdicts[$sourceIds[$observation['attempt_id']]][$observation['analyzer']['id']] = $observation['verdict'];
+        }
+
+        $unavailableAttempts = array_values(array_filter($attempts, static fn (array $attempt): bool => $attempt['input']['status'] === 'unavailable'));
+        $unavailableLines = [];
+        if ($unavailableAttempts !== []) {
+            array_push($unavailableLines, 'Inputs without a baseline, because they were unavailable:', '', '| Input | Reason |', '| ----- | ------ |');
+            foreach ($unavailableAttempts as $attempt) {
+                $unavailableLines[] = "| `{$attempt['input']['source_id']}` | `{$attempt['input']['reason']}` |";
+            }
+            $unavailableLines[] = '';
+        }
+
+        if ($baselines === []) {
+            return [
+                '## Baseline',
+                '',
+                count($unavailableAttempts) === count($attempts) ? 'No input was available, so there is no baseline.' : 'No analyzer of this run judges one document, so there is no baseline.',
+                '',
+                ...$unavailableLines,
+            ];
         }
 
         $analyzerIds = array_column($analyzers, 'id');
@@ -129,16 +153,22 @@ final class Summary
             '',
             ...self::verdicts($analyzers, $baselines),
             '',
+        ];
+        if ($comparisonAnalyzerIds !== []) {
+            $comparisonAnalyzers = self::sentence(array_map(static fn (string $analyzerId): string => "`{$analyzerId}`", $comparisonAnalyzerIds));
+            array_push($lines, count($comparisonAnalyzerIds) === 1
+                ? "{$comparisonAnalyzers} compares the output with its input, so it has no baseline."
+                : "{$comparisonAnalyzers} compare the output with its input, so they have no baseline.", '');
+        }
+        array_push(
+            $lines,
             'Each cell gives the verdict on the input, then the verdict on the output.',
             '',
             '| Input | '.implode(' | ', array_map(static fn (string $analyzerId): string => "`{$analyzerId}`", $analyzerIds)).' |',
             '| ----- | '.implode(' | ', array_map(static fn (string $analyzerId): string => str_repeat('-', strlen($analyzerId) + 2), $analyzerIds)).' |',
-        ];
-        $unavailableAttempts = [];
+        );
         foreach ($attempts as $attempt) {
             if ($attempt['input']['status'] === 'unavailable') {
-                $unavailableAttempts[] = $attempt;
-
                 continue;
             }
             $sourceId = $attempt['input']['source_id'];
@@ -147,15 +177,7 @@ final class Summary
         }
         $lines[] = '';
 
-        if ($unavailableAttempts !== []) {
-            array_push($lines, 'Inputs without a baseline, because they were unavailable:', '', '| Input | Reason |', '| ----- | ------ |');
-            foreach ($unavailableAttempts as $attempt) {
-                $lines[] = "| `{$attempt['input']['source_id']}` | `{$attempt['input']['reason']}` |";
-            }
-            $lines[] = '';
-        }
-
-        return $lines;
+        return [...$lines, ...$unavailableLines];
     }
 
     /**
@@ -186,9 +208,10 @@ final class Summary
      * @param  list<array>  $observations
      * @param  array<string, string>  $sourceIds
      * @param  array<string, array<string, string>>  $baselineVerdicts
+     * @param  list<string>  $comparisonAnalyzerIds
      * @return list<string>
      */
-    private static function failures(array $attempts, array $observations, array $sourceIds, array $baselineVerdicts): array
+    private static function failures(array $attempts, array $observations, array $sourceIds, array $baselineVerdicts, array $comparisonAnalyzerIds): array
     {
         $unsuccessfulAttempts = array_filter($attempts, static fn (array $attempt): bool => $attempt['execution']['outcome'] !== 'succeeded' && ! self::isRejectedAsExpected($attempt));
         $unexpectedSuccesses = array_filter($attempts, static fn (array $attempt): bool => self::isExpectedRejection($attempt) && $attempt['execution']['outcome'] === 'succeeded');
@@ -218,7 +241,9 @@ final class Summary
             array_push($lines, '### Outputs not judged valid', '', '| Input | Analyzer | Baseline | Verdict | Summary |', '| ----- | -------- | -------- | ------- | ------- |');
             foreach ($judgedOutputs as $observation) {
                 $sourceId = $sourceIds[$observation['attempt_id']];
-                $lines[] = "| `{$sourceId}` | `{$observation['analyzer']['id']}` | `{$baselineVerdicts[$sourceId][$observation['analyzer']['id']]}` | `{$observation['verdict']}` | ".self::cell($observation['evidence']['summary']).' |';
+                $analyzerId = $observation['analyzer']['id'];
+                $baseline = in_array($analyzerId, $comparisonAnalyzerIds, true) ? 'none' : "`{$baselineVerdicts[$sourceId][$analyzerId]}`";
+                $lines[] = "| `{$sourceId}` | `{$analyzerId}` | {$baseline} | `{$observation['verdict']}` | ".self::cell($observation['evidence']['summary']).' |';
             }
             $lines[] = '';
         }

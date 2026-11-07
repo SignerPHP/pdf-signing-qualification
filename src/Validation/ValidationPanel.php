@@ -34,6 +34,8 @@ final class ValidationPanel
      */
     public function baseline(BaselineSubject $subject): array
     {
-        return array_map(static fn (Validator $validator): array => $validator->baseline($subject), $this->validators);
+        $baselineValidators = array_filter($this->validators, static fn (Validator $validator): bool => $validator instanceof BaselineValidator);
+
+        return array_values(array_map(static fn (BaselineValidator $validator): array => $validator->baseline($subject), $baselineValidators));
     }
 }

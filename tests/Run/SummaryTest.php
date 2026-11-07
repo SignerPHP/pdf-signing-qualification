@@ -144,6 +144,66 @@ final class SummaryTest extends TestCase
         );
     }
 
+    public function test_analyzer_that_compares_the_output_with_its_input_has_no_baseline_column(): void
+    {
+        $run = self::runRecord();
+        $run['analyzers'][] = ['id' => 'cmp', 'revision' => ['kind' => 'version', 'value' => '3.8']];
+        $attempts = [self::attempt('qpdf:leading-junk.pdf', 'succeeded')];
+        $observations = [
+            self::observation('qpdf:leading-junk.pdf', 'pyhanko', 'valid', 'pyHanko judged 1 signature(s) intact and cryptographically valid'),
+            self::observation('qpdf:leading-junk.pdf', 'qpdf', 'valid', 'qpdf found no problem'),
+            self::observation('qpdf:leading-junk.pdf', 'cmp', 'invalid', 'The output does not start with the bytes of the input: input output differ: char 1, line 1'),
+        ];
+        $baselines = [
+            self::baseline('qpdf:leading-junk.pdf', 'pyhanko', 'not_applicable'),
+            self::baseline('qpdf:leading-junk.pdf', 'qpdf', 'inconclusive'),
+        ];
+
+        $markdown = Summary::markdown($run, $attempts, $observations, $baselines);
+
+        $expectedBaseline = <<<'MARKDOWN'
+            | `pyhanko` | 0 | 0 | 0 | 0 | 1 |
+            | `qpdf` | 0 | 0 | 1 | 0 | 0 |
+
+            `cmp` compares the output with its input, so it has no baseline.
+
+            Each cell gives the verdict on the input, then the verdict on the output.
+
+            | Input | `pyhanko` | `qpdf` |
+            | ----- | --------- | ------ |
+            | `qpdf:leading-junk.pdf` | `not_applicable` → `valid` | `inconclusive` → `valid` |
+
+            MARKDOWN;
+        self::assertStringContainsString($expectedBaseline, $markdown);
+        self::assertStringContainsString("| `qpdf:leading-junk.pdf` | `cmp` | none | `invalid` | The output does not start with the bytes of the input: input output differ: char 1, line 1 |\n", $markdown);
+    }
+
+    public function test_run_without_any_available_input_says_there_is_no_baseline(): void
+    {
+        $attempts = [self::attempt('qpdf:gone.pdf', 'not_run')];
+        $observations = [
+            self::observation('qpdf:gone.pdf', 'pyhanko', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+            self::observation('qpdf:gone.pdf', 'qpdf', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+        ];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations, []);
+
+        $expectedBaseline = <<<'MARKDOWN'
+            ## Baseline
+
+            No input was available, so there is no baseline.
+
+            Inputs without a baseline, because they were unavailable:
+
+            | Input | Reason |
+            | ----- | ------ |
+            | `qpdf:gone.pdf` | `missing_upstream` |
+
+            ## Failures
+            MARKDOWN;
+        self::assertStringContainsString($expectedBaseline, $markdown);
+    }
+
     public function test_summary_counts_every_outcome_and_verdict_and_lists_the_failures(): void
     {
         $attempts = [

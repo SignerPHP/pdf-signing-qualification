@@ -34,6 +34,7 @@
             "bin/run-attempts"
         ],
         "compare-runs": "bin/compare-runs",
+        "report": "bin/report",
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",
         "pint:check": "vendor/bin/pint --test",

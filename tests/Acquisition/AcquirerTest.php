@@ -55,6 +55,7 @@ final class AcquirerTest extends TestCase
                 'expression' => 'NOASSERTION',
                 'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069',
             ],
+            strata: ['classic'],
         );
     }
 
@@ -121,7 +122,7 @@ final class AcquirerTest extends TestCase
     public function test_byte_size_differing_from_the_declaration_is_a_mismatch(): void
     {
         $declared = self::input();
-        $wrongSize = new Input($declared->source, $declared->path, $declared->sha256, $declared->byteSize + 1, $declared->license);
+        $wrongSize = new Input($declared->source, $declared->path, $declared->sha256, $declared->byteSize + 1, $declared->license, $declared->strata);
 
         $record = $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT]))->acquire($wrongSize);
 

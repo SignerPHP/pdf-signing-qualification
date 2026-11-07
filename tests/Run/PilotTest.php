@@ -61,8 +61,9 @@ final class PilotTest extends TestCase
         $configurationPath = $this->directory.'/inputs.json';
         file_put_contents($configurationPath, json_encode([
             'schema' => SourceConfiguration::SCHEMA,
+            'selection' => 'failure_enriched',
             'sources' => [['id' => 'local', 'url' => 'https://example.org/repository', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)], 'file_url' => 'https://example.org/{revision}/{path}', 'license' => $license]],
-            'inputs' => [['source' => 'local', 'path' => 'unsigned.pdf', 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content), 'license' => $license]],
+            'inputs' => [['source' => 'local', 'path' => 'unsigned.pdf', 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content), 'license' => $license, 'strata' => ['classic']]],
         ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $inputs = SourceConfiguration::fromFile($configurationPath);

@@ -39,12 +39,13 @@ An aborted acquisition (exit 2) stops it before anything is signed; unavailable 
 
 ## Commands
 
-Commands run as `docker compose run --rm <service> composer <script>`, in `app` for `acquire` and in `sandbox` for the others.
+Commands run as `docker compose run --rm <service> composer <script>`, in `app` for `acquire` and in `sandbox` for the others. `compare-runs` reads results only, so it needs neither the network nor the sandbox limits, and runs in either.
 
 | Script | Purpose |
 | ------ | ------- |
 | `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
 | `run-attempts -- [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections]` | Judge every available input whose record is in `<run-directory>/acquisitions.json`, sign it with the implementation (`pdf-signer` by default) and validate each output; the option comes first, another input configuration needs its own expected rejections, because the versioned ones name its undeclared inputs, and it refuses to start for an unknown identifier, any other option, an expected rejection for an undeclared input or scenario, or unless there is exactly one record per declared input |
+| `compare-runs -- <reference-run> <candidate-run> <comparison-directory>` | Compare two finished run directories: pair their attempts by input and scenario, classify each capability, execution outcome and verdict as `introduced`, `fixed`, `persistent`, `changed` or `unchanged`, state the differences between the runs, and write `comparison.json` and `comparison.md` to a new directory; exits 1 when the candidate run introduced a failure, 0 when it did not, and 2 when the runs cannot be compared |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |

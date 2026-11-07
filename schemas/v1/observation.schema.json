@@ -35,6 +35,7 @@
                 "byte_range",
                 "cms_signature",
                 "prior_signatures",
+                "input_preservation",
                 "certificate_trust",
                 "timestamp",
                 "profile",

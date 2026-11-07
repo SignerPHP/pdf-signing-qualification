@@ -12,6 +12,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         git \
         unzip \
+        diffutils=1:3.8-4 \
         openssl=3.0.22-1~deb12u2 \
         poppler-utils=22.12.0-2+deb12u3 \
         python3-venv=3.11.2-1+b1 \

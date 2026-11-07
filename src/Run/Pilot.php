@@ -74,7 +74,7 @@ final class Pilot
             $attempts[] = $result->record;
 
             $inputArtifact = $result->record['input']['status'] === 'available' ? ['sha256' => $result->record['input']['sha256'], 'byte_size' => $result->record['input']['byte_size']] : null;
-            foreach ($this->panel->observe(new ValidationSubject($result->record['id'], $inputArtifact, $result->outputPath)) as $observation) {
+            foreach ($this->panel->observe(new ValidationSubject($result->record['id'], $inputArtifact, $result->outputPath, $inputPath)) as $observation) {
                 (new SchemaValidator)->assertValid($observation, CommandLineValidator::OBSERVATION_SCHEMA, "observation {$observation['id']}");
                 $observations[] = $observation;
             }

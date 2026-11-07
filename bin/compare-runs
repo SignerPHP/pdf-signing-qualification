@@ -1,0 +1,49 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Run\ComparisonSummary;
+use SignerPHP\PdfSigningQualification\Run\RunComparison;
+use SignerPHP\PdfSigningQualification\Run\RunRecords;
+use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) !== 3 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: compare-runs <reference-run-directory> <candidate-run-directory> <comparison-directory>\n");
+    exit(2);
+}
+[$referenceDirectory, $candidateDirectory, $comparisonDirectory] = $arguments;
+
+try {
+    if (file_exists($comparisonDirectory)) {
+        throw new RuntimeException("{$comparisonDirectory} already exists; choose a new comparison directory");
+    }
+    $comparison = RunComparison::compare(RunRecords::fromDirectory($referenceDirectory), RunRecords::fromDirectory($candidateDirectory));
+    (new SchemaValidator)->assertValid($comparison, RunComparison::SCHEMA, 'comparison');
+    $markdown = ComparisonSummary::markdown($comparison);
+    $json = json_encode($comparison, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
+
+    $parentDirectory = dirname($comparisonDirectory);
+    if (! is_dir($parentDirectory) && ! mkdir($parentDirectory, 0777, true)) {
+        throw new RuntimeException("Unable to create {$parentDirectory}");
+    }
+    $partialDirectory = $parentDirectory.'/.'.basename($comparisonDirectory).'.partial-'.bin2hex(random_bytes(6));
+    if (! mkdir($partialDirectory, 0777)
+        || file_put_contents($partialDirectory.'/comparison.json', $json) !== strlen($json)
+        || file_put_contents($partialDirectory.'/comparison.md', $markdown) !== strlen($markdown)
+        || ! rename($partialDirectory, $comparisonDirectory)) {
+        throw new RuntimeException("Unable to write the comparison to {$comparisonDirectory}");
+    }
+} catch (Throwable $exception) {
+    if (isset($partialDirectory) && is_dir($partialDirectory)) {
+        exec('rm -rf '.escapeshellarg($partialDirectory));
+    }
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+echo $markdown;
+exit(RunComparison::hasNewFailures($comparison) ? 1 : 0);

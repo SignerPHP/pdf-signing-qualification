@@ -8,13 +8,18 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\ComparisonValidator;
+use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
+use SignerPHP\PdfSigningQualification\Validation\PriorSignaturesValidator;
 use SignerPHP\PdfSigningQualification\Validation\PyHankoValidator;
 use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
+use SignerPHP\PdfSigningQualification\Validation\SignatureCoverageValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
 final class UnexpectedToolOutcomeTest extends TestCase
@@ -248,5 +253,36 @@ final class UnexpectedToolOutcomeTest extends TestCase
         $observation = self::observe(QpdfCheckValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, "WARNING: file is damaged\nqpdf: operation succeeded with warnings\n"));
 
         self::assertSame('inconclusive', $observation['verdict']);
+    }
+
+    /**
+     * @return iterable<string, array{class-string<ComparisonValidator>, string, CommandResult, string}>
+     */
+    public static function comparisonToolFailures(): iterable
+    {
+        $noByteRange = (string) json_encode(['qpdf' => [[], ['obj:1 0 R' => ['value' => ['/Type' => '/Catalog']]]]]);
+
+        yield 'cmp that could not compare' => [InputPreservationValidator::class, "cmp (GNU diffutils) 3.8\n", new CommandResult(2, "cmp: output.pdf: No such file or directory\n"), 'cmp exited with code 2'];
+        yield 'cmp that timed out' => [InputPreservationValidator::class, "cmp (GNU diffutils) 3.8\n", new CommandResult(null, '', timedOut: true), 'cmp did not finish within 120 seconds'];
+        yield 'prior signatures of an input qpdf cannot read' => [PriorSignaturesValidator::class, "qpdf version 11.3.0\n", new CommandResult(2, "qpdf: input.pdf: can't find startxref\n"), 'qpdf could not list the signatures of the input: qpdf exited with code 2'];
+        yield 'prior signatures of a recovered input without one' => [PriorSignaturesValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, $noByteRange), 'No dictionary with a /ByteRange was found in an input qpdf had to recover'];
+        yield 'prior signatures listing that timed out' => [PriorSignaturesValidator::class, "qpdf version 11.3.0\n", new CommandResult(null, '', timedOut: true), 'qpdf-prior-signatures did not finish within 120 seconds'];
+        yield 'coverage of an input qpdf cannot read' => [SignatureCoverageValidator::class, "qpdf version 11.3.0\n", new CommandResult(2, "qpdf: input.pdf: can't find startxref\n"), 'qpdf could not list the signatures of the input, so the added signature cannot be told apart: qpdf exited with code 2'];
+        yield 'coverage of a recovered output without a new signature' => [SignatureCoverageValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, $noByteRange), 'No signature that is not already in the input was found in an output qpdf had to recover'];
+    }
+
+    /**
+     * @param  class-string<ComparisonValidator>  $validatorClass
+     */
+    #[DataProvider('comparisonToolFailures')]
+    public function test_comparison_that_the_tool_could_not_complete_is_inconclusive(string $validatorClass, string $versionOutput, CommandResult $toolResult, string $summary): void
+    {
+        $runner = new FakeCommandRunner(new CommandResult(0, $versionOutput), $toolResult);
+        $validator = new $validatorClass($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-07T12:00:03Z'));
+
+        $observation = $validator->observe(new ValidationSubject('run-20261107T120000Z/synthetic/1', Artifact::describe(self::$signedPath), self::$signedPath, self::$signedPath));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame($summary, $observation['evidence']['summary']);
     }
 }

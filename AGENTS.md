@@ -29,7 +29,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | ---- | -------- |
 | `acquisitions.json` | One acquisition record per declared input |
 | `run.json` | The run record: scenario, environment, container image, resource limits, implementation revision and runtime, analyzer versions, and the hashes of `config/inputs.json` and `config/expected-rejections.json` |
-| `baselines.json` | One baseline per available input and analyzer: each validator's verdict on the input itself, before signing |
+| `baselines.json` | One baseline per available input and analyzer that judges one document: each validator's verdict on the input itself, before signing |
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
 | `observations.json` | One observation per attempt and analyzer |
 | `outputs/` | Signed outputs, named by SHA-256 |

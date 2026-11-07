@@ -67,7 +67,7 @@ final class SourceConfiguration
         foreach ($configuration['inputs'] as $declaration) {
             $source = $sources[$declaration['source']]
                 ?? throw new InvalidArgumentException("Input {$declaration['path']} refers to the undeclared source {$declaration['source']}");
-            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license']);
+            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license'], $declaration['strata']);
             if (isset($inputs[$input->id()])) {
                 throw new InvalidArgumentException("Input {$input->id()} is declared more than once");
             }

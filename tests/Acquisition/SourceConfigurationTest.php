@@ -31,6 +31,7 @@ final class SourceConfigurationTest extends TestCase
     {
         return [
             'schema' => SourceConfiguration::SCHEMA,
+            'selection' => 'failure_enriched',
             'sources' => [
                 [
                     'id' => 'pdfjs',
@@ -47,6 +48,7 @@ final class SourceConfigurationTest extends TestCase
                     'sha256' => self::SHA256,
                     'byte_size' => 18_423,
                     'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069'],
+                    'strata' => ['stream', 'objstm'],
                 ],
             ],
         ];
@@ -116,8 +118,8 @@ final class SourceConfigurationTest extends TestCase
 
     public static function nonArrayCollections(): iterable
     {
-        yield 'sources as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "sources": {}, "inputs": []}', '/sources'];
-        yield 'inputs as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "sources": [], "inputs": {}}', '/inputs'];
+        yield 'sources as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "selection": "failure_enriched", "sources": {}, "inputs": []}', '/sources'];
+        yield 'inputs as an empty object' => ['{"schema": "'.SourceConfiguration::SCHEMA.'", "selection": "failure_enriched", "sources": [], "inputs": {}}', '/inputs'];
         yield 'list at the top level' => ['[]', '/:'];
     }
 

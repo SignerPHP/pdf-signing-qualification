@@ -27,5 +27,6 @@ fi
 
 image_id="$(docker image inspect --format '{{.Id}}' pdf-signing-qualification:local)"
 docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "$run_directory"
+docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null
 
 echo "Results written to $run_directory" >&2

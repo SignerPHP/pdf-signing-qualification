@@ -17,6 +17,7 @@ final class SourcesSchemaTest extends SchemaTestCase
     {
         return [
             'schema' => self::schemaId(),
+            'selection' => 'failure_enriched',
             'sources' => [
                 [
                     'id' => 'pdfjs',
@@ -39,6 +40,7 @@ final class SourcesSchemaTest extends SchemaTestCase
                         'expression' => 'NOASSERTION',
                         'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069',
                     ],
+                    'strata' => ['stream', 'objstm', 'incremental'],
                 ],
             ],
         ];
@@ -59,6 +61,16 @@ final class SourcesSchemaTest extends SchemaTestCase
         })];
         yield 'released version as revision' => [self::mutate(function (array $configuration): array {
             $configuration['sources'][0]['revision'] = ['kind' => 'version', 'value' => 'v4.0.379'];
+
+            return $configuration;
+        })];
+        yield 'representative selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'representative';
+
+            return $configuration;
+        })];
+        yield 'every stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['classic', 'stream', 'hybrid', 'none', 'objstm', 'encrypted', 'incremental', 'signed', 'malformed'];
 
             return $configuration;
         })];
@@ -84,7 +96,32 @@ final class SourcesSchemaTest extends SchemaTestCase
                 return $configuration;
             })];
         }
-        foreach (['source', 'path', 'sha256', 'byte_size', 'license'] as $field) {
+        yield 'configuration without selection' => [self::mutate(function (array $configuration): array {
+            unset($configuration['selection']);
+
+            return $configuration;
+        })];
+        yield 'unknown selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'random';
+
+            return $configuration;
+        })];
+        yield 'input without any stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = [];
+
+            return $configuration;
+        })];
+        yield 'stratum repeated' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['stream', 'stream'];
+
+            return $configuration;
+        })];
+        yield 'unknown stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['broken'];
+
+            return $configuration;
+        })];
+        foreach (['source', 'path', 'sha256', 'byte_size', 'license', 'strata'] as $field) {
             yield "input without {$field}" => [self::mutate(function (array $configuration) use ($field): array {
                 unset($configuration['inputs'][0][$field]);
 

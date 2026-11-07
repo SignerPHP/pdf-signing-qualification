@@ -69,6 +69,7 @@ final class RunAttemptsCommandTest extends TestCase
     {
         $configuration = [
             'schema' => SourceConfiguration::SCHEMA,
+            'selection' => 'failure_enriched',
             'sources' => [[
                 'id' => 'local',
                 'url' => 'https://example.org/repository',
@@ -82,6 +83,7 @@ final class RunAttemptsCommandTest extends TestCase
                 'sha256' => hash('sha256', $content),
                 'byte_size' => strlen($content),
                 'license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license'],
+                'strata' => ['classic'],
             ], array_keys($declaredContents), $declaredContents),
         ];
         file_put_contents($this->configurationPath, json_encode($configuration, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -170,6 +172,7 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(['status' => 'available', 'id' => self::IMAGE_ID], $run['environment']['container_image']);
         self::assertSame(PHP_VERSION, $run['environment']['php_version']);
         self::assertSame(['sha256' => hash_file('sha256', $this->configurationPath), 'byte_size' => filesize($this->configurationPath)], $run['source_configuration']);
+        self::assertFileEquals($this->configurationPath, "{$this->directory}/runs/run-20261031T120000Z/inputs.json");
         self::assertSame(['sha256' => hash_file('sha256', $this->expectedRejectionsPath), 'byte_size' => filesize($this->expectedRejectionsPath)], $run['expected_rejections']);
         self::assertSame(['status' => 'compatible'], $run['implementation_compatibility']);
 

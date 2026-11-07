@@ -30,8 +30,17 @@ final class CompareRunsCommandTest extends TestCase
      */
     private function compareRuns(string ...$arguments): array
     {
+        return $this->runCommand([PHP_BINARY, __DIR__.'/../../bin/compare-runs', ...$arguments]);
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @return array{int, string, string}
+     */
+    private function runCommand(array $command): array
+    {
         $process = proc_open(
-            [PHP_BINARY, __DIR__.'/../../bin/compare-runs', ...$arguments],
+            $command,
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             env_vars: ['PATH' => (string) getenv('PATH')],
@@ -147,6 +156,40 @@ final class CompareRunsCommandTest extends TestCase
 
         self::assertSame(2, $exitCode);
         self::assertStringContainsString('Invalid attempt '.$fixture->attemptId(self::INPUT), $errorOutput);
+    }
+
+    public function test_runs_without_any_paired_input_exit_with_two(): void
+    {
+        [$reference, $candidate] = $this->writeRuns(
+            (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+            (new RunFixture('run-20261107T130000Z', scenarioId: 'visible-sha256'))->succeeded(self::INPUT, ['pdfsig' => 'invalid', 'qpdf' => 'valid']),
+        );
+
+        [$exitCode, $output, $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');
+
+        self::assertSame(2, $exitCode);
+        self::assertSame('', $output);
+        self::assertStringContainsString('have no available input in common under the same scenario and with the same content', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/comparison');
+    }
+
+    public function test_an_interrupted_write_leaves_no_comparison_directory_and_can_be_retried(): void
+    {
+        [$reference, $candidate] = $this->writeRuns(
+            (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+            (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+        );
+
+        [$exitCode] = $this->runCommand(['prlimit', '--fsize=1000', PHP_BINARY, __DIR__.'/../../bin/compare-runs', $reference, $candidate, $this->directory.'/comparison']);
+
+        self::assertNotSame(0, $exitCode);
+        self::assertFileDoesNotExist($this->directory.'/comparison');
+
+        [$exitCode, , $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertFileExists($this->directory.'/comparison/comparison.md');
+        $this->readComparison($this->directory.'/comparison');
     }
 
     public function test_an_existing_comparison_directory_and_wrong_arguments_are_refused(): void

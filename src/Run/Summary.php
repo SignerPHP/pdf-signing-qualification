@@ -101,7 +101,14 @@ final class Summary
         return $attempt['capability'] === 'expected_rejection';
     }
 
-    private static function isRejectedAsExpected(array $attempt): bool
+    public static function isExecutionFailure(array $attempt): bool
+    {
+        return $attempt['execution']['outcome'] === 'succeeded'
+            ? self::isExpectedRejection($attempt)
+            : ! self::isRejectedAsExpected($attempt);
+    }
+
+    public static function isRejectedAsExpected(array $attempt): bool
     {
         return self::isExpectedRejection($attempt)
             && $attempt['execution']['outcome'] === 'failed'
@@ -180,6 +187,11 @@ final class Summary
         return [...$lines, ...$unavailableLines];
     }
 
+    public static function isOutputFailure(string $verdict): bool
+    {
+        return in_array($verdict, ['invalid', 'inconclusive'], true);
+    }
+
     /**
      * @param  list<array>  $analyzers
      * @param  list<array>  $records
@@ -215,7 +227,7 @@ final class Summary
     {
         $unsuccessfulAttempts = array_filter($attempts, static fn (array $attempt): bool => $attempt['execution']['outcome'] !== 'succeeded' && ! self::isRejectedAsExpected($attempt));
         $unexpectedSuccesses = array_filter($attempts, static fn (array $attempt): bool => self::isExpectedRejection($attempt) && $attempt['execution']['outcome'] === 'succeeded');
-        $judgedOutputs = array_filter($observations, static fn (array $observation): bool => in_array($observation['verdict'], ['invalid', 'inconclusive'], true));
+        $judgedOutputs = array_filter($observations, static fn (array $observation): bool => self::isOutputFailure($observation['verdict']));
         if ($unsuccessfulAttempts === [] && $unexpectedSuccesses === [] && $judgedOutputs === []) {
             return [array_filter($attempts, self::isRejectedAsExpected(...)) === []
                 ? 'Every attempt succeeded and every output was judged valid.'
@@ -252,9 +264,14 @@ final class Summary
         return $lines;
     }
 
-    private static function tool(array $tool): string
+    public static function tool(array $tool): string
     {
-        return "`{$tool['id']}` ".($tool['revision']['kind'] === 'commit' ? "at commit `{$tool['revision']['value']}`" : $tool['revision']['value']);
+        return "`{$tool['id']}` ".self::revision($tool['revision']);
+    }
+
+    public static function revision(array $revision): string
+    {
+        return $revision['kind'] === 'commit' ? "at commit `{$revision['value']}`" : $revision['value'];
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Run;
 
+use RuntimeException;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class RunComparison
@@ -28,6 +29,10 @@ final class RunComparison
         }
         foreach (array_diff_key($candidateAttempts, $referenceAttempts) as $candidateAttempt) {
             $inputs[] = self::input(null, $candidateAttempt, $sharedAnalyzerIds, $referenceVerdicts, $candidateVerdicts);
+        }
+
+        if (! in_array('paired', array_column($inputs, 'status'), true)) {
+            throw new RuntimeException("The runs {$reference->run['id']} and {$candidate->run['id']} have no available input in common under the same scenario and with the same content, so there is nothing to compare");
         }
 
         $inputTotals = array_fill_keys(self::INPUT_STATUSES, 0);
@@ -159,27 +164,20 @@ final class RunComparison
 
     private static function executionState(array $attempt): ?string
     {
-        $outcome = $attempt['execution']['outcome'];
-        if ($attempt['capability'] === 'expected_rejection') {
-            $rejected = $outcome === 'failed' && ! in_array($attempt['execution']['exit_code'], [null, 0], true);
-
-            return in_array($outcome, ['failed', 'timed_out'], true) && ! $rejected ? 'failure' : null;
+        if (Summary::isExecutionFailure($attempt)) {
+            return 'failure';
         }
 
-        return match ($outcome) {
-            'succeeded' => 'pass',
-            'failed', 'timed_out' => 'failure',
-            default => null,
-        };
+        return $attempt['execution']['outcome'] === 'succeeded' ? 'pass' : null;
     }
 
     private static function verdictState(string $verdict): ?string
     {
-        return match ($verdict) {
-            'valid' => 'pass',
-            'invalid' => 'failure',
-            default => null,
-        };
+        if (Summary::isOutputFailure($verdict)) {
+            return 'failure';
+        }
+
+        return $verdict === 'valid' ? 'pass' : null;
     }
 
     /**

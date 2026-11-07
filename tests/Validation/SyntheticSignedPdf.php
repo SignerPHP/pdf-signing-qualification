@@ -114,6 +114,23 @@ final class SyntheticSignedPdf
         return $path;
     }
 
+    /**
+     * @param  callable(int, int, int): string  $byteRange
+     */
+    public static function rewriteFirstByteRange(string $signedPath, string $directory, string $name, callable $byteRange): string
+    {
+        $document = (string) file_get_contents($signedPath);
+        if (preg_match('#/ByteRange \[0 (\d+) (\d+) (\d+)\] *#', $document, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            throw new RuntimeException('No byte range was found in '.$signedPath);
+        }
+
+        $replacement = $byteRange((int) $match[1][0], (int) $match[2][0], (int) $match[3][0]);
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, substr_replace($document, str_pad($replacement, strlen($match[0][0])), $match[0][1], strlen($match[0][0])));
+
+        return $path;
+    }
+
     public static function shiftLastByteRangeGap(string $signedPath, string $directory): string
     {
         $document = (string) file_get_contents($signedPath);

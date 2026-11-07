@@ -178,6 +178,32 @@ final class SummaryTest extends TestCase
         self::assertStringContainsString("| `qpdf:leading-junk.pdf` | `cmp` | none | `invalid` | The output does not start with the bytes of the input: input output differ: char 1, line 1 |\n", $markdown);
     }
 
+    public function test_run_without_any_available_input_says_there_is_no_baseline(): void
+    {
+        $attempts = [self::attempt('qpdf:gone.pdf', 'not_run')];
+        $observations = [
+            self::observation('qpdf:gone.pdf', 'pyhanko', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+            self::observation('qpdf:gone.pdf', 'qpdf', 'not_evaluated', 'The input was unavailable, so there is no output to validate'),
+        ];
+
+        $markdown = Summary::markdown(self::runRecord(), $attempts, $observations, []);
+
+        $expectedBaseline = <<<'MARKDOWN'
+            ## Baseline
+
+            No input was available, so there is no baseline.
+
+            Inputs without a baseline, because they were unavailable:
+
+            | Input | Reason |
+            | ----- | ------ |
+            | `qpdf:gone.pdf` | `missing_upstream` |
+
+            ## Failures
+            MARKDOWN;
+        self::assertStringContainsString($expectedBaseline, $markdown);
+    }
+
     public function test_summary_counts_every_outcome_and_verdict_and_lists_the_failures(): void
     {
         $attempts = [

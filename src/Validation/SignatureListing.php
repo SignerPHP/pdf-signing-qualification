@@ -31,11 +31,6 @@ final class SignatureListing
         return new self($result, is_array($objects) ? self::signatures($objects) : null);
     }
 
-    public function isReadable(): bool
-    {
-        return $this->signatures !== null;
-    }
-
     public function isComplete(): bool
     {
         return $this->result->exitCode === 0;
@@ -65,10 +60,10 @@ final class SignatureListing
         $fieldNames = self::fieldNames($objects);
         $signatures = [];
         foreach ($objects as $key => $object) {
-            if (! is_string($key) || ! str_starts_with($key, 'obj:') || ! is_array($object)) {
+            $reference = is_string($key) && str_starts_with($key, 'obj:') ? substr($key, strlen('obj:')) : $key;
+            if (! is_array($object) || ($reference !== 'trailer' && $reference === $key)) {
                 continue;
             }
-            $reference = substr($key, strlen('obj:'));
             $dictionaries = [];
             self::collectSignatureDictionaries($object['value'] ?? $object['stream']['dict'] ?? null, $dictionaries);
             foreach ($dictionaries as $dictionary) {

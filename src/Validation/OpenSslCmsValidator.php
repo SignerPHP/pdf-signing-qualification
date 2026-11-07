@@ -12,8 +12,6 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
     private const array UNDECODABLE_EXIT_CODES = [2, 3];
 
-    private const array LOCATOR_ARGUMENTS = ['--json=2', '--json-key=qpdf', '--no-warn'];
-
     private const array DECODE_ARGUMENTS = ['cms', '-cmsout', '-noout', '-inform', 'DER'];
 
     private const array ARGUMENTS = ['cms', '-verify', '-binary', '-inform', 'DER', '-noverify', '-out', '/dev/null'];
@@ -36,7 +34,7 @@ final class OpenSslCmsValidator extends CommandLineValidator
             'id' => 'openssl-cms-byte-range-without-chain',
             'description' => 'Every dictionary with a /ByteRange, as listed by qpdf, delimits the signed bytes and the hexadecimal CMS in its gap; the CMS must decode and is verified over the signed bytes without certificate chain verification',
             'parameters' => [
-                'locator_arguments' => ['qpdf', ...self::LOCATOR_ARGUMENTS],
+                'locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS],
                 'decode_arguments' => self::DECODE_ARGUMENTS,
                 'arguments' => self::ARGUMENTS,
             ],
@@ -60,21 +58,19 @@ final class OpenSslCmsValidator extends CommandLineValidator
             throw new RuntimeException("Unable to read the document {$documentPath}");
         }
 
-        $located = $this->runner->run(['qpdf', ...self::LOCATOR_ARGUMENTS, $documentPath], $this->timeoutSeconds);
-        if ($located->timedOut) {
-            return $this->timedOut($located);
+        $listing = SignatureListing::read($this->runner, $documentPath, $this->timeoutSeconds);
+        if ($listing->result->timedOut) {
+            return $this->timedOut($listing->result);
         }
-        $objects = in_array($located->exitCode, [0, 3], true) ? self::objects($located->output) : null;
-        if ($objects === null) {
-            return new Judgement('inconclusive', 'qpdf could not list the signature dictionaries: qpdf '.$located->describe(), $located->exitCode, $located->output);
+        if ($listing->signatures === null) {
+            return new Judgement('inconclusive', 'qpdf could not list the signature dictionaries: qpdf '.$listing->result->describe(), $listing->result->exitCode, $listing->result->output);
         }
 
-        $byteRanges = [];
-        self::collectByteRanges($objects, $objects, $byteRanges);
+        $byteRanges = array_column($listing->signatures, 'byte_range');
         if ($byteRanges === []) {
-            $documentWasRead = $located->exitCode === 0;
+            $documentWasRead = $listing->isComplete();
 
-            return Judgement::noSignature($documentWasRead ? 'No dictionary with a /ByteRange was found' : 'No dictionary with a /ByteRange was found in a file qpdf had to recover', $located->exitCode, '', documentWasRead: $documentWasRead);
+            return Judgement::noSignature($documentWasRead ? 'No dictionary with a /ByteRange was found' : 'No dictionary with a /ByteRange was found in a file qpdf had to recover', $listing->result->exitCode, '', documentWasRead: $documentWasRead);
         }
 
         $signatures = [];
@@ -104,63 +100,6 @@ final class OpenSslCmsValidator extends CommandLineValidator
         }
 
         return new Judgement('valid', 'openssl verified '.count($signatures).' CMS signature(s) over their byte ranges', $exitCode, $rawOutput, $details);
-    }
-
-    private static function objects(string $json): ?array
-    {
-        $decoded = json_decode($json, true);
-        $objects = is_array($decoded) ? ($decoded['qpdf'][1] ?? null) : null;
-
-        return is_array($objects) ? $objects : null;
-    }
-
-    /**
-     * @param  list<list<int>|null>  $byteRanges
-     */
-    private static function collectByteRanges(mixed $value, array $objects, array &$byteRanges): void
-    {
-        if (! is_array($value)) {
-            return;
-        }
-        if (array_key_exists('/ByteRange', $value)) {
-            $byteRanges[] = self::byteRange($value['/ByteRange'], $objects);
-        }
-        foreach ($value as $key => $child) {
-            if ($key !== '/ByteRange') {
-                self::collectByteRanges($child, $objects, $byteRanges);
-            }
-        }
-    }
-
-    /**
-     * @return list<int>|null
-     */
-    private static function byteRange(mixed $value, array $objects): ?array
-    {
-        $value = self::resolve($value, $objects);
-        if (! is_array($value) || ! array_is_list($value) || count($value) !== 4) {
-            return null;
-        }
-
-        $byteRange = [];
-        foreach ($value as $element) {
-            $element = self::resolve($element, $objects);
-            if (! is_int($element) || $element < 0) {
-                return null;
-            }
-            $byteRange[] = $element;
-        }
-
-        return $byteRange;
-    }
-
-    private static function resolve(mixed $value, array $objects): mixed
-    {
-        if (is_string($value) && preg_match('/^\d+ \d+ R$/', $value) === 1) {
-            return $objects['obj:'.$value]['value'] ?? null;
-        }
-
-        return $value;
     }
 
     /**

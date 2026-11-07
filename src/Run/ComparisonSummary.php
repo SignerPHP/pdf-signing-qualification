@@ -35,9 +35,9 @@ final class ComparisonSummary
             '| ------------ | -----: |',
             ...array_map(static fn (string $status, int $count): string => "| `{$status}` | {$count} |", array_keys($comparison['totals']['inputs']), $comparison['totals']['inputs']),
             '',
-            '| Change | Items |',
-            '| ------ | ----: |',
-            ...array_map(static fn (string $change, int $count): string => "| `{$change}` | {$count} |", array_keys($comparison['totals']['changes']), $comparison['totals']['changes']),
+            '| Change | Items of inputs | Items of regression cases |',
+            '| ------ | --------------: | ------------------------: |',
+            ...array_map(static fn (string $change, int $count): string => "| `{$change}` | {$count} | {$comparison['totals']['regression_changes'][$change]} |", array_keys($comparison['totals']['changes']), $comparison['totals']['changes']),
             '',
         ];
 
@@ -56,7 +56,9 @@ final class ComparisonSummary
             }
             array_push($lines, "## {$title}", '');
             if ($rows === []) {
-                array_push($lines, 'The candidate run has no failure that the reference run did not have.', '');
+                array_push($lines, $comparison['totals']['regression_changes']['introduced'] === 0
+                    ? 'The candidate run has no failure that the reference run did not have.'
+                    : 'No input has a failure that the reference run did not have; the regression cases below do.', '');
 
                 continue;
             }
@@ -81,10 +83,60 @@ final class ComparisonSummary
             $lines[] = '';
         }
 
-        $introduced = $comparison['totals']['changes']['introduced'];
+        array_push($lines, ...self::regressions($comparison));
+
+        $introduced = $comparison['totals']['changes']['introduced'] + $comparison['totals']['regression_changes']['introduced'];
         $lines[] = $introduced === 0 ? 'The candidate run introduced no failure.' : "The candidate run introduced {$introduced} failure(s).";
 
         return implode("\n", $lines)."\n";
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function regressions(array $comparison): array
+    {
+        if ($comparison['regressions'] === []) {
+            return [];
+        }
+
+        $lines = [
+            '## Regression cases',
+            '',
+            'Each case tells whether the condition of its defect is present in the output of each run. A present condition is a failure and an absent one a pass; `undetermined` and `not_evaluated` are neither. A case replayed on its own synthetic input also compares that attempt like an input. These items are counted apart from the inputs.',
+            '',
+            '| Case | Status | Reference | Candidate | Change |',
+            '| ---- | ------ | --------- | --------- | ------ |',
+        ];
+        $changedItems = [];
+        foreach ($comparison['regressions'] as $regression) {
+            $conditionChange = '';
+            foreach ($regression['items'] as $item) {
+                if ($item['subject'] === 'condition') {
+                    $conditionChange = "`{$item['change']}`";
+                } elseif ($item['change'] !== 'unchanged') {
+                    $subject = $item['subject'] === 'verdict' ? "verdict of `{$item['analyzer_id']}`" : $item['subject'];
+                    $changedItems[] = "| `{$regression['case_id']}` | {$subject} | `{$item['reference']}` | `{$item['candidate']}` | `{$item['change']}` |";
+                }
+            }
+            $lines[] = "| `{$regression['case_id']}` | `{$regression['status']}` | ".self::condition($regression['reference']).' | '.self::condition($regression['candidate'])." | {$conditionChange} |";
+        }
+        $lines[] = '';
+        if ($changedItems !== []) {
+            array_push($lines, 'Other items of the regression cases that are not unchanged:', '', '| Case | Item | Reference | Candidate | Change |', '| ---- | ---- | --------- | --------- | ------ |', ...$changedItems);
+            $lines[] = '';
+        }
+
+        return $lines;
+    }
+
+    private static function condition(?array $side): string
+    {
+        if ($side === null) {
+            return 'absent from the run';
+        }
+
+        return "`{$side['condition']['status']}`: ".str_replace('|', '\|', $side['condition']['evidence']);
     }
 
     /**
@@ -94,7 +146,7 @@ final class ComparisonSummary
     private static function differences(array $differences): array
     {
         if ($differences === []) {
-            return ['The two runs have the same scenario, implementation and implementation runtime, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.'];
+            return ['The two runs have the same scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.'];
         }
 
         $lines = ['| Subject | Analyzer | Reference | Candidate |', '| ------- | -------- | --------- | --------- |'];

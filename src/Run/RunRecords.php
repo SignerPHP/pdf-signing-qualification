@@ -6,6 +6,7 @@ namespace SignerPHP\PdfSigningQualification\Run;
 
 use JsonException;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
@@ -20,6 +21,7 @@ final readonly class RunRecords
         public array $run,
         public array $attempts,
         public array $observations,
+        public ?array $regressions = null,
     ) {}
 
     public static function fromDirectory(string $directory): self
@@ -52,13 +54,56 @@ final readonly class RunRecords
             $attemptsById[$attempt['id']] = [];
         }
 
-        $analyzerIds = array_column($run['analyzers'], 'id');
         $observations = array_values(self::readJson($directory.'/observations.json'));
         foreach ($observations as $index => $observation) {
             if (! is_array($observation)) {
                 throw new RuntimeException('Observation '.($index + 1)." in {$directory} is not an object");
             }
             $validator->assertValid($observation, ToolValidator::OBSERVATION_SCHEMA, 'observation '.(string) ($observation['id'] ?? $index + 1)." in {$directory}");
+        }
+        self::assertObservedOnce($run, $attemptsById, $observations, $directory);
+
+        $regressions = null;
+        if (file_exists($directory.'/regressions.json')) {
+            $regressions = self::readJson($directory.'/regressions.json');
+            $validator->assertValid($regressions, RegressionReplay::SCHEMA, "regression replay in {$directory}");
+            if ($regressions['run_id'] !== $run['id']) {
+                throw new RuntimeException("The regression replay in {$directory} belongs to the run {$regressions['run_id']}, not {$run['id']}");
+            }
+            $regressionAttemptsById = [];
+            foreach ($regressions['attempts'] as $attempt) {
+                if ($attempt['run_id'] !== $run['id'] || $attempt['scenario_id'] !== $run['scenario_id']) {
+                    throw new RuntimeException("The regression attempt {$attempt['id']} in {$directory} does not belong to the run {$run['id']} and its scenario {$run['scenario_id']}");
+                }
+                if (isset($attemptsById[$attempt['id']]) || isset($regressionAttemptsById[$attempt['id']])) {
+                    throw new RuntimeException("The regression attempt {$attempt['id']} in {$directory} is recorded more than once");
+                }
+                $regressionAttemptsById[$attempt['id']] = [];
+            }
+            self::assertObservedOnce($run, $regressionAttemptsById, $regressions['observations'], $directory);
+            $caseIds = [];
+            foreach ($regressions['cases'] as $case) {
+                if (isset($caseIds[$case['case_id']])) {
+                    throw new RuntimeException("The regression case {$case['case_id']} in {$directory} is recorded more than once");
+                }
+                $caseIds[$case['case_id']] = true;
+                if ($case['attempt_id'] !== null && ! isset($attemptsById[$case['attempt_id']]) && ! isset($regressionAttemptsById[$case['attempt_id']])) {
+                    throw new RuntimeException("The regression case {$case['case_id']} in {$directory} refers to the attempt {$case['attempt_id']}, which is not in the run");
+                }
+            }
+        }
+
+        return new self($run, $attempts, $observations, $regressions);
+    }
+
+    /**
+     * @param  array<string, array<string, true>>  $attemptsById
+     * @param  list<array>  $observations
+     */
+    private static function assertObservedOnce(array $run, array $attemptsById, array $observations, string $directory): void
+    {
+        $analyzerIds = array_column($run['analyzers'], 'id');
+        foreach ($observations as $observation) {
             $attemptId = $observation['attempt_id'];
             $analyzerId = $observation['analyzer']['id'];
             if (! isset($attemptsById[$attemptId]) || ! in_array($analyzerId, $analyzerIds, true)) {
@@ -74,8 +119,6 @@ final readonly class RunRecords
                 throw new RuntimeException("The attempt {$attemptId} in {$directory} does not have one observation from each analyzer of the run");
             }
         }
-
-        return new self($run, $attempts, $observations);
     }
 
     private static function readJson(string $path): array

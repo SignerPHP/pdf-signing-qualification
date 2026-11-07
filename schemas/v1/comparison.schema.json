@@ -2,9 +2,9 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/comparison.schema.json",
     "title": "Run comparison, version 1",
-    "description": "What changed between a reference run and a candidate run: the differences between their configurations, and for each input and scenario the capability, execution outcome and verdict of each analyzer in both runs, classified as fixed, persistent, introduced, changed or unchanged.",
+    "description": "What changed between a reference run and a candidate run: the differences between their configurations, for each input and scenario the capability, execution outcome and verdict of each analyzer in both runs, and for each regression case whether its condition is present in each run, classified as fixed, persistent, introduced, changed or unchanged.",
     "type": "object",
-    "required": ["schema", "reference", "candidate", "differences", "totals", "inputs"],
+    "required": ["schema", "reference", "candidate", "differences", "totals", "inputs", "regressions"],
     "additionalProperties": false,
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/comparison.schema.json" },
@@ -16,7 +16,7 @@
         },
         "totals": {
             "type": "object",
-            "required": ["inputs", "changes"],
+            "required": ["inputs", "changes", "regression_changes"],
             "additionalProperties": false,
             "properties": {
                 "inputs": {
@@ -31,26 +31,88 @@
                         "input_changed": { "type": "integer", "minimum": 0 }
                     }
                 },
-                "changes": {
-                    "type": "object",
-                    "required": ["introduced", "fixed", "persistent", "changed", "unchanged"],
-                    "additionalProperties": false,
-                    "properties": {
-                        "introduced": { "type": "integer", "minimum": 0 },
-                        "fixed": { "type": "integer", "minimum": 0 },
-                        "persistent": { "type": "integer", "minimum": 0 },
-                        "changed": { "type": "integer", "minimum": 0 },
-                        "unchanged": { "type": "integer", "minimum": 0 }
-                    }
-                }
+                "changes": { "$ref": "#/$defs/changeTotals" },
+                "regression_changes": { "$ref": "#/$defs/changeTotals" }
             }
         },
         "inputs": {
             "type": "array",
             "items": { "$ref": "#/$defs/input" }
+        },
+        "regressions": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/regression" }
         }
     },
     "$defs": {
+        "changeTotals": {
+            "type": "object",
+            "required": ["introduced", "fixed", "persistent", "changed", "unchanged"],
+            "additionalProperties": false,
+            "properties": {
+                "introduced": { "type": "integer", "minimum": 0 },
+                "fixed": { "type": "integer", "minimum": 0 },
+                "persistent": { "type": "integer", "minimum": 0 },
+                "changed": { "type": "integer", "minimum": 0 },
+                "unchanged": { "type": "integer", "minimum": 0 }
+            }
+        },
+        "regressionSide": {
+            "type": "object",
+            "required": ["definition", "attempt_id", "condition"],
+            "additionalProperties": false,
+            "properties": {
+                "definition": { "$ref": "common.schema.json#/$defs/artifact" },
+                "attempt_id": {
+                    "oneOf": [{ "$ref": "common.schema.json#/$defs/inputIdentifier" }, { "type": "null" }]
+                },
+                "condition": { "$ref": "regressions.schema.json#/$defs/case/properties/condition" }
+            }
+        },
+        "regression": {
+            "type": "object",
+            "required": ["case_id", "status", "reference", "candidate", "items"],
+            "additionalProperties": false,
+            "properties": {
+                "case_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+                "status": { "enum": ["paired", "only_in_reference", "only_in_candidate", "definition_changed", "not_replayed", "unavailable", "input_changed"] },
+                "reference": {
+                    "oneOf": [{ "$ref": "#/$defs/regressionSide" }, { "type": "null" }]
+                },
+                "candidate": {
+                    "oneOf": [{ "$ref": "#/$defs/regressionSide" }, { "type": "null" }]
+                },
+                "items": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/item" }
+                }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "status": { "const": "paired" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "type": "object", "properties": { "attempt_id": { "type": "string" } } },
+                            "candidate": { "type": "object", "properties": { "attempt_id": { "type": "string" } } },
+                            "items": { "contains": { "properties": { "subject": { "const": "condition" } } }, "minContains": 1, "maxContains": 1 }
+                        }
+                    },
+                    "else": { "properties": { "items": { "maxItems": 0 } } }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "only_in_reference" } } },
+                    "then": { "properties": { "reference": { "type": "object" }, "candidate": { "type": "null" } } }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "only_in_candidate" } } },
+                    "then": { "properties": { "reference": { "type": "null" }, "candidate": { "type": "object" } } }
+                },
+                {
+                    "if": { "properties": { "status": { "enum": ["definition_changed", "not_replayed", "unavailable", "input_changed"] } } },
+                    "then": { "properties": { "reference": { "type": "object" }, "candidate": { "type": "object" } } }
+                }
+            ]
+        },
         "run": {
             "type": "object",
             "required": ["run_id", "scenario_id", "implementation", "analyzers"],
@@ -76,6 +138,7 @@
                         "scenario",
                         "implementation",
                         "implementation_runtime",
+                        "implementation_compatibility",
                         "analyzer",
                         "analyzer_policy",
                         "source_configuration",
@@ -106,7 +169,7 @@
             "required": ["subject", "reference", "candidate", "change"],
             "additionalProperties": false,
             "properties": {
-                "subject": { "enum": ["capability", "execution", "verdict"] },
+                "subject": { "enum": ["capability", "execution", "verdict", "condition"] },
                 "analyzer_id": { "$ref": "common.schema.json#/$defs/identifier" },
                 "reference": { "type": "string" },
                 "candidate": { "type": "string" },
@@ -131,6 +194,15 @@
                             "reference": { "$ref": "attempt.schema.json#/properties/capability" },
                             "candidate": { "$ref": "attempt.schema.json#/properties/capability" },
                             "change": { "enum": ["changed", "unchanged"] }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "subject": { "const": "condition" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "$ref": "regressions.schema.json#/$defs/case/properties/condition/properties/status" },
+                            "candidate": { "$ref": "regressions.schema.json#/$defs/case/properties/condition/properties/status" }
                         }
                     }
                 },

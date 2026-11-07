@@ -42,4 +42,9 @@ final class CommandImplementation implements SigningImplementation
     {
         return ($this->command)($request);
     }
+
+    public function compatibilityCheck(): ?array
+    {
+        return null;
+    }
 }

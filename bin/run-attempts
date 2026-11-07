@@ -5,6 +5,9 @@ declare(strict_types=1);
 
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Artifact;
+use SignerPHP\PdfSigningQualification\Regression\RegressionCases;
+use SignerPHP\PdfSigningQualification\Regression\RegressionConditions;
+use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Run\Environment;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
 use SignerPHP\PdfSigningQualification\Run\Pilot;
@@ -33,7 +36,7 @@ if (str_starts_with($arguments[0] ?? '', '--implementation=')) {
 }
 
 if ($arguments === [] || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
-    fwrite(STDERR, "Usage: run-attempts [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections]\n");
+    fwrite(STDERR, "Usage: run-attempts [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections] [regression-cases]\n");
     exit(2);
 }
 
@@ -41,6 +44,7 @@ $runDirectory = rtrim($arguments[0], '/');
 $configurationPath = $arguments[1] ?? __DIR__.'/../config/inputs.json';
 $cacheDirectory = $arguments[2] ?? __DIR__.'/../var/cache/inputs';
 $expectedRejectionsPath = $arguments[3] ?? __DIR__.'/../config/expected-rejections.json';
+$regressionDirectory = $arguments[4] ?? __DIR__.'/../config/regressions';
 $scenarioDirectory = __DIR__.'/../config/scenarios';
 $scenarioPath = $scenarioDirectory.'/basic-invisible-sha256.json';
 $sandboxDirectory = '/sandbox';
@@ -69,9 +73,14 @@ try {
     $implementation = Implementations::select($implementationId);
     $inputs = SourceConfiguration::fromFile($configurationPath);
     $expectedRejections = ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, $scenarioDirectory);
+    $regressionCases = RegressionCases::fromDirectory($regressionDirectory, $scenarioDirectory);
+    $regressionConditions = new RegressionConditions(new ProcessRunner);
+    foreach ($regressionCases as $regressionCase) {
+        $regressionConditions->for($regressionCase->id);
+    }
     $acquisitions = array_values($readJson($runDirectory.'/acquisitions.json'));
 
-    if (! mkdir($scratchDirectory, 0700) || ! mkdir($scratchDirectory.'/credential', 0700) || ! mkdir($scratchDirectory.'/work', 0700)) {
+    if (! mkdir($scratchDirectory, 0700) || ! mkdir($scratchDirectory.'/credential', 0700) || ! mkdir($scratchDirectory.'/work', 0700) || ! mkdir($scratchDirectory.'/regression-inputs', 0700)) {
         throw new RuntimeException("Unable to create the scratch directory {$scratchDirectory}");
     }
     $credential = TestCredential::generate($scratchDirectory.'/credential');
@@ -88,19 +97,24 @@ try {
         new SignatureCoverageValidator(new ProcessRunner, $clock),
     ]);
 
-    $records = (new Pilot($attemptRunner, $implementation, $panel, $expectedRejections, $cacheDirectory, $clock))->run(
+    $regressionReplay = new RegressionReplay($attemptRunner, $panel, $regressionConditions, $scratchDirectory.'/regression-inputs', $clock);
+
+    $records = (new Pilot($attemptRunner, $implementation, $panel, $expectedRejections, $cacheDirectory, $clock, $regressionReplay))->run(
         basename($runDirectory),
         $readJson($scenarioPath),
         $inputs,
         $acquisitions,
         Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits),
         Artifact::describe($configurationPath),
+        $regressionCases,
     );
+    $regressions = $records['regressions'] ?? throw new RuntimeException('The run did not replay its regression cases');
 
-    $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations'], $records['baselines']);
+    $summary = Summary::markdown($records['run'], $records['attempts'], $records['observations'], $records['baselines'], $regressions);
     $writeFile($runDirectory.'/baselines.json', $encodeJson($records['baselines']));
     $writeFile($runDirectory.'/attempts.json', $encodeJson($records['attempts']));
     $writeFile($runDirectory.'/observations.json', $encodeJson($records['observations']));
+    $writeFile($runDirectory.'/regressions.json', $encodeJson($regressions));
     $writeFile($runDirectory.'/summary.md', $summary);
     $writeFile($runDirectory.'/run.json', $encodeJson($records['run']));
     echo $summary;

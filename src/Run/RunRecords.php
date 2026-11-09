@@ -9,6 +9,7 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
 
 final readonly class RunRecords
@@ -16,12 +17,14 @@ final readonly class RunRecords
     /**
      * @param  list<array>  $attempts
      * @param  list<array>  $observations
+     * @param  list<array>|null  $baselines
      */
     public function __construct(
         public array $run,
         public array $attempts,
         public array $observations,
         public ?array $regressions = null,
+        public ?array $baselines = null,
     ) {}
 
     public static function fromDirectory(string $directory): self
@@ -93,7 +96,27 @@ final readonly class RunRecords
             }
         }
 
-        return new self($run, $attempts, $observations, $regressions);
+        $baselines = null;
+        if (file_exists($directory.'/baselines.json')) {
+            $baselines = array_values(self::readJson($directory.'/baselines.json'));
+            $baselineIds = [];
+            foreach ($baselines as $index => $baseline) {
+                if (! is_array($baseline)) {
+                    throw new RuntimeException('Baseline '.($index + 1)." in {$directory} is not an object");
+                }
+                $validator->assertValid($baseline, CommandLineValidator::BASELINE_SCHEMA, 'baseline '.(string) ($baseline['id'] ?? $index + 1)." in {$directory}");
+                if ($baseline['run_id'] !== $run['id'] || ! isset($sourceIds[$baseline['source_id']])) {
+                    throw new RuntimeException("The baseline {$baseline['id']} in {$directory} is not for an input of the run {$run['id']}");
+                }
+                $baselineKey = $baseline['source_id']."\n".$baseline['analyzer']['id'];
+                if (isset($baselineIds[$baselineKey])) {
+                    throw new RuntimeException("The input {$baseline['source_id']} in {$directory} has more than one baseline from {$baseline['analyzer']['id']}");
+                }
+                $baselineIds[$baselineKey] = true;
+            }
+        }
+
+        return new self($run, $attempts, $observations, $regressions, $baselines);
     }
 
     /**

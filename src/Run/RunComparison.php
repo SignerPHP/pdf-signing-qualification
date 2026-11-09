@@ -309,7 +309,7 @@ final class RunComparison
     /**
      * @return array<string, list<array>>
      */
-    private static function policies(RunRecords $records): array
+    public static function policies(RunRecords $records): array
     {
         $policies = [];
         foreach ($records->observations as $observation) {

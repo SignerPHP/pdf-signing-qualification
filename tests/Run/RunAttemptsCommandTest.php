@@ -197,6 +197,15 @@ final class RunAttemptsCommandTest extends TestCase
         }
         self::assertSame(['succeeded', 'failed', 'not_run'], array_column(array_column($attempts, 'execution'), 'outcome'));
         self::assertFileExists("{$this->directory}/runs/run-20261031T120000Z/outputs/{$attempts[0]['output']['sha256']}.pdf");
+        self::assertSame(['status' => 'available'], array_intersect_key($run['environment']['cpu_model'], ['status' => true]));
+
+        $measurements = $this->readRecords('run-20261031T120000Z', 'measurements.json');
+        self::assertSame([$attempts[0]['id'], $attempts[1]['id']], array_column($measurements, 'attempt_id'));
+        self::assertSame(['succeeded', 'failed'], array_column($measurements, 'execution_outcome'));
+        foreach ($measurements as $measurement) {
+            self::assertSame([], $validator->errors($measurement, AttemptRunner::MEASUREMENT_SCHEMA));
+            self::assertSame(['status' => 'available'], array_intersect_key($measurement['metrics']['peak_memory_bytes'], ['status' => true]));
+        }
 
         $observations = $this->readRecords('run-20261031T120000Z', 'observations.json');
         self::assertCount(3 * count(self::ANALYZER_IDS), $observations);

@@ -82,4 +82,6 @@ RUN set -eux; \
 
 COPY docker/jsignpdf-sign.php /opt/implementations/jsignpdf-sign.php
 
+COPY docker/measure-process-tree.py /opt/measurement/measure-process-tree.py
+
 WORKDIR /app

@@ -44,7 +44,7 @@ final class Pilot
      * @param  list<array>  $acquisitions
      * @param  array{sha256: string, byte_size: int}  $sourceConfiguration
      * @param  list<RegressionCase>  $regressionCases
-     * @return array{run: array, baselines: list<array>, attempts: list<array>, observations: list<array>, regressions: ?array}
+     * @return array{run: array, baselines: list<array>, attempts: list<array>, measurements: list<array>, observations: list<array>, regressions: ?array}
      */
     public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration, array $regressionCases = []): array
     {
@@ -73,6 +73,7 @@ final class Pilot
 
         $baselines = [];
         $attempts = [];
+        $measurements = [];
         $observations = [];
         $runAttempts = [];
         foreach ($acquiredInputs as [$input, $acquisition]) {
@@ -82,6 +83,9 @@ final class Pilot
             }
             $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']));
             $attempts[] = $result->record;
+            if ($result->measurement !== null) {
+                $measurements[] = $result->measurement;
+            }
             $runAttempts[$input->id()] = ['attempt' => $result->record, 'input_path' => $inputPath, 'output_path' => $result->outputPath];
 
             $inputArtifact = $result->record['input']['status'] === 'available' ? ['sha256' => $result->record['input']['sha256'], 'byte_size' => $result->record['input']['byte_size']] : null;
@@ -96,7 +100,7 @@ final class Pilot
         $run['finished_at'] = $this->now();
         (new SchemaValidator)->assertValid($run, self::RUN_SCHEMA, 'run record');
 
-        return ['run' => $run, 'baselines' => $baselines, 'attempts' => $attempts, 'observations' => $observations, 'regressions' => $regressions];
+        return ['run' => $run, 'baselines' => $baselines, 'attempts' => $attempts, 'measurements' => $measurements, 'observations' => $observations, 'regressions' => $regressions];
     }
 
     /**

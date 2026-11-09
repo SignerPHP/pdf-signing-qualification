@@ -3,6 +3,7 @@
 
 declare(strict_types=1);
 
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Run\DifferentialComparison;
 use SignerPHP\PdfSigningQualification\Run\DifferentialSummary;
 use SignerPHP\PdfSigningQualification\Run\RunRecords;
@@ -25,7 +26,9 @@ try {
     }
     $first = [RunRecords::fromDirectory($firstDirectory), RunRecords::fromDirectory($firstRepeatedDirectory)];
     $second = [RunRecords::fromDirectory($secondDirectory), RunRecords::fromDirectory($secondRepeatedDirectory)];
-    $selection = RunReport::selectionOf(RunReport::sourceConfiguration(rtrim($firstDirectory, '/'), $first[0]));
+    $configuration = RunReport::sourceConfiguration(rtrim($firstDirectory, '/'), $first[0]);
+    SourceConfiguration::fromJson($configuration);
+    $selection = RunReport::selectionOf($configuration);
     $comparison = DifferentialComparison::compare($first, $second, $selection);
     (new SchemaValidator)->assertValid($comparison, DifferentialComparison::SCHEMA, 'differential comparison');
     $markdown = DifferentialSummary::markdown($comparison);

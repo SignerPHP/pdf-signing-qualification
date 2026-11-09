@@ -33,7 +33,7 @@ final class DifferentialSummary
         ];
         foreach ([$first, $second] as $side) {
             foreach ($side['runs'] as $run) {
-                $image = $run['container_image']['status'] === 'available' ? "`{$run['container_image']['id']}`" : 'unavailable: '.$run['container_image']['reason'];
+                $image = $run['container_image']['status'] === 'available' ? "`{$run['container_image']['id']}`" : 'unavailable: '.self::cell($run['container_image']['reason']);
                 $compatibility = $run['implementation_compatibility'] === null ? 'not recorded' : "`{$run['implementation_compatibility']['status']}`";
                 $lines[] = "| `{$side['implementation']['id']}` | `{$run['run_id']}` | {$image} | {$compatibility} |";
             }
@@ -69,7 +69,7 @@ final class DifferentialSummary
             '',
             '## Classification',
             '',
-            'An input is paired when it is available in all four runs with the same content. Each paired input has a capability item, an execution item and, when every one of its four attempts signed, one verdict item per analyzer. An item with the same value in all four runs is an `agreement`, or a `shared_failure` when that value is a failure. Any other item is a difference, classified by the first rule that applies: `capability_mismatch` when the capabilities of the attempts differ; `expected_rejection` when the input is declared as an expected rejection; `unresolved_finding` when the two runs of one implementation differ, so the difference was not reproduced; `validator_disagreement` when the analyzers of the same property disagree on one of the four outputs; `reproducible_implementation_defect` when one implementation fails the item in both runs, the other passes it in both, and the input does not already fail it before signing; and `unresolved_finding` otherwise. An input counts under `agreement` when all its items agree, and under each other class when one of its items has it.',
+            'An input is paired when it is available in all four runs with the same content. Each paired input has a capability item, an execution item and, when every one of its four attempts signed, one verdict item per analyzer. An item with the same value in all four runs is an `agreement`, or a `shared_failure` when that value is a failure. On an expected rejection, a failure that rejected the input and one that did not are different values. Any other item is a difference, classified by the first rule that applies: `capability_mismatch` when the capabilities of the attempts differ; `unresolved_finding` when the two runs of one implementation differ, so the difference was not reproduced; `reproducible_implementation_defect` when the input is declared as an expected rejection and one implementation rejected it in both runs while the other did not in both; `expected_rejection` for any other difference on such an input; `validator_disagreement` when the analyzers of the same property disagree on one of the four outputs; `reproducible_implementation_defect` when one implementation fails the item in both runs, the other passes it in both, and the input does not already fail it before signing; and `unresolved_finding` otherwise. An input counts under `agreement` when all its items agree, and under each other class when one of its items has it.',
             '',
             '| Input status | Inputs |',
             '| ------------ | -----: |',

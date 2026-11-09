@@ -60,7 +60,7 @@ Each defect cites, in `comparison/differential.md` of its comparison, the four a
 | `jsignpdf` | `qpdf/qtest/qpdf/minimal-signed-restricted.pdf` | Both | `qpdf` `inconclusive`, `pdf-signer` `valid` | Encrypted input (AES-128, R 4) whose permissions forbid modification. The appearance stream of the new signature, object 77, declares `/Length 32`, the length of an encrypted stream, but holds the 8 bytes of its data unencrypted, so qpdf finds no `endstream` at that length and recovers it |
 | `jsignpdf` | `qpdf/qtest/qpdf/leading-junk.pdf` | Pilot | `cmp` `invalid`, `pdf-signer` `valid` | JSignPdf drops the bytes before the header, so the output does not start with every byte of the input, as described in the [schemas README](../schemas/README.md#semantics) |
 
-The three `pdf-signer` defects come from `pdf-core`, which writes the incremental update and has no support for encrypting it.
+The three `pdf-signer` defects come from `pdf-core`, which writes the incremental update: it has no support for encrypting the update of an encrypted input, and it counts the offsets of the update from the start of the file instead of from the header.
 
 ## Validator disagreements
 

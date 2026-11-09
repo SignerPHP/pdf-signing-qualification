@@ -54,7 +54,6 @@ final class RunReport
 
     public static function selectionOf(string $configuration): string
     {
-        SourceConfiguration::fromJson($configuration);
         /** @var array{selection: string} $declaration */
         $declaration = json_decode($configuration, true, flags: JSON_THROW_ON_ERROR);
 

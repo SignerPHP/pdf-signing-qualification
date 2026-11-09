@@ -116,6 +116,34 @@ final class CompareImplementationsCommandTest extends TestCase
         self::assertStringContainsString('is not for an input of the run run-20261107T133000Z', $errorOutput);
     }
 
+    public function test_a_baseline_of_other_content_than_the_attempted_input_is_refused(): void
+    {
+        $runs = $this->writeRuns();
+        $baselines = json_decode((string) file_get_contents($runs[3].'/baselines.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($baselines);
+        $baselines[0]['input_artifact']['sha256'] = str_repeat('f', 64);
+        file_put_contents($runs[3].'/baselines.json', json_encode($baselines, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        [$exitCode, , $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('is not of the input the run attempted', $errorOutput);
+    }
+
+    public function test_an_unavailable_image_reason_cannot_break_the_runs_table(): void
+    {
+        $runs = $this->writeRuns();
+        $run = json_decode((string) file_get_contents($runs[0].'/run.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($run);
+        $run['environment']['container_image'] = ['status' => 'unavailable', 'reason' => "no id | given\nby the host"];
+        file_put_contents($runs[0].'/run.json', json_encode($run, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        [$exitCode, $output, $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertStringContainsString('| `pdf-signer` | `run-20261107T120000Z` | unavailable: no id \\| given by the host | not recorded |', $output);
+    }
+
     public function test_a_wrong_number_of_arguments_prints_the_usage(): void
     {
         [$exitCode, , $errorOutput] = $this->compareImplementations($this->directory);

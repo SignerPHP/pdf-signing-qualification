@@ -137,7 +137,10 @@ final class DifferentialComparison
                 'source configuration' => [$reference->run['source_configuration'], $records->run['source_configuration']],
                 'expected rejections' => [$reference->run['expected_rejections'] ?? null, $records->run['expected_rejections'] ?? null],
                 'analyzers' => [$reference->run['analyzers'], $records->run['analyzers']],
-                'analyzer policies' => [RunComparison::policies($reference), RunComparison::policies($records)],
+                'analyzer policies' => [
+                    [RunComparison::policies($reference), self::baselinePolicies($reference)],
+                    [RunComparison::policies($records), self::baselinePolicies($records)],
+                ],
                 'resource limits' => [$reference->run['environment']['resource_limits'] ?? null, $records->run['environment']['resource_limits'] ?? null],
                 'inputs' => [$referenceSourceIds, self::sourceIds($records)],
             ];
@@ -147,6 +150,27 @@ final class DifferentialComparison
                 }
             }
         }
+    }
+
+    /**
+     * @return array<string, list<array>>
+     */
+    private static function baselinePolicies(RunRecords $records): array
+    {
+        $policies = [];
+        foreach ($records->baselines ?? [] as $baseline) {
+            $analyzerId = $baseline['analyzer']['id'];
+            if (! in_array($baseline['policy'], $policies[$analyzerId] ?? [], true)) {
+                $policies[$analyzerId][] = $baseline['policy'];
+            }
+        }
+        ksort($policies);
+        foreach ($policies as $analyzerId => $analyzerPolicies) {
+            usort($analyzerPolicies, static fn (array $first, array $second): int => strcmp(json_encode($first, JSON_THROW_ON_ERROR), json_encode($second, JSON_THROW_ON_ERROR)));
+            $policies[$analyzerId] = $analyzerPolicies;
+        }
+
+        return $policies;
     }
 
     /**
@@ -393,30 +417,47 @@ final class DifferentialComparison
     private static function classify(array $item, array $values, array $states, array $situation, array $observationIds, array $baselineIds, ?string $inheritedFrom): array
     {
         $implementations = $situation['implementations'];
-        $allValues = [...$values['first'], ...$values['second']];
+        $labels = [];
+        foreach (self::SIDES as $side) {
+            foreach ($values[$side] as $index => $value) {
+                $labels[$side][] = self::label($item['subject'], $value, $states[$side][$index], $situation['expected_rejection']);
+            }
+        }
+        $allLabels = [...$labels['first'], ...$labels['second']];
         $defectiveSide = null;
+        $unstable = array_values(array_filter(self::SIDES, static fn (string $side): bool => $labels[$side][0] !== $labels[$side][1]));
+        $failingSide = null;
+        foreach (self::SIDES as $side) {
+            $otherSide = $side === 'first' ? 'second' : 'first';
+            if ($states[$side] === ['failure', 'failure'] && $states[$otherSide] === [null, null] && $values[$otherSide] === ['failed', 'failed']) {
+                $failingSide = $side;
+            }
+        }
 
-        if (count(array_unique($allValues)) === 1) {
-            $shared = $states['first'][0] === 'failure';
-            $classification = $shared ? 'shared_failure' : 'agreement';
-            $reason = "Every run of both implementations gave `{$allValues[0]}`";
+        if (count(array_unique($allLabels)) === 1) {
+            $classification = $states['first'][0] === 'failure' ? 'shared_failure' : 'agreement';
+            $reason = "Every run of both implementations gave {$allLabels[0]}";
         } elseif ($situation['capability_differs']) {
             $classification = 'capability_mismatch';
             $reason = 'The attempts on this input do not have the same capability, so the implementations were not expected to behave alike';
+        } elseif ($unstable !== []) {
+            $classification = 'unresolved_finding';
+            $reason = 'Not reproduced: '.implode('; ', array_map(static fn (string $side): string => "`{$implementations[$side]}` gave {$labels[$side][0]} in its first run and {$labels[$side][1]} in its second", $unstable));
+        } elseif ($situation['expected_rejection'] && $item['subject'] === 'execution' && $failingSide !== null) {
+            $passingSide = $failingSide === 'first' ? 'second' : 'first';
+            $classification = 'reproducible_implementation_defect';
+            $defectiveSide = $failingSide;
+            $reason = "The input is declared as an expected rejection: `{$implementations[$passingSide]}` rejected it in both runs and `{$implementations[$failingSide]}` gave {$labels[$failingSide][0]} in both";
         } elseif ($situation['expected_rejection']) {
             $classification = 'expected_rejection';
-            $reason = 'The input is declared as an expected rejection under this scenario';
-        } elseif ($values['first'][0] !== $values['first'][1] || $values['second'][0] !== $values['second'][1]) {
-            $classification = 'unresolved_finding';
-            $unstable = array_values(array_filter(self::SIDES, static fn (string $side): bool => $values[$side][0] !== $values[$side][1]));
-            $reason = 'Not reproduced: '.implode('; ', array_map(static fn (string $side): string => "`{$implementations[$side]}` gave `{$values[$side][0]}` in its first run and `{$values[$side][1]}` in its second", $unstable));
+            $reason = "The input is declared as an expected rejection under this scenario: `{$implementations['first']}` gave {$labels['first'][0]} and `{$implementations['second']}` gave {$labels['second'][0]}";
         } elseif (($situation['disagreement'] ?? null) !== null) {
             $classification = 'validator_disagreement';
             $reason = "The analyzers of `{$situation['disagreement']}` disagree on at least one of the outputs, so the difference is not settled by vote";
         } elseif (in_array($states['first'][0], ['failure', 'pass'], true) && in_array($states['second'][0], ['failure', 'pass'], true) && $states['first'][0] !== $states['second'][0]) {
             $defectiveSide = $states['first'][0] === 'failure' ? 'first' : 'second';
             $passingSide = $defectiveSide === 'first' ? 'second' : 'first';
-            $observed = "`{$implementations[$defectiveSide]}` gave `{$values[$defectiveSide][0]}` in both runs and `{$implementations[$passingSide]}` gave `{$values[$passingSide][0]}` in both";
+            $observed = "`{$implementations[$defectiveSide]}` gave {$labels[$defectiveSide][0]} in both runs and `{$implementations[$passingSide]}` gave {$labels[$passingSide][0]} in both";
             if ($inheritedFrom !== null) {
                 $classification = 'unresolved_finding';
                 $reason = "{$observed}, but the failure may come from the input: {$inheritedFrom}";
@@ -427,10 +468,10 @@ final class DifferentialComparison
             }
         } elseif ($states['first'][0] === 'failure' && $states['second'][0] === 'failure') {
             $classification = 'unresolved_finding';
-            $reason = "Both implementations fail this item, differently: `{$implementations['first']}` gave `{$values['first'][0]}` and `{$implementations['second']}` gave `{$values['second'][0]}`";
+            $reason = "Both implementations fail this item, differently: `{$implementations['first']}` gave {$labels['first'][0]} and `{$implementations['second']}` gave {$labels['second'][0]}";
         } else {
             $classification = 'unresolved_finding';
-            $reason = "The values differ and the evidence does not attribute the difference: `{$implementations['first']}` gave `{$values['first'][0]}` and `{$implementations['second']}` gave `{$values['second'][0]}`";
+            $reason = "The values differ and the evidence does not attribute the difference: `{$implementations['first']}` gave {$labels['first'][0]} and `{$implementations['second']}` gave {$labels['second'][0]}";
         }
 
         $classified = $item + ['first' => $values['first'], 'second' => $values['second'], 'classification' => $classification];
@@ -439,6 +480,15 @@ final class DifferentialComparison
         }
 
         return $classified + ['reason' => $reason, 'observation_ids' => $observationIds, 'baseline_ids' => $baselineIds];
+    }
+
+    private static function label(string $subject, string $value, ?string $state, bool $expectedRejection): string
+    {
+        if ($subject !== 'execution' || ! $expectedRejection || $value !== 'failed') {
+            return "`{$value}`";
+        }
+
+        return $state === 'failure' ? '`failed` without rejecting the input' : '`failed`, rejecting the input as expected';
     }
 
     private static function executionState(array $attempt): ?string

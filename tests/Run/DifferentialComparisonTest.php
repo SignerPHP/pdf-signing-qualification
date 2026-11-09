@@ -179,15 +179,74 @@ final class DifferentialComparisonTest extends TestCase
         self::assertStringStartsWith('Both implementations fail', $item['reason']);
     }
 
-    public function test_differences_on_an_expected_rejection_are_classified_as_such(): void
+    private static function rejected(int $exitCode = 1, string $outcome = 'failed'): callable
     {
-        $items = self::items(self::compare(
-            static fn (RunFixture $run) => $run->failed(self::INPUT, capability: 'expected_rejection')->baselines(self::INPUT, self::CLEAN_BASELINE),
-            static fn (RunFixture $run) => $run->succeeded(self::INPUT, self::VALID, capability: 'expected_rejection')->baselines(self::INPUT, self::CLEAN_BASELINE),
-        ));
+        return static fn (RunFixture $run) => $run->failed(self::INPUT, $outcome, $exitCode, 'expected_rejection')->baselines(self::INPUT, ['qpdf' => 'invalid'] + self::CLEAN_BASELINE);
+    }
+
+    private static function signedDespiteRejection(): callable
+    {
+        return static fn (RunFixture $run) => $run->succeeded(self::INPUT, self::VALID, capability: 'expected_rejection')->baselines(self::INPUT, ['qpdf' => 'invalid'] + self::CLEAN_BASELINE);
+    }
+
+    public function test_signing_an_expected_rejection_that_the_other_implementation_rejects_is_a_defect(): void
+    {
+        $items = self::items(self::compare(self::rejected(), self::signedDespiteRejection()));
 
         self::assertSame('agreement', $items['capability']['classification']);
-        self::assertSame('expected_rejection', $items['execution']['classification']);
+        self::assertSame('reproducible_implementation_defect', $items['execution']['classification']);
+        self::assertSame('second', $items['execution']['defective_side']);
+    }
+
+    public function test_an_exit_without_output_on_an_expected_rejection_is_not_an_agreement_with_a_rejection(): void
+    {
+        $item = self::items(self::compare(self::rejected(), self::rejected(exitCode: 0)))['execution'];
+        self::assertSame('reproducible_implementation_defect', $item['classification']);
+        self::assertSame('second', $item['defective_side']);
+
+        $reversed = self::items(self::compare(self::rejected(exitCode: 0), self::rejected()))['execution'];
+        self::assertSame('reproducible_implementation_defect', $reversed['classification']);
+        self::assertSame('first', $reversed['defective_side']);
+    }
+
+    public function test_both_implementations_rejecting_as_expected_agree(): void
+    {
+        self::assertSame('agreement', self::items(self::compare(self::rejected(), self::rejected(exitCode: 2)))['execution']['classification']);
+    }
+
+    public function test_differences_where_both_implementations_fail_the_declared_rejection_stay_expected_rejections(): void
+    {
+        $item = self::items(self::compare(self::rejected(outcome: 'timed_out'), self::signedDespiteRejection()))['execution'];
+
+        self::assertSame('expected_rejection', $item['classification']);
+    }
+
+    public function test_a_rejection_seen_in_one_run_only_is_not_reproduced(): void
+    {
+        $item = self::items(self::compare(self::rejected(), self::signedDespiteRejection(), secondRepetition: self::rejected()))['execution'];
+
+        self::assertSame('unresolved_finding', $item['classification']);
+        self::assertStringStartsWith('Not reproduced', $item['reason']);
+    }
+
+    public function test_inputs_that_neither_implementation_signs_are_still_compared(): void
+    {
+        $items = self::items(self::compare(self::failedOn(), self::failedOn(outcome: 'timed_out')));
+
+        self::assertSame('unresolved_finding', $items['execution']['classification']);
+        self::assertArrayNotHasKey('verdict qpdf', $items);
+    }
+
+    public function test_baselines_under_another_policy_are_refused(): void
+    {
+        $first = array_map(static fn (RunFixture $run) => $run->succeeded(self::INPUT, self::VALID)->baselines(self::INPUT, self::CLEAN_BASELINE)->records(), self::runs('pdf-signer', '12'));
+        $second = self::runs('jsignpdf', '13');
+        $records = $second[0]->succeeded(self::INPUT, self::VALID)->baselines(self::INPUT, self::CLEAN_BASELINE)->records();
+        $baselines = $records->baselines ?? [];
+        $baselines[0]['policy'] = ['id' => 'another-policy'];
+
+        $this->expectExceptionMessage('analyzer policies');
+        DifferentialComparison::compare($first, [new RunRecords($records->run, $records->attempts, $records->observations, null, $baselines), $second[1]->succeeded(self::INPUT, self::VALID)->baselines(self::INPUT, self::CLEAN_BASELINE)->records()], 'failure_enriched');
     }
 
     public function test_a_capability_that_differs_between_the_implementations_is_a_capability_mismatch(): void

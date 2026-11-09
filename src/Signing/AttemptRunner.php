@@ -71,15 +71,17 @@ final class AttemptRunner
 
         $this->assertContained();
         $attemptDirectory = $this->createAttemptDirectory();
-        $measurementPath = $attemptDirectory.'.measurement.json';
+        $measurementPath = self::measurementPath($attemptDirectory);
+        $measurementHandle = null;
         $stagedOutputPath = null;
         try {
+            $measurementHandle = self::createMeasurement($measurementPath);
             $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $this->credential, $scenario['signing']);
 
             $startedAt = $this->now();
             $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $finishedAt = $this->now();
-            $measured = self::readMeasurement($measurementPath);
+            $measured = self::readMeasurement($measurementHandle);
             $timedOut = $result->timedOut || ($measured['timed_out'] ?? false) === true;
 
             [$outcome, $error] = match (true) {
@@ -93,14 +95,16 @@ final class AttemptRunner
                 $stagedOutputPath = $this->stageOutput($request->outputPath);
             }
         } catch (Throwable $exception) {
-            self::removeMeasurement($measurementPath);
             $this->removeDirectory($attemptDirectory, $exception);
 
             throw $exception;
+        } finally {
+            if ($measurementHandle !== null) {
+                fclose($measurementHandle);
+            }
         }
 
         try {
-            self::removeMeasurement($measurementPath);
             $this->removeDirectory($attemptDirectory);
         } catch (RuntimeException $exception) {
             if ($stagedOutputPath !== null) {
@@ -187,13 +191,32 @@ final class AttemptRunner
         return ['python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath, '--', ...$command];
     }
 
+    private static function measurementPath(string $attemptDirectory): string
+    {
+        return $attemptDirectory.'.measurement.json';
+    }
+
     /**
+     * @return resource
+     */
+    private static function createMeasurement(string $measurementPath)
+    {
+        $handle = @fopen($measurementPath, 'x+');
+        if ($handle === false || ! chmod($measurementPath, 0600)) {
+            throw new RuntimeException("Unable to create the measurement file {$measurementPath}");
+        }
+
+        return $handle;
+    }
+
+    /**
+     * @param  resource  $measurementHandle
      * @return array{timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
      */
-    private static function readMeasurement(string $measurementPath): ?array
+    private static function readMeasurement($measurementHandle): ?array
     {
-        $contents = is_file($measurementPath) && ! is_link($measurementPath) ? @file_get_contents($measurementPath) : false;
-        if ($contents === false) {
+        $contents = rewind($measurementHandle) ? stream_get_contents($measurementHandle) : false;
+        if ($contents === false || $contents === '') {
             return null;
         }
         $measured = json_decode($contents, true);
@@ -232,15 +255,6 @@ final class AttemptRunner
             'cpu_system_seconds' => ['status' => 'available', 'value' => $measured['cpu_system_seconds']],
             'peak_memory_bytes' => ['status' => 'available', 'value' => $measured['peak_resident_kibibytes'] * 1024],
         ];
-    }
-
-    private static function removeMeasurement(string $measurementPath): void
-    {
-        foreach ([$measurementPath, $measurementPath.'.staged'] as $path) {
-            if ((file_exists($path) || is_link($path)) && ! unlink($path)) {
-                throw new RuntimeException("Unable to remove the measurement {$path}");
-            }
-        }
     }
 
     private static function input(array $acquisition): array
@@ -324,9 +338,13 @@ final class AttemptRunner
 
     private function removeDirectory(string $directory, ?Throwable $previous = null): void
     {
+        $measurementPath = self::measurementPath($directory);
         $this->runner->run(['chmod', '-R', 'u+rwx', '--', $directory], 60.0);
-        $result = $this->runner->run(['rm', '-rf', '--', $directory], 60.0);
-        if ($result->exitCode !== 0 || file_exists($directory)) {
+        if (is_dir($measurementPath) && ! is_link($measurementPath)) {
+            $this->runner->run(['chmod', '-R', 'u+rwx', '--', $measurementPath], 60.0);
+        }
+        $result = $this->runner->run(['rm', '-rf', '--', $directory, $measurementPath], 60.0);
+        if ($result->exitCode !== 0 || file_exists($directory) || file_exists($measurementPath) || is_link($measurementPath)) {
             throw new RuntimeException("Unable to remove the attempt directory {$directory}: {$result->output}", previous: $previous);
         }
     }

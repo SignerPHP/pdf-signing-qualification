@@ -48,6 +48,15 @@ final class EnvironmentTest extends TestCase
         self::assertSame(['status' => 'unavailable', 'reason' => "{$cpuInfoPath} has no model name"], $environment['cpu_model']);
     }
 
+    public function test_empty_cpu_model_does_not_take_the_next_line_as_its_name(): void
+    {
+        $cpuInfoPath = $this->cpuInfo("processor\t: 0\nmodel name\t: \nstepping\t: 1\n");
+
+        $environment = Environment::describe(false, new ResourceLimits, cpuInfoPath: $cpuInfoPath);
+
+        self::assertSame(['status' => 'unavailable', 'reason' => "{$cpuInfoPath} has no model name"], $environment['cpu_model']);
+    }
+
     public function test_cpu_model_is_unavailable_when_the_host_information_cannot_be_read(): void
     {
         $environment = Environment::describe(false, new ResourceLimits, cpuInfoPath: '/nonexistent/cpuinfo');

@@ -43,7 +43,7 @@ final class Environment
         if ($cpuInfo === false) {
             return ['status' => 'unavailable', 'reason' => "Unable to read {$cpuInfoPath}"];
         }
-        if (preg_match('/^model name\s*:\s*(\S.*?)\s*$/m', $cpuInfo, $match) !== 1) {
+        if (preg_match('/^model name[ \t]*:[ \t]*(\S.*?)[ \t]*$/m', $cpuInfo, $match) !== 1) {
             return ['status' => 'unavailable', 'reason' => "{$cpuInfoPath} has no model name"];
         }
 

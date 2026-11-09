@@ -593,6 +593,29 @@ final class AttemptRunnerTest extends TestCase
         self::assertSame('available', self::assertMeasurementValid($result)['cpu_system_seconds']['status']);
     }
 
+    public function test_attempt_killed_by_sigkill_is_recorded_as_terminated_by_that_signal(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'kill -KILL $$']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        self::assertSame('command-signer was terminated by signal 9', $result->record['execution']['error']['message']);
+        self::assertSame('available', self::assertMeasurementValid($result)['wall_time_seconds']['status']);
+    }
+
+    public function test_attempt_that_replaces_its_measurement_file_neither_loses_the_measurement_nor_stops_the_run(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'measurement="../${PWD##*/}.measurement.json"; rm -f "$measurement"; mkdir "$measurement"; cp input.pdf output.pdf']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        self::assertSame('available', self::assertMeasurementValid($result)['peak_memory_bytes']['status']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
     public function test_metrics_that_were_not_written_are_unavailable_with_their_reason_and_keep_the_outcome(): void
     {
         $commandRunner = new class implements CommandRunner

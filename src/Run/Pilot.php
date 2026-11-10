@@ -52,6 +52,10 @@ final class Pilot
             'analyzers' => $this->panel->analyzers(),
             'source_configuration' => $sourceConfiguration,
         ];
+        $runtime = $this->implementation->runtime();
+        if ($runtime !== []) {
+            $run['implementation_runtime'] = $runtime;
+        }
 
         $attempts = [];
         $observations = [];

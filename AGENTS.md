@@ -15,18 +15,20 @@ Validators are pinned there: Debian packages by exact version from a fixed `snap
 
 The pinned `pdf-signer` is installed at `/opt/implementations/pdf-signer` from an exact commit, with the dependencies locked by its own `composer.lock`. To change it, update the commit in the `Dockerfile` and the expected revision in the tests.
 
+Java (Temurin) is installed at `/opt/java` and JSignPdf at `/opt/implementations/jsignpdf`, both from an official archive checked against its SHA-256, and `jsignpdf-php` at `/opt/implementations/jsignpdf-php` from an exact commit. `docker/jsignpdf-sign.php` is the thin script that drives it. To change any of them, update the `Dockerfile` and the expected versions in the tests.
+
 Two Compose services share the image. `app` has network access, for `composer install` and `acquire`. `sandbox` has no network interface other than loopback, a read-only root filesystem with 512 MiB `tmpfs` mounts at `/sandbox` and `/tmp`, 3 GiB of memory for the whole container, a process limit and no capabilities; attempts and the tests run there. The attempt runner refuses to start when another network interface is present or when its work directory is on a filesystem larger than the storage limit, so attempts work in `/sandbox`. Inside it each attempt runs in its own process group, with an empty environment, its own work directory, and `prlimit` bounds on address space per process, file size and open files; the whole group is killed at the timeout and as soon as the attempt's process ends. The `/app` mount stays writable.
 
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
 
 ## Running the pilot
 
-`bin/pilot` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. It writes everything under `var/runs/<run-id>/`:
+`bin/pilot [implementation]` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. The implementation is `pdf-signer` unless another identifier, such as `jsignpdf`, is given; an unknown identifier is refused after the build, before anything is acquired. It writes everything under `var/runs/<run-id>/`:
 
 | File | Contents |
 | ---- | -------- |
 | `acquisitions.json` | One acquisition record per declared input |
-| `run.json` | The run record: scenario, environment, container image, `pdf-signer` revision and analyzer versions, and the hash of `config/inputs.json` |
+| `run.json` | The run record: scenario, environment, container image, resource limits, implementation revision and runtime, analyzer versions, and the hash of `config/inputs.json` |
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
 | `observations.json` | One observation per attempt and analyzer |
 | `outputs/` | Signed outputs, named by SHA-256 |
@@ -41,7 +43,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | Script | Purpose |
 | ------ | ------- |
 | `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
-| `run-attempts -- <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` and validate each output; refuses to start unless there is exactly one record per declared input |
+| `run-attempts -- [--implementation=<id>] <run-directory>` | Sign every input whose record is in `<run-directory>/acquisitions.json` with the implementation (`pdf-signer` by default) and validate each output; the option comes first, and it refuses to start for an unknown identifier, any other option, or unless there is exactly one record per declared input |
 | `tests` | PHPUnit |
 | `pint:check` / `pint:fix` | Code style (Pint, Laravel preset) |
 | `psalm` | Static analysis |
@@ -55,7 +57,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `config/inputs.json` | Versioned source configuration: upstream sources, revisions and the inputs selected from them |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
 | `config/regressions/` | Regression cases, one per file, following `regression.schema.json`; see [docs/regressions.md](docs/regressions.md) |
-| `docker/` | Files copied into the image, such as the hashed pyHanko requirements |
+| `docker/` | Files copied into the image, such as the hashed pyHanko requirements and the JSignPdf signing script |
 | `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the [regression cases](docs/regressions.md) and the [pilot results](docs/pilot-results.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process, see the schemas README |

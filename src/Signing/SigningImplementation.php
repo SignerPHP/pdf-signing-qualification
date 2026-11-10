@@ -19,6 +19,11 @@ interface SigningImplementation
     public function supports(array $signing): bool;
 
     /**
+     * @return array{java_version?: string, java_options?: list<string>, environment_variables?: list<string>, engine?: string, wrapper?: array{id: string, revision: array{kind: 'commit'|'version', value: string}}}
+     */
+    public function runtime(): array;
+
+    /**
      * @return list<string>
      */
     public function command(SigningRequest $request): array;

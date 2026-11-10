@@ -47,6 +47,11 @@ final class PdfSignerImplementation implements SigningImplementation
         return $signing === $supported;
     }
 
+    public function runtime(): array
+    {
+        return [];
+    }
+
     public function command(SigningRequest $request): array
     {
         return [

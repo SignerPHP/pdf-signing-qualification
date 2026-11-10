@@ -390,12 +390,14 @@ final class RunReport
     private static function outputCause(array $observation): string
     {
         $cause = self::firstLine($observation['evidence']['summary']);
-        $signatures = $observation['evidence']['details']['signatures'] ?? [];
         $names = [];
-        foreach (is_array($signatures) ? $signatures : [] as $signature) {
-            foreach (['field', 'object'] as $key) {
-                if (is_array($signature) && is_string($signature[$key] ?? null) && $signature[$key] !== '') {
-                    $names[] = $signature[$key];
+        foreach (['signatures', 'unjudged_signatures'] as $listKey) {
+            $signatures = $observation['evidence']['details'][$listKey] ?? [];
+            foreach (is_array($signatures) ? $signatures : [] as $signature) {
+                foreach (['field', 'object'] as $key) {
+                    if (is_array($signature) && is_string($signature[$key] ?? null) && $signature[$key] !== '') {
+                        $names[] = $signature[$key];
+                    }
                 }
             }
         }

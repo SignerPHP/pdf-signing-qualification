@@ -17,6 +17,8 @@ First complete run of the pilot over the [pilot sample](pilot-sample.md), produc
 
 Two runs on these revisions gave the same execution outcome for each of the 27 attempts and the same verdict for each of the 108 observations. Their summaries differ only in the names of the signature fields, which `pdf-signer` generates at random.
 
+These runs were judged under the earlier policy of `pyhanko`, before [#50](https://github.com/SignerPHP/pdf-signing-qualification/issues/50) required pyHanko to report every signature that qpdf lists in the output. They are not run again. Judging their stored outputs again with the current adapter changes one verdict in each run: on `qpdf/qtest/qpdf/minimal-signed-restricted.pdf`, `pdf-signer` writes the new signature field outside `/AcroForm /Fields`, pyHanko judges only the signature the input already had, and its verdict goes from `valid` to `inconclusive`. The `pyhanko` row below would read 7 `valid` and 15 `inconclusive`. No baseline changes.
+
 ## Totals
 
 | Outcome | Attempts |

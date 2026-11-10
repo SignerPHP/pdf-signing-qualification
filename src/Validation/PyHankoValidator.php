@@ -10,6 +10,8 @@ final class PyHankoValidator extends CommandLineValidator
 
     private const string HYBRID_REFERENCE_REFUSAL = 'Settings do not permit validation of signatures in hybrid-reference files.';
 
+    private const string DOCUMENT_TIMESTAMP_TYPE = '/DocTimeStamp';
+
     public function analyzerId(): string
     {
         return 'pyhanko';
@@ -24,8 +26,14 @@ final class PyHankoValidator extends CommandLineValidator
     {
         return [
             'id' => 'pyhanko-integrity-without-trust',
-            'description' => 'Integrity and cryptographic validity of every embedded signature, with no trust roots and no revocation lookup, so trust does not affect the verdict; a signature that pyHanko refuses to validate with one of the inconclusive refusals is not judged, so it makes the verdict inconclusive unless another signature is invalid',
-            'parameters' => ['arguments' => self::ARGUMENTS, 'inconclusive_refusals' => [self::HYBRID_REFERENCE_REFUSAL]],
+            'description' => 'Integrity and cryptographic validity of every embedded signature other than a document timestamp, with no trust roots and no revocation lookup, so trust does not affect the verdict; pyHanko finds signatures through the form and does not validate document timestamps, so every dictionary with a /ByteRange that qpdf lists in the document, other than one of type /DocTimeStamp, must be reported by pyHanko under its full field name; a signature that pyHanko does not report, or refuses to validate with one of the inconclusive refusals, is not judged, so it makes the verdict inconclusive unless another signature is invalid',
+            'parameters' => [
+                'arguments' => self::ARGUMENTS,
+                'inconclusive_refusals' => [self::HYBRID_REFERENCE_REFUSAL],
+                'signature_listing' => ['qpdf', ...SignatureListing::ARGUMENTS],
+                'not_judged_types' => [self::DOCUMENT_TIMESTAMP_TYPE],
+                'unjudged_signatures' => 'inconclusive',
+            ],
         ];
     }
 
@@ -84,10 +92,65 @@ final class PyHankoValidator extends CommandLineValidator
         if ($invalidFields !== []) {
             return new Judgement('invalid', 'pyHanko judged the signature(s) '.implode(', ', $invalidFields).' not intact or not cryptographically valid', $result->exitCode, $result->output, $details);
         }
+
+        $problems = [];
         if ($refusedFields !== []) {
-            return new Judgement('inconclusive', 'pyHanko refused to judge the signature(s) '.implode(', ', $refusedFields).' under its strict syntax policy: '.self::HYBRID_REFERENCE_REFUSAL, $result->exitCode, $result->output, $details);
+            $problems[] = 'pyHanko refused to judge the signature(s) '.implode(', ', $refusedFields).' under its strict syntax policy: '.self::HYBRID_REFERENCE_REFUSAL;
+        }
+        $listing = SignatureListing::read($this->runner, $documentPath, $this->timeoutSeconds);
+        if ($listing->signatures === null) {
+            $problems[] = 'qpdf could not list the signatures of the output, so it cannot be checked that pyHanko judged every one: qpdf '.$listing->result->describe();
+        } else {
+            $details['unjudged_signatures'] = self::unjudgedSignatures($listing->signatures, array_column($signatures, 'field'));
+            if ($details['unjudged_signatures'] !== []) {
+                $names = array_map(static fn (array $signature): string => $signature['field'] ?? $signature['object'], $details['unjudged_signatures']);
+                $problems[] = 'pyHanko did not judge the signature(s) '.implode(', ', $names).' that qpdf lists in the output';
+            }
+        }
+        if ($problems !== []) {
+            return new Judgement('inconclusive', implode('; ', $problems), $result->exitCode, $result->output, $details);
         }
 
         return new Judgement('valid', 'pyHanko judged '.count($signatures).' signature(s) intact and cryptographically valid', $result->exitCode, $result->output, $details);
+    }
+
+    private static function listedName(string $reportedField): string
+    {
+        if (preg_match('/^b([\'"])(.*)\1$/s', $reportedField, $match) !== 1) {
+            return $reportedField;
+        }
+        $escapes = ['n' => "\n", 'r' => "\r", 't' => "\t", '\\' => '\\', "'" => "'", '"' => '"'];
+        $bytes = (string) preg_replace_callback(
+            '/\\\\(x[0-9a-f]{2}|.)/s',
+            static fn (array $escape): string => str_starts_with($escape[1], 'x') && strlen($escape[1]) === 3 ? (string) hex2bin(substr($escape[1], 1)) : ($escapes[$escape[1]] ?? '\\'.$escape[1]),
+            $match[2],
+        );
+
+        return mb_check_encoding($bytes, 'UTF-8') ? $bytes : 'b:'.bin2hex($bytes);
+    }
+
+    /**
+     * @param  list<array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}>  $listedSignatures
+     * @param  list<string>  $reportedFields
+     * @return list<array{object: string, field: ?string}>
+     */
+    private static function unjudgedSignatures(array $listedSignatures, array $reportedFields): array
+    {
+        $reportedCounts = array_count_values(array_map(self::listedName(...), $reportedFields));
+        $unjudged = [];
+        foreach ($listedSignatures as $signature) {
+            if ($signature['type'] === self::DOCUMENT_TIMESTAMP_TYPE) {
+                continue;
+            }
+            $field = $signature['field'];
+            if ($field !== null && ($reportedCounts[$field] ?? 0) > 0) {
+                $reportedCounts[$field]--;
+
+                continue;
+            }
+            $unjudged[] = ['object' => $signature['object'], 'field' => $field];
+        }
+
+        return $unjudged;
     }
 }

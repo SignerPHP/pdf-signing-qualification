@@ -49,6 +49,9 @@ final class ValidatorsTest extends TestCase
             'unsigned' => SyntheticSignedPdf::createUnsigned(self::$directory),
             'hybrid-reference' => SyntheticSignedPdf::create(self::$directory, 'hybrid-reference', hybridReference: true),
             'tampered-without-field-name' => SyntheticSignedPdf::tamperSignedRange($signedWithoutFieldName, self::$directory.'/without-field-name'),
+            'second-signature' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'second-signature'),
+            'second-signature-outside-form' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'second-signature-outside-form', fieldInForm: false),
+            'document-timestamp' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'document-timestamp', fieldName: '(Timestamp1)', signatureType: '/DocTimeStamp'),
         ];
     }
 
@@ -216,6 +219,39 @@ final class ValidatorsTest extends TestCase
         self::assertSame('pyHanko refused to judge the signature(s) Signature1 under its strict syntax policy: Settings do not permit validation of signatures in hybrid-reference files.', $observation['evidence']['summary']);
         self::assertStringContainsString('Signature1:'.$observation['evidence']['details']['signatures'][0]['signer_certificate_sha256'].':INVALID', $observation['evidence']['raw_output']);
         self::assertSame('pyhanko-integrity-without-trust', $observation['policy']['id']);
+    }
+
+    public function test_pyhanko_judging_every_signature_of_the_output_keeps_its_verdict(): void
+    {
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, self::$fixtures['second-signature']));
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame('pyHanko judged 2 signature(s) intact and cryptographically valid', $observation['evidence']['summary']);
+    }
+
+    public function test_pyhanko_output_with_a_signature_outside_the_form_is_inconclusive(): void
+    {
+        $outputPath = self::$fixtures['second-signature-outside-form'];
+
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $outputPath));
+        $openSsl = self::validator(OpenSslCmsValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $outputPath));
+
+        self::assertSame([], (new SchemaValidator)->errors($observation, CommandLineValidator::OBSERVATION_SCHEMA));
+        self::assertSame('valid', $openSsl['verdict'], $openSsl['evidence']['summary']);
+        self::assertCount(2, $openSsl['evidence']['details']['signatures']);
+        self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame('pyHanko did not judge the signature(s) 8 0 R that qpdf lists in the output', $observation['evidence']['summary']);
+        self::assertSame(['Signature1'], array_column($observation['evidence']['details']['signatures'], 'field'));
+        self::assertSame([['object' => '8 0 R', 'field' => null]], $observation['evidence']['details']['unjudged_signatures']);
+    }
+
+    public function test_pyhanko_does_not_need_to_judge_a_document_timestamp(): void
+    {
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, self::$fixtures['document-timestamp']));
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']."\n".$observation['evidence']['raw_output']);
+        self::assertSame('pyHanko judged 1 signature(s) intact and cryptographically valid', $observation['evidence']['summary']);
+        self::assertSame([], $observation['evidence']['details']['unjudged_signatures']);
     }
 
     public function test_openssl_rejects_a_byte_range_whose_gap_is_not_the_signature(): void

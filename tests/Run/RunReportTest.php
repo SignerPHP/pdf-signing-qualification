@@ -159,6 +159,18 @@ final class RunReportTest extends TestCase
         self::assertStringContainsString("| Output | `pdfsig` | `inconclusive` | <signature>: {$problem} | 2 | `verapdf:by-object.pdf`, `verapdf:by-field.pdf` |\n", $this->report($fixture));
     }
 
+    public function test_signatures_pyhanko_did_not_judge_do_not_split_a_cause(): void
+    {
+        $summary = static fn (string $name): string => "pyHanko did not judge the signature(s) {$name} that qpdf lists in the output";
+        $fixture = (new RunFixture('run-20261107T120000Z', ['pyhanko' => '0.38.0']))
+            ->succeeded('qpdf:by-object.pdf', ['pyhanko' => 'inconclusive'])->stratify('qpdf:by-object.pdf', ['signed'])
+            ->evidence('qpdf:by-object.pdf', 'pyhanko', $summary('12 0 R'), ['signatures' => [['field' => 'Signature1']], 'unjudged_signatures' => [['object' => '12 0 R', 'field' => null]]])
+            ->succeeded('qpdf:by-field.pdf', ['pyhanko' => 'inconclusive'])->stratify('qpdf:by-field.pdf', ['signed'])
+            ->evidence('qpdf:by-field.pdf', 'pyhanko', $summary('Signature2LT1A5pS'), ['signatures' => [['field' => 'Signature1']], 'unjudged_signatures' => [['object' => '35 0 R', 'field' => 'Signature2LT1A5pS']]]);
+
+        self::assertStringContainsString("| Output | `pyhanko` | `inconclusive` | {$summary('<signature>')} | 2 | `qpdf:by-object.pdf`, `qpdf:by-field.pdf` |\n", $this->report($fixture));
+    }
+
     public function test_work_paths_of_the_runner_do_not_split_an_execution_cause(): void
     {
         $message = static fn (string $attempt): string => 'jsignpdf exited with code 1: Error to sign PDF. ["INFO Opening input PDF file: \\/sandbox\\/run-a74df68773cf0d84\\/work\\/attempt-'.$attempt.'\\/'.md5($attempt).'.pdf","SEVERE Problem occured"]';

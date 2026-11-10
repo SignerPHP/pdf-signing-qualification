@@ -74,7 +74,7 @@ final class SyntheticSignedPdf
         return $path;
     }
 
-    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)'): string
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig'): string
     {
         $document = (string) file_get_contents($documentPath);
         if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
@@ -84,9 +84,11 @@ final class SyntheticSignedPdf
         [$certificate, $privateKey] = self::generateCredentials();
         $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? '5 0 R 7 0 R' : '7 0 R';
         $objects = [
-            1 => "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>",
+            1 => $fieldInForm
+                ? "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>"
+                : "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >> /Fields [{$fields}] >>",
             7 => "<< /Type /Annot /Subtype /Widget /FT /Sig /T {$fieldName} /Rect [0 0 0 0] /F 132 /P 3 0 R /V 8 0 R >>",
-            8 => '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
+            8 => "<< /Type {$signatureType} /Filter /Adobe.PPKLite /SubFilter ".($signatureType === '/DocTimeStamp' ? '/ETSI.RFC3161 ' : '/adbe.pkcs7.detached ').self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
         ];
 
         $update = '';

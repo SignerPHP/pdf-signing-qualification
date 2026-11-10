@@ -26,6 +26,8 @@ docker compose run --rm sandbox composer analyze-performance -- var/performance/
 
 ## Coverage of the whole panel
 
+The sessions were judged under the earlier policy of `pyhanko`, before [#50](https://github.com/SignerPHP/pdf-signing-qualification/issues/50) required pyHanko to report every signature that qpdf lists in the output, and they are not run again: that needs the controlled host, and the new rule can only turn a `valid` verdict of pyHanko into `inconclusive`, so it can make an eligible input ineligible but never the reverse. Every output that pyHanko judged `valid` in the 24 runs of both sessions, and the pyHanko baselines of the inputs, were judged again with the current adapter. Only one verdict changes: on `qpdf/qtest/qpdf/minimal-signed-restricted.pdf`, whose new signature field `pdf-signer` writes outside `/AcroForm /Fields`, pyHanko goes from `valid` to `inconclusive` in every `pdf-signer` run. That input was not eligible, because pyHanko is `inconclusive` on the JSignPdf output, so the eligibility and every timing stay the same. In the coverage below, the `pdf-signer` row would read 440 valid outputs (41.5%), 44 inputs valid in every run (41.5%) and 62 never valid (58.5%); the JSignPdf row does not change.
+
 Over the ten measured runs of each implementation. Neither implementation changed its outcome on any input between runs: every input was valid in all of them or in none.
 
 | Implementation | Attempts | Succeeded | Failed | Timed out | Valid outputs | Inputs valid in every run | Inputs never valid |

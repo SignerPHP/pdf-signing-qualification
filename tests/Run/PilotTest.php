@@ -107,6 +107,7 @@ final class PilotTest extends TestCase
         $records = $this->runPilot($this->pilot($inputs, new NetworkIsolation), $inputs, $acquisitions);
 
         self::assertSame('unsupported', $records['attempts'][0]['capability']);
+        self::assertSame([], $records['measurements']);
         self::assertSame(['local:unsigned.pdf'], array_column($records['baselines'], 'source_id'));
         self::assertSame(['valid'], array_column($records['baselines'], 'verdict'));
     }

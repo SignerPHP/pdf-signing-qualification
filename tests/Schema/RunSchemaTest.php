@@ -79,6 +79,20 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_cpu_model_is_accepted_and_an_unread_one_needs_its_reason(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['environment']['cpu_model'] = ['status' => 'available', 'name' => 'AMD Ryzen 7 3700X 8-Core Processor'];
+
+            return $run;
+        }));
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['environment']['cpu_model'] = ['status' => 'unavailable', 'reason' => '/proc/cpuinfo has no model name'];
+
+            return $run;
+        }));
+    }
+
     public function test_resource_limits_and_implementation_runtime_are_accepted(): void
     {
         self::assertValid(self::mutate(function (array $run): array {
@@ -150,6 +164,16 @@ final class RunSchemaTest extends SchemaTestCase
         })];
         yield 'unavailable container image without reason' => [self::mutate(function (array $run): array {
             $run['environment']['container_image'] = ['status' => 'unavailable'];
+
+            return $run;
+        })];
+        yield 'unavailable CPU model without reason' => [self::mutate(function (array $run): array {
+            $run['environment']['cpu_model'] = ['status' => 'unavailable'];
+
+            return $run;
+        })];
+        yield 'empty CPU model' => [self::mutate(function (array $run): array {
+            $run['environment']['cpu_model'] = ['status' => 'available', 'name' => ''];
 
             return $run;
         })];

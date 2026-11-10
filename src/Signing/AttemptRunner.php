@@ -21,6 +21,12 @@ final class AttemptRunner
 
     public const string SCENARIO_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/scenario.schema.json';
 
+    public const string MEASUREMENT_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/measurement.schema.json';
+
+    public const string MEASUREMENT_PROCESS = '/opt/measurement/measure-process-tree.py';
+
+    private const float MEASUREMENT_GRACE_SECONDS = 10.0;
+
     private const string PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
     private const int ERROR_OUTPUT_BYTES = 4_096;
@@ -65,16 +71,21 @@ final class AttemptRunner
 
         $this->assertContained();
         $attemptDirectory = $this->createAttemptDirectory();
+        $measurementPath = self::measurementPath($attemptDirectory);
+        $measurementHandle = null;
         $stagedOutputPath = null;
         try {
+            $measurementHandle = self::createMeasurement($measurementPath);
             $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $this->credential, $scenario['signing']);
 
             $startedAt = $this->now();
-            $result = $this->runner->run($this->sandboxed($implementation->command($request), $attemptDirectory), $this->limits->timeoutSeconds);
+            $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $finishedAt = $this->now();
+            $measured = self::readMeasurement($measurementHandle);
+            $timedOut = $result->timedOut || ($measured['timed_out'] ?? false) === true;
 
             [$outcome, $error] = match (true) {
-                $result->timedOut => ['timed_out', "{$implementation->id()} did not finish within {$this->limits->timeoutSeconds} seconds"],
+                $timedOut => ['timed_out', "{$implementation->id()} did not finish within {$this->limits->timeoutSeconds} seconds"],
                 $result->exitCode !== 0 => ['failed', $this->failure($implementation, $result)],
                 ! file_exists($request->outputPath) && ! is_link($request->outputPath) => ['failed', "{$implementation->id()} exited with code 0 without writing an output"],
                 is_link($request->outputPath) || ! is_file($request->outputPath) => ['failed', "{$implementation->id()} did not write its output as a regular file"],
@@ -87,6 +98,10 @@ final class AttemptRunner
             $this->removeDirectory($attemptDirectory, $exception);
 
             throw $exception;
+        } finally {
+            if ($measurementHandle !== null) {
+                fclose($measurementHandle);
+            }
         }
 
         try {
@@ -99,18 +114,27 @@ final class AttemptRunner
             throw $exception;
         }
         $outputPath = $stagedOutputPath === null ? null : $this->keepOutput($stagedOutputPath);
+        $measurement = [
+            'schema' => self::MEASUREMENT_SCHEMA,
+            'attempt_id' => $record['id'],
+            'boundary' => 'process_tree',
+            'instrumented' => false,
+            'execution_outcome' => $outcome,
+            'metrics' => self::metrics($measured, $timedOut ? 'did not finish within the time limit' : $result->describe()),
+        ];
+        (new SchemaValidator)->assertValid($measurement, self::MEASUREMENT_SCHEMA, 'measurement');
 
         return self::result($record + [
             'capability' => $rejectionExpected ? 'expected_rejection' : 'supported',
             'execution' => [
                 'outcome' => $outcome,
-                'exit_code' => $result->exitCode,
+                'exit_code' => $timedOut ? null : $result->exitCode,
                 'started_at' => $startedAt,
                 'finished_at' => $finishedAt,
                 'error' => $error === null ? null : ['message' => $error],
             ],
             'output' => $outputPath === null ? null : Artifact::describe($outputPath),
-        ], $outputPath);
+        ], $outputPath, $measurement);
     }
 
     public function incompatibility(SigningImplementation $implementation): ?string
@@ -155,6 +179,81 @@ final class AttemptRunner
             'env', '-i', '-C', $attemptDirectory, 'PATH='.self::PATH, "HOME={$attemptDirectory}", "TMPDIR={$attemptDirectory}",
             'prlimit', ...$this->limits->prlimitArguments(), '--',
             ...$command,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @return list<string>
+     */
+    private function measured(array $command, string $measurementPath): array
+    {
+        return ['python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath, '--', ...$command];
+    }
+
+    private static function measurementPath(string $attemptDirectory): string
+    {
+        return $attemptDirectory.'.measurement.json';
+    }
+
+    /**
+     * @return resource
+     */
+    private static function createMeasurement(string $measurementPath)
+    {
+        $handle = @fopen($measurementPath, 'x+');
+        if ($handle === false || ! chmod($measurementPath, 0600)) {
+            throw new RuntimeException("Unable to create the measurement file {$measurementPath}");
+        }
+
+        return $handle;
+    }
+
+    /**
+     * @param  resource  $measurementHandle
+     * @return array{timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
+     */
+    private static function readMeasurement($measurementHandle): ?array
+    {
+        $contents = rewind($measurementHandle) ? stream_get_contents($measurementHandle) : false;
+        if ($contents === false || $contents === '') {
+            return null;
+        }
+        $measured = json_decode($contents, true);
+        if (! is_array($measured) || ! is_bool($measured['timed_out'] ?? null) || ! is_int($measured['peak_resident_kibibytes'] ?? null) || $measured['peak_resident_kibibytes'] < 0) {
+            return null;
+        }
+        foreach (['wall_time_seconds', 'cpu_user_seconds', 'cpu_system_seconds'] as $name) {
+            if (! is_int($measured[$name] ?? null) && ! is_float($measured[$name] ?? null) || $measured[$name] < 0) {
+                return null;
+            }
+        }
+
+        return [
+            'timed_out' => $measured['timed_out'],
+            'wall_time_seconds' => (float) $measured['wall_time_seconds'],
+            'cpu_user_seconds' => (float) $measured['cpu_user_seconds'],
+            'cpu_system_seconds' => (float) $measured['cpu_system_seconds'],
+            'peak_resident_kibibytes' => $measured['peak_resident_kibibytes'],
+        ];
+    }
+
+    /**
+     * @param  array{timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null  $measured
+     */
+    private static function metrics(?array $measured, string $ending): array
+    {
+        if ($measured === null) {
+            $unavailable = ['status' => 'unavailable', 'reason' => "The measurement process wrote no measurement; the attempt {$ending}"];
+
+            return ['wall_time_seconds' => $unavailable, 'cpu_user_seconds' => $unavailable, 'cpu_system_seconds' => $unavailable, 'peak_memory_bytes' => $unavailable];
+        }
+
+        return [
+            'wall_time_seconds' => ['status' => 'available', 'value' => $measured['wall_time_seconds']],
+            'cpu_user_seconds' => ['status' => 'available', 'value' => $measured['cpu_user_seconds']],
+            'cpu_system_seconds' => ['status' => 'available', 'value' => $measured['cpu_system_seconds']],
+            'peak_memory_bytes' => ['status' => 'available', 'value' => $measured['peak_resident_kibibytes'] * 1024],
         ];
     }
 
@@ -239,18 +338,22 @@ final class AttemptRunner
 
     private function removeDirectory(string $directory, ?Throwable $previous = null): void
     {
+        $measurementPath = self::measurementPath($directory);
         $this->runner->run(['chmod', '-R', 'u+rwx', '--', $directory], 60.0);
-        $result = $this->runner->run(['rm', '-rf', '--', $directory], 60.0);
-        if ($result->exitCode !== 0 || file_exists($directory)) {
+        if (is_dir($measurementPath) && ! is_link($measurementPath)) {
+            $this->runner->run(['chmod', '-R', 'u+rwx', '--', $measurementPath], 60.0);
+        }
+        $result = $this->runner->run(['rm', '-rf', '--', $directory, $measurementPath], 60.0);
+        if ($result->exitCode !== 0 || file_exists($directory) || file_exists($measurementPath) || is_link($measurementPath)) {
             throw new RuntimeException("Unable to remove the attempt directory {$directory}: {$result->output}", previous: $previous);
         }
     }
 
-    private static function result(array $record, ?string $outputPath): AttemptResult
+    private static function result(array $record, ?string $outputPath, ?array $measurement = null): AttemptResult
     {
         (new SchemaValidator)->assertValid($record, self::ATTEMPT_SCHEMA, 'attempt record');
 
-        return new AttemptResult($record, $outputPath);
+        return new AttemptResult($record, $outputPath, $measurement);
     }
 
     private function now(): string

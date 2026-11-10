@@ -17,6 +17,8 @@ The pinned `pdf-signer` is installed at `/opt/implementations/pdf-signer` from a
 
 Java (Temurin) is installed at `/opt/java` and JSignPdf at `/opt/implementations/jsignpdf`, both from an official archive checked against its SHA-256, and `jsignpdf-php` at `/opt/implementations/jsignpdf-php` from an exact commit. `docker/jsignpdf-sign.php` is the thin script that drives it. To change any of them, update the `Dockerfile` and the expected versions in the tests.
 
+Each attempt runs under `docker/measure-process-tree.py`, installed at `/opt/measurement`, which measures the attempt's whole process tree and stops it at the time limit; its boundary is described in the schemas README.
+
 Two Compose services share the image. `app` has network access, for `composer install` and `acquire`. `sandbox` has no network interface other than loopback, a read-only root filesystem with 512 MiB `tmpfs` mounts at `/sandbox` and `/tmp`, 3 GiB of memory for the whole container, a process limit and no capabilities; attempts and the tests run there. The attempt runner refuses to start when another network interface is present or when its work directory is on a filesystem larger than the storage limit, so attempts work in `/sandbox`. Inside it each attempt runs in its own process group, with an empty environment, its own work directory, and `prlimit` bounds on address space per process, file size and open files; the whole group is killed at the timeout and as soon as the attempt's process ends. The `/app` mount stays writable.
 
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
@@ -32,6 +34,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 | `run.json` | The run record: scenario, environment, container image, resource limits, implementation revision and runtime, analyzer versions, and the hashes of `config/inputs.json` and `config/expected-rejections.json` |
 | `baselines.json` | One baseline per available input and analyzer that judges one document: each validator's verdict on the input itself, before signing |
 | `attempts.json` | One attempt per declared input, in declaration order, including unavailable inputs and failures |
+| `measurements.json` | One measurement per attempt that ran: wall time, CPU time and peak memory of its process tree, with its outcome |
 | `observations.json` | One observation per attempt and analyzer |
 | `outputs/` | Signed outputs, named by SHA-256 |
 | `regressions.json` | The regression cases of `config/regressions/` replayed by the run: the attempts and observations on their synthetic inputs, and per case whether its condition is present in the output, with the evidence |
@@ -75,7 +78,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `config/expected-rejections.json` | Versioned declarations of the inputs expected to be rejected under a scenario, each with its reason, following `expected-rejections.schema.json` |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
 | `config/regressions/` | Regression cases, one per file, following `regression.schema.json`; see [docs/regressions.md](docs/regressions.md) |
-| `docker/` | Files copied into the image, such as the hashed pyHanko requirements and the JSignPdf signing script |
+| `docker/` | Files copied into the image, such as the hashed pyHanko requirements, the JSignPdf signing script and the process tree measurement |
 | `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the population and sampling of the [main panel](docs/main-panel.md), the [regression cases](docs/regressions.md), the [replays between revisions](docs/replays.md), the [pilot results](docs/pilot-results.md) and the [differential baseline](docs/differential-baseline.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process and, optionally, the command that checks it applies to the installed revision, see the schemas README |

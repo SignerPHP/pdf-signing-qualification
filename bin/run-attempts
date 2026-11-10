@@ -118,6 +118,7 @@ try {
     $writeFile($runDirectory.'/'.RunReport::SOURCE_CONFIGURATION_FILE, $configuration);
     $writeFile($runDirectory.'/baselines.json', $encodeJson($records['baselines']));
     $writeFile($runDirectory.'/attempts.json', $encodeJson($records['attempts']));
+    $writeFile($runDirectory.'/measurements.json', $encodeJson($records['measurements']));
     $writeFile($runDirectory.'/observations.json', $encodeJson($records['observations']));
     $writeFile($runDirectory.'/regressions.json', $encodeJson($regressions));
     $writeFile($runDirectory.'/summary.md', $summary);

@@ -49,6 +49,29 @@
                         }
                     ]
                 },
+                "cpu_model": {
+                    "description": "The CPU model the run read from the host, or why it could not be read.",
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["status", "name"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "available" },
+                                "name": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "required": ["status", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "unavailable" },
+                                "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
+                    ]
+                },
                 "php_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
                 "resource_limits": {
                     "type": "object",

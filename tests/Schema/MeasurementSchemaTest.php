@@ -10,41 +10,39 @@ final class MeasurementSchemaTest extends SchemaTestCase
 {
     protected static function schemaPath(): string
     {
-        return 'v1/measurement.schema.json';
+        return 'v2/measurement.schema.json';
     }
 
     protected static function validDocument(): array
     {
         return [
             'schema' => self::schemaId(),
-            'attempt_id' => 'run-20261028T120000Z/pdfjs-issue17069/basic-invisible-sha256/pdf-signer/1',
+            'attempt_id' => 'run-20261109T120000Z/basic-invisible-sha256/jsignpdf/qpdf-test-files:qpdf/qtest/qpdf/minimal.pdf',
             'boundary' => 'process_tree',
             'instrumented' => false,
+            'execution_outcome' => 'succeeded',
             'metrics' => [
-                'wall_time_seconds' => ['status' => 'available', 'value' => 0.412],
-                'cpu_user_seconds' => ['status' => 'available', 'value' => 0.31],
-                'cpu_system_seconds' => ['status' => 'available', 'value' => 0.04],
-                'peak_memory_bytes' => [
-                    'status' => 'unavailable',
-                    'reason' => 'The runner cannot read the peak resident set size of the process tree',
-                ],
+                'wall_time_seconds' => ['status' => 'available', 'value' => 1.284],
+                'cpu_user_seconds' => ['status' => 'available', 'value' => 2.31],
+                'cpu_system_seconds' => ['status' => 'available', 'value' => 0.19],
+                'peak_memory_bytes' => ['status' => 'available', 'value' => 187_412_480],
             ],
         ];
     }
 
-    public function test_measured_zero_is_accepted_as_an_available_value(): void
+    public function test_timed_out_execution_keeps_what_was_measured(): void
     {
         self::assertValid(self::mutate(function (array $measurement): array {
-            $measurement['metrics']['cpu_system_seconds'] = ['status' => 'available', 'value' => 0];
+            $measurement['execution_outcome'] = 'timed_out';
 
             return $measurement;
         }));
     }
 
-    public function test_measurement_of_an_input_whose_path_has_spaces_is_accepted(): void
+    public function test_metric_that_could_not_be_read_is_unavailable_with_its_reason(): void
     {
         self::assertValid(self::mutate(function (array $measurement): array {
-            $measurement['attempt_id'] = 'run-20261028T120000Z/basic-invisible-sha256/pdf-signer/verapdf-corpus:PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+            $measurement['metrics']['peak_memory_bytes'] = ['status' => 'unavailable', 'reason' => 'The measurement process wrote no measurement'];
 
             return $measurement;
         }));
@@ -52,38 +50,23 @@ final class MeasurementSchemaTest extends SchemaTestCase
 
     public static function invalidMeasurements(): iterable
     {
+        yield 'missing execution outcome' => [self::mutate(function (array $measurement): array {
+            unset($measurement['execution_outcome']);
+
+            return $measurement;
+        })];
+        yield 'attempt that did not run' => [self::mutate(function (array $measurement): array {
+            $measurement['execution_outcome'] = 'not_run';
+
+            return $measurement;
+        })];
         yield 'unavailable metric recorded as zero' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['peak_memory_bytes']['value'] = 0;
+            $measurement['metrics']['peak_memory_bytes'] = ['status' => 'unavailable', 'reason' => 'Not read', 'value' => 0];
 
             return $measurement;
         })];
         yield 'unavailable metric without reason' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['peak_memory_bytes'] = ['status' => 'unavailable'];
-
-            return $measurement;
-        })];
-        yield 'bare zero instead of a metric' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['peak_memory_bytes'] = 0;
-
-            return $measurement;
-        })];
-        yield 'null instead of a metric' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['peak_memory_bytes'] = null;
-
-            return $measurement;
-        })];
-        yield 'missing metric' => [self::mutate(function (array $measurement): array {
-            unset($measurement['metrics']['peak_memory_bytes']);
-
-            return $measurement;
-        })];
-        yield 'available metric without value' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['wall_time_seconds'] = ['status' => 'available'];
-
-            return $measurement;
-        })];
-        yield 'negative value' => [self::mutate(function (array $measurement): array {
-            $measurement['metrics']['wall_time_seconds']['value'] = -0.1;
+            $measurement['metrics']['cpu_user_seconds'] = ['status' => 'unavailable'];
 
             return $measurement;
         })];
@@ -92,13 +75,13 @@ final class MeasurementSchemaTest extends SchemaTestCase
 
             return $measurement;
         })];
-        yield 'unknown boundary' => [self::mutate(function (array $measurement): array {
-            $measurement['boundary'] = 'php_allocator';
+        yield 'missing boundary' => [self::mutate(function (array $measurement): array {
+            unset($measurement['boundary']);
 
             return $measurement;
         })];
-        yield 'missing instrumentation flag' => [self::mutate(function (array $measurement): array {
-            unset($measurement['instrumented']);
+        yield 'version 1 identifier' => [self::mutate(function (array $measurement): array {
+            $measurement['schema'] = self::SCHEMA_PREFIX.'v1/measurement.schema.json';
 
             return $measurement;
         })];

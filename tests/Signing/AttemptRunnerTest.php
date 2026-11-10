@@ -509,4 +509,138 @@ final class AttemptRunnerTest extends TestCase
         self::assertSame('succeeded', $result->record['execution']['outcome']);
         self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
     }
+
+    private static function assertMeasurementValid(AttemptResult $result): array
+    {
+        self::assertNotNull($result->measurement);
+        self::assertSame([], (new SchemaValidator)->errors($result->measurement, AttemptRunner::MEASUREMENT_SCHEMA));
+        self::assertSame($result->record['id'], $result->measurement['attempt_id']);
+        self::assertSame('process_tree', $result->measurement['boundary']);
+        self::assertFalse($result->measurement['instrumented']);
+        self::assertSame($result->record['execution']['outcome'], $result->measurement['execution_outcome']);
+
+        return $result->measurement['metrics'];
+    }
+
+    public function test_attempt_that_ran_is_measured_over_its_process_tree(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done; cp input.pdf output.pdf']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome']);
+        $metrics = self::assertMeasurementValid($result);
+        foreach ($metrics as $name => $metric) {
+            self::assertSame('available', $metric['status'], $name);
+        }
+        self::assertGreaterThan(0, $metrics['wall_time_seconds']['value']);
+        self::assertGreaterThan(0, $metrics['cpu_user_seconds']['value'] + $metrics['cpu_system_seconds']['value']);
+        self::assertIsInt($metrics['peak_memory_bytes']['value']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_memory_allocated_by_a_child_process_is_included_in_the_peak(): void
+    {
+        $allocatedBytes = 200 * 1024 * 1024;
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'php -d memory_limit=-1 -r \'$memory = str_repeat("x", (int) $argv[1]); echo strlen($memory);\' "$1"; cp input.pdf output.pdf', 'sh', (string) $allocatedBytes]);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        $peak = self::assertMeasurementValid($result)['peak_memory_bytes'];
+        self::assertSame('available', $peak['status']);
+        self::assertGreaterThanOrEqual($allocatedBytes, $peak['value']);
+        self::assertLessThan($allocatedBytes + 64 * 1024 * 1024, $peak['value']);
+    }
+
+    public function test_timed_out_attempt_keeps_what_was_measured_until_it_was_stopped(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'while :; do :; done']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 0.5))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('timed_out', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        $metrics = self::assertMeasurementValid($result);
+        self::assertSame('available', $metrics['wall_time_seconds']['status']);
+        self::assertGreaterThanOrEqual(0.5, $metrics['wall_time_seconds']['value']);
+        self::assertLessThan(2.0, $metrics['wall_time_seconds']['value']);
+        self::assertGreaterThan(0.2, $metrics['cpu_user_seconds']['value']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_failed_attempt_keeps_what_was_measured_and_its_own_exit_code(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'echo refused; exit 3']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertSame(3, $result->record['execution']['exit_code']);
+        self::assertSame('command-signer exited with code 3: refused', $result->record['execution']['error']['message']);
+        self::assertSame('available', self::assertMeasurementValid($result)['peak_memory_bytes']['status']);
+    }
+
+    public function test_signal_that_ends_the_attempt_is_recorded_as_it_was_without_measurement(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'kill -SEGV $$']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        self::assertSame('command-signer was terminated by signal 11', $result->record['execution']['error']['message']);
+        self::assertSame('available', self::assertMeasurementValid($result)['cpu_system_seconds']['status']);
+    }
+
+    public function test_attempt_killed_by_sigkill_is_recorded_as_terminated_by_that_signal(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'kill -KILL $$']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        self::assertSame('command-signer was terminated by signal 9', $result->record['execution']['error']['message']);
+        self::assertSame('available', self::assertMeasurementValid($result)['wall_time_seconds']['status']);
+    }
+
+    public function test_attempt_that_replaces_its_measurement_file_neither_loses_the_measurement_nor_stops_the_run(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'measurement="../${PWD##*/}.measurement.json"; rm -f "$measurement"; mkdir "$measurement"; cp input.pdf output.pdf']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        self::assertSame('available', self::assertMeasurementValid($result)['peak_memory_bytes']['status']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_metrics_that_were_not_written_are_unavailable_with_their_reason_and_keep_the_outcome(): void
+    {
+        $commandRunner = new class implements CommandRunner
+        {
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return $command[0] === 'setsid' ? new CommandResult(1, 'measurement process crashed') : (new ProcessRunner)->run($command, $timeoutSeconds);
+            }
+        };
+
+        $result = $this->runner(commandRunner: $commandRunner)->run(self::RUN_ID, self::scenario(), self::command(static fn (SigningRequest $request): array => ['true']), self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertSame(1, $result->record['execution']['exit_code']);
+        foreach (self::assertMeasurementValid($result) as $metric) {
+            self::assertSame(['status' => 'unavailable', 'reason' => 'The measurement process wrote no measurement; the attempt exited with code 1'], $metric);
+        }
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_attempt_that_did_not_run_has_no_measurement(): void
+    {
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), self::command(static fn (SigningRequest $request): array => ['true'], supported: false), self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('not_run', $result->record['execution']['outcome']);
+        self::assertNull($result->measurement);
+    }
 }

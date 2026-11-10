@@ -9,5 +9,6 @@ final class AttemptResult
     public function __construct(
         public readonly array $record,
         public readonly ?string $outputPath,
+        public readonly ?array $measurement = null,
     ) {}
 }

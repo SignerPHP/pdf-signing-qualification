@@ -1,0 +1,38 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/measurement.schema.json",
+    "title": "Measurement, version 2",
+    "description": "Resource usage of one attempt that ran, within a declared measurement boundary, with the outcome of the execution it measured. A metric that could not be measured is unavailable, never zero.",
+    "type": "object",
+    "required": ["schema", "attempt_id", "boundary", "instrumented", "execution_outcome", "metrics"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/measurement.schema.json" },
+        "attempt_id": { "$ref": "../v1/common.schema.json#/$defs/inputIdentifier" },
+        "boundary": { "enum": ["process", "process_tree", "cgroup"] },
+        "instrumented": { "type": "boolean" },
+        "execution_outcome": {
+            "description": "The outcome of the attempt measured. A failed or timed out execution keeps what was measured until it ended or was stopped.",
+            "enum": ["succeeded", "failed", "timed_out"]
+        },
+        "metrics": {
+            "type": "object",
+            "required": ["wall_time_seconds", "cpu_user_seconds", "cpu_system_seconds", "peak_memory_bytes"],
+            "additionalProperties": false,
+            "properties": {
+                "wall_time_seconds": { "$ref": "../v1/common.schema.json#/$defs/metric" },
+                "cpu_user_seconds": { "$ref": "../v1/common.schema.json#/$defs/metric" },
+                "cpu_system_seconds": { "$ref": "../v1/common.schema.json#/$defs/metric" },
+                "peak_memory_bytes": {
+                    "allOf": [
+                        { "$ref": "../v1/common.schema.json#/$defs/metric" },
+                        {
+                            "if": { "properties": { "status": { "const": "available" } } },
+                            "then": { "properties": { "value": { "type": "integer" } } }
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

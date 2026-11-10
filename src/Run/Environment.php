@@ -11,7 +11,7 @@ final class Environment
 {
     public const string IMAGE_VARIABLE = 'QUALIFICATION_IMAGE_ID';
 
-    public static function describe(string|false $imageId, ResourceLimits $limits, string $osReleasePath = '/etc/os-release'): array
+    public static function describe(string|false $imageId, ResourceLimits $limits, string $osReleasePath = '/etc/os-release', string $cpuInfoPath = '/proc/cpuinfo'): array
     {
         return [
             'os' => [
@@ -19,6 +19,7 @@ final class Environment
                 'kernel' => php_uname('r'),
                 'architecture' => php_uname('m'),
             ],
+            'cpu_model' => self::cpuModel($cpuInfoPath),
             'container_image' => self::containerImage($imageId),
             'php_version' => PHP_VERSION,
             'resource_limits' => $limits->record(),
@@ -34,6 +35,19 @@ final class Environment
         }
 
         return trim($name, " \"'");
+    }
+
+    private static function cpuModel(string $cpuInfoPath): array
+    {
+        $cpuInfo = @file_get_contents($cpuInfoPath);
+        if ($cpuInfo === false) {
+            return ['status' => 'unavailable', 'reason' => "Unable to read {$cpuInfoPath}"];
+        }
+        if (preg_match('/^model name[ \t]*:[ \t]*(\S.*?)[ \t]*$/m', $cpuInfo, $match) !== 1) {
+            return ['status' => 'unavailable', 'reason' => "{$cpuInfoPath} has no model name"];
+        }
+
+        return ['status' => 'available', 'name' => $match[1]];
     }
 
     private static function containerImage(string|false $imageId): array

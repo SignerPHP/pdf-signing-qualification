@@ -11,8 +11,9 @@ First complete run of the pilot over the [pilot sample](pilot-sample.md), produc
 | Analyzers | `pyhanko` 0.38.0, `pdfsig` 22.12.0, `openssl-cms` 3.0.22, `qpdf` 11.3.0 |
 | Source configuration | `config/inputs.json` with SHA-256 `c6ca54495ff2d87abe592c552792ed468b5419db392b6e59237d3ccb753952cc` |
 | Expected rejections | `config/expected-rejections.json` with SHA-256 `fd1c9906de8e57f60706d3aa035a53f4c148fbd5b6ca3b63593f30670dd33b21` |
-| Environment | Debian GNU/Linux 12 (bookworm), PHP 8.4.27, x86_64, project image built from this revision's `Dockerfile` |
-| Records | `run-20261106T150907Z.tar.xz`, SHA-256 `86b605ac29f1e549f404dbc24db244bcd85be72423e65f32de3c22a61d2408f0` and `run-20261106T151233Z.tar.xz`, SHA-256 `9f21feaced898918c735fa8746357f5e8c2f76c0dc7bbdb79879dd1236b8b45d`, attached to release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1) |
+| Environment | Debian GNU/Linux 12 (bookworm), PHP 8.4.27, x86_64 |
+| Image | `sha256:6fb98b47025a92b3a123f7cd300242404c92cb5be53e6e163b0b7b2962aa3324`, the same for both runs |
+| Records | `run-20261106T150907Z.tar.xz`, SHA-256 `86b605ac29f1e549f404dbc24db244bcd85be72423e65f32de3c22a61d2408f0` and `run-20261106T151233Z.tar.xz`, SHA-256 `9f21feaced898918c735fa8746357f5e8c2f76c0dc7bbdb79879dd1236b8b45d`, attached to release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1). These runs predate the copy of the source configuration and `report.md` in a run directory, so the bundles hold neither; the configuration with that SHA-256 is `config/inputs.json` at commit `0303f8c5c1c3901fd9cd0009c8650b90e9e729f3`, which `bin/report` cannot read because it predates the `selection` property. |
 
 Two runs on these revisions gave the same execution outcome for each of the 27 attempts and the same verdict for each of the 108 observations. Their summaries differ only in the names of the signature fields, which `pdf-signer` generates at random.
 

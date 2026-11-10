@@ -1,6 +1,6 @@
 # Results publication
 
-The decision on whether and how results are published (RFC section 7, stage 5), taken from the evidence of the replay, the differential baseline and the performance study. It is a proposal until the maintainers of this repository approve it in review; no repository and no release is created before that.
+The decision on whether and how results are published (RFC section 7, stage 5), taken from the evidence of the replay, the differential baseline and the performance study. The maintainers of this repository approved it in review, in [#44](https://github.com/SignerPHP/pdf-signing-qualification/pull/44).
 
 ## Decision
 
@@ -8,7 +8,7 @@ No separate results repository is created. Derived reports stay in `docs/` of th
 
 ## Evidence
 
-Measured on the run directories of the [replays](replays.md), the [differential baseline](differential-baseline.md) and the [performance results](performance-results.md), with the image and revisions those documents record. The [pilot results](pilot-results.md) name no run directory; they match `run-20261106T150907Z` and `run-20261106T151233Z`, the two runs of `pdf-signer` at the revision, configuration hashes and analyzers they record, with the same totals and verdicts, made before their last change.
+Measured on the run directories of the [replays](replays.md), the [differential baseline](differential-baseline.md) and the [performance results](performance-results.md), with the image and revisions those documents record. When this decision was taken, the [pilot results](pilot-results.md) named no run directory; they match `run-20261106T150907Z` and `run-20261106T151233Z`, the two runs of `pdf-signer` at the revision, configuration hashes and analyzers they record, with the same totals and verdicts, made before their last change.
 
 ### Size
 
@@ -32,7 +32,7 @@ Records are every file of a directory except `outputs/`; outputs are the signed 
 
 - `compare-runs`, `compare-implementations`, `analyze-performance` and `report` read whatever run directories they are given, so they can read an older one. In practice each `bin/` command runs them on the directories it has just written, and the only read across invocations is `analyze-performance` on sessions 1 and 2 of the same study, written the same day on the same host. No command or document reads a series of runs over time.
 - Of the 36 directories in `var/runs/`, most were runs made during development; the published documents rest on a few of them.
-- The published documents carry the numbers, the revisions, the hashes of the configurations and the commands, but name no run directory a reader can obtain. A reviewer who wants to check a classification of the differential baseline, or a median of the performance results, has to run the study again, and for the performance study that needs a host under the protocol's controls.
+- When this decision was taken, the published documents carried the numbers, the revisions, the hashes of the configurations and the commands, but named no run directory a reader could obtain. A reviewer who wanted to check a classification of the differential baseline, or a median of the performance results, had to run the study again, and for the performance study that needs a host under the protocol's controls.
 
 The evidence shows no need to keep a history of runs: nothing reads one beyond the sessions of a single study. It shows a need to keep the records behind each published claim, so that the claim can be checked without repeating the study.
 
@@ -51,7 +51,7 @@ Searched over every record of the directories above, outside `outputs/`:
 ### What is published
 
 - The derived reports in `docs/`, as now.
-- For each run, replay, differential, performance session or performance analysis directory that a report in `docs/` rests on, one bundle: a `tar.xz` archive of that directory without any `outputs/` directory, named after the directory, such as `differential-20261107T204257Z.tar.xz` or `analysis-sessions-1-2.tar.xz`. It contains the JSON records, `summary.md`, `report.md` where the command wrote one, the copy of the source configuration, for a performance session its `protocol.json`, `study.json`, `controls/` and the records of `references/`, and for an analysis its `performance.json` and `performance.md`.
+- For each run, replay, differential, performance session or performance analysis directory that a report in `docs/` rests on, one bundle: a `tar.xz` archive of that directory without any `outputs/` directory, named after the directory, such as `differential-20261107T204257Z.tar.xz` or `analysis-sessions-1-2.tar.xz`. It contains the JSON records, `summary.md`, `report.md` where the command wrote one, the copy of the source configuration where the run kept one, for a performance session its `protocol.json`, `study.json`, `controls/` and the records of `references/`, and for an analysis its `performance.json` and `performance.md`.
 
 ### What is never published
 
@@ -69,7 +69,7 @@ Searched over every record of the directories above, outside `outputs/`:
 
 ### Size and growth
 
-The bundles behind the documents published so far amount to about 2.1 MB: 23 KB for the two pilot runs, 31 KB for the replay, 305 KB for the two differentials, and 1.75 MB for the calibration, the two measured sessions and their analysis. Each new published result adds, at the sizes measured above, about 30 KB per replay of the pilot, 250 KB per differential of the main panel and 630 KB per session of the performance study. A release of `pdf-signer` followed by one replay and one differential adds under 300 KB; a new performance study of two sessions and a calibration adds under 2 MB. GitHub limits a release asset to 2 GiB, three orders of magnitude above the largest bundle.
+The bundles of the first release, `results-20261110-1`, amount to 1.95 MB: 36 KB for the two pilot runs, 31 KB for the replay, 303 KB for the two differentials, and 1.58 MB for the calibration, the two measured sessions and their analysis. Each new published result adds about 30 KB per replay of the pilot, 250 KB per differential of the main panel and 550 KB per session of the performance study. The table above gives 630 KB for a session because it was measured on an archive whose entries were not sorted by name, while the bundles sort them. A release of `pdf-signer` followed by one replay and one differential adds under 300 KB; a new performance study of two sessions and a calibration adds under 2 MB. GitHub limits a release asset to 2 GiB, three orders of magnitude above the largest bundle.
 
 The size of a bundle grows with the panel and with the output of the validators. When a bundle exceeds 50 MB, the maintainers review this decision before attaching it.
 
@@ -81,7 +81,7 @@ The size of a bundle grows with the panel and with the output of the validators.
 
 ### Maintenance
 
-The maintainers of this repository maintain the contract: they attach the bundles, review in each pull request that a report cites its bundles with their hashes, and review this decision when a bundle exceeds the limit above or when a new kind of record would be published. Attaching the bundles is a manual step; a command to build and check them may follow once this decision is approved. Once it is approved, the maintainers attach the bundles of the reports already published, the pilot results with the two runs named above, and update each report to cite them; a report whose runs are no longer available locally is run again before it cites a bundle.
+The maintainers of this repository maintain the contract: they attach the bundles, review in each pull request that a report cites its bundles with their hashes, and review this decision when a bundle exceeds the limit above or when a new kind of record would be published. Attaching the bundles is a manual step; a command to build and check them may follow. The bundles of the reports published when this decision was approved, the two pilot runs named above included, are attached to release `results-20261110-1`, and each of those reports cites them.
 
 ## Why no separate repository
 

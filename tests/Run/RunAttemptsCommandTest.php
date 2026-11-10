@@ -24,7 +24,7 @@ final class RunAttemptsCommandTest extends TestCase
 
     private const string IMAGE_ID = 'sha256:cb78b6ec11b31a78d55de03bfb9a7710495733607537d9e079975701bef4e2da';
 
-    private const array ANALYZER_IDS = ['pyhanko', 'pdfsig', 'openssl-cms', 'qpdf'];
+    private const array ANALYZER_IDS = ['pyhanko', 'pdfsig', 'openssl-cms', 'qpdf', 'cmp', 'qpdf-prior-signatures', 'qpdf-byte-range'];
 
     private string $directory;
 
@@ -189,6 +189,7 @@ final class RunAttemptsCommandTest extends TestCase
                 $expectedVerdicts["{$sourceId} {$analyzerId}"] = $verdict;
             }
         }
+        $expectedVerdicts['local:unsigned.pdf qpdf-prior-signatures'] = 'not_applicable';
         self::assertSame($expectedVerdicts, $this->verdicts('run-20261031T120000Z'));
 
         $summary = (string) file_get_contents("{$this->directory}/runs/run-20261031T120000Z/summary.md");
@@ -232,6 +233,9 @@ final class RunAttemptsCommandTest extends TestCase
         ], $verdicts);
 
         $outputVerdicts = $this->verdicts('run-baseline');
+        self::assertSame(['valid', 'valid', 'valid'], [$outputVerdicts['local:signed.pdf cmp'], $outputVerdicts['local:signed.pdf qpdf-prior-signatures'], $outputVerdicts['local:signed.pdf qpdf-byte-range']]);
+        self::assertSame('invalid', $outputVerdicts['local:tampered.pdf pdfsig']);
+        self::assertStringContainsString('`cmp`, `qpdf-prior-signatures` and `qpdf-byte-range` compare the output with its input, so they have no baseline.', $output);
         self::assertSame('valid', $outputVerdicts['local:unsigned.pdf pdfsig']);
         self::assertSame('invalid', $outputVerdicts['local:tampered.pdf pdfsig']);
         self::assertStringContainsString("| `local:unsigned.pdf` | `not_applicable` → `valid` | `not_applicable` → `valid` | `not_applicable` → `valid` | `valid` → `valid` |\n", $output);

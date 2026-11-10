@@ -13,5 +13,6 @@ final class ValidationSubject
         public readonly string $attemptId,
         public readonly ?array $inputArtifact,
         public readonly ?string $outputPath,
+        public readonly ?string $inputPath = null,
     ) {}
 }

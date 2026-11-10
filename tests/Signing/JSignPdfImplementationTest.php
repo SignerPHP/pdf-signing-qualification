@@ -7,6 +7,7 @@ namespace SignerPHP\PdfSigningQualification\Tests\Signing;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptResult;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -16,11 +17,13 @@ use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 use SignerPHP\PdfSigningQualification\Signing\SigningRequest;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
+use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 use SignerPHP\PdfSigningQualification\Validation\PyHankoValidator;
 use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
+use SignerPHP\PdfSigningQualification\Validation\SignatureCoverageValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
@@ -200,9 +203,11 @@ final class JSignPdfImplementationTest extends TestCase
             new PdfsigValidator(new ProcessRunner, $clock),
             new OpenSslCmsValidator(new ProcessRunner, $clock),
             new QpdfCheckValidator(new ProcessRunner, $clock),
+            new InputPreservationValidator(new ProcessRunner, $clock),
+            new SignatureCoverageValidator(new ProcessRunner, $clock),
         ]);
         $inputArtifact = ['sha256' => $record['input']['sha256'], 'byte_size' => $record['input']['byte_size']];
-        foreach ($panel->observe(new ValidationSubject($record['id'], $inputArtifact, $result->outputPath)) as $observation) {
+        foreach ($panel->observe(new ValidationSubject($record['id'], $inputArtifact, $result->outputPath, self::$unsignedPath)) as $observation) {
             self::assertSame('valid', $observation['verdict'], $observation['analyzer']['id'].': '.$observation['evidence']['raw_output']);
         }
     }
@@ -234,6 +239,18 @@ final class JSignPdfImplementationTest extends TestCase
         self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
         self::assertNotNull($result->outputPath);
         self::assertStringStartsWith($document, (string) file_get_contents($result->outputPath));
+
+        $clock = static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-07T12:00:02Z');
+        $subject = new ValidationSubject($result->record['id'], Artifact::describe($inputPath), $result->outputPath, $inputPath);
+        $panel = new ValidationPanel([
+            new PdfsigValidator(new ProcessRunner, $clock),
+            new InputPreservationValidator(new ProcessRunner, $clock),
+            new SignatureCoverageValidator(new ProcessRunner, $clock),
+        ]);
+        self::assertSame(
+            ['pdfsig' => 'valid', 'cmp' => 'invalid', 'qpdf-byte-range' => 'valid'],
+            array_column(array_map(static fn (array $observation): array => ['analyzer' => $observation['analyzer']['id'], 'verdict' => $observation['verdict']], $panel->observe($subject)), 'verdict', 'analyzer'),
+        );
     }
 
     public function test_jsignpdf_receives_the_scenario_options_and_never_rewrites_the_document(): void

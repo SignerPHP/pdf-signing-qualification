@@ -1,0 +1,30 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/performance-protocol.schema.json",
+    "implementations": ["pdf-signer", "jsignpdf"],
+    "panel": {
+        "inputs_configuration": "config/main-panel/inputs.json",
+        "expected_rejections": "config/main-panel/expected-rejections.json"
+    },
+    "host": {
+        "cpus": "4-7",
+        "scaling_governor": "performance",
+        "boost": "disabled"
+    },
+    "seed": 20261109,
+    "calibration_runs": 5,
+    "warm_up_runs": 1,
+    "measured_runs": 5,
+    "reference": {
+        "generator": "tests/Fixtures/Synthetic/MinimalPdf.php",
+        "sha256": "39d1a47d379f2b659aee63c13d4bcaac131dec23205e1ca713a6c0817fced4ba",
+        "byte_size": 349,
+        "repetitions": 10
+    },
+    "eligibility": "An input enters the paired analysis only when it is available and, in every measured run of both implementations in every session analyzed together, the attempt was supported and not an expected rejection, its execution succeeded, every analyzer judged the output valid or found its property not applicable, and every metric of its measurement is available.",
+    "quantiles": [0.1, 0.25, 0.5, 0.75, 0.9],
+    "bootstrap": {
+        "resamples": 2000,
+        "confidence": 0.95
+    },
+    "repeatability_tolerance": 0.1
+}

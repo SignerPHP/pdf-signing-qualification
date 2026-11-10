@@ -18,6 +18,7 @@ final readonly class RunRecords
      * @param  list<array>  $attempts
      * @param  list<array>  $observations
      * @param  list<array>|null  $baselines
+     * @param  list<array>|null  $measurements
      */
     public function __construct(
         public array $run,
@@ -25,6 +26,7 @@ final readonly class RunRecords
         public array $observations,
         public ?array $regressions = null,
         public ?array $baselines = null,
+        public ?array $measurements = null,
     ) {}
 
     public static function fromDirectory(string $directory): self
@@ -40,6 +42,7 @@ final readonly class RunRecords
 
         $attempts = array_values(self::readJson($directory.'/attempts.json'));
         $attemptsById = [];
+        $outcomesById = [];
         $sourceIds = [];
         foreach ($attempts as $index => $attempt) {
             if (! is_array($attempt)) {
@@ -55,6 +58,7 @@ final readonly class RunRecords
             }
             $sourceIds[$sourceId] = $attempt['input']['status'] === 'available' ? ['sha256' => $attempt['input']['sha256'], 'byte_size' => $attempt['input']['byte_size']] : null;
             $attemptsById[$attempt['id']] = [];
+            $outcomesById[$attempt['id']] = $attempt['execution']['outcome'];
         }
 
         $observations = array_values(self::readJson($directory.'/observations.json'));
@@ -119,7 +123,27 @@ final readonly class RunRecords
             }
         }
 
-        return new self($run, $attempts, $observations, $regressions, $baselines);
+        $measurements = null;
+        if (file_exists($directory.'/measurements.json')) {
+            $measurements = array_values(self::readJson($directory.'/measurements.json'));
+            $measuredIds = [];
+            foreach ($measurements as $index => $measurement) {
+                if (! is_array($measurement)) {
+                    throw new RuntimeException('Measurement '.($index + 1)." in {$directory} is not an object");
+                }
+                $validator->assertValid($measurement, AttemptRunner::MEASUREMENT_SCHEMA, 'measurement '.(string) ($measurement['attempt_id'] ?? $index + 1)." in {$directory}");
+                $attemptId = $measurement['attempt_id'];
+                if (! isset($outcomesById[$attemptId]) || isset($measuredIds[$attemptId])) {
+                    throw new RuntimeException("The measurement of {$attemptId} in {$directory} is for an attempt that is not in the run, or is recorded more than once");
+                }
+                if ($measurement['execution_outcome'] !== $outcomesById[$attemptId]) {
+                    throw new RuntimeException("The measurement of {$attemptId} in {$directory} says {$measurement['execution_outcome']}, but the attempt ended as {$outcomesById[$attemptId]}");
+                }
+                $measuredIds[$attemptId] = true;
+            }
+        }
+
+        return new self($run, $attempts, $observations, $regressions, $baselines, $measurements);
     }
 
     /**

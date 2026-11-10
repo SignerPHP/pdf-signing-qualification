@@ -39,6 +39,7 @@
         ],
         "compare-runs": "bin/compare-runs",
         "compare-implementations": "bin/compare-implementations",
+        "analyze-performance": "bin/analyze-performance",
         "report": "bin/report",
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",

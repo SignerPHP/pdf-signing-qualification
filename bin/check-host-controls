@@ -1,0 +1,39 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Performance\HostControls;
+use SignerPHP\PdfSigningQualification\Performance\Protocol;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) !== 2 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: check-host-controls <study-directory> <run-label>\n");
+    exit(2);
+}
+[$studyDirectory, $label] = $arguments;
+$studyDirectory = rtrim($studyDirectory, '/');
+
+try {
+    $protocol = Protocol::fromFile($studyDirectory.'/protocol.json');
+    $controls = HostControls::record($protocol, $label, (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'));
+    $controlsDirectory = $studyDirectory.'/controls';
+    $controlsPath = "{$controlsDirectory}/{$label}.json";
+    $json = json_encode($controls, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+    if (! is_dir($controlsDirectory) && ! mkdir($controlsDirectory) && ! is_dir($controlsDirectory)) {
+        throw new RuntimeException("Unable to create {$controlsDirectory}");
+    }
+    if (file_exists($controlsPath) || file_put_contents($controlsPath, $json) !== strlen($json)) {
+        throw new RuntimeException("Unable to write {$controlsPath}, or it already exists");
+    }
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+if ($controls['violations'] !== []) {
+    fwrite(STDERR, "The host does not meet the controls of the protocol before {$label}:\n- ".implode("\n- ", $controls['violations'])."\n");
+    exit(1);
+}

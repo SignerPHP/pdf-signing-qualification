@@ -1,0 +1,47 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Performance\PerformanceAnalysis;
+use SignerPHP\PdfSigningQualification\Performance\PerformanceSummary;
+use SignerPHP\PdfSigningQualification\Performance\StudyRecords;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) < 2 || count($arguments) > 3 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: analyze-performance <analysis-directory> <study-directory> [repeated-study-directory]\n");
+    fwrite(STDERR, "Give one session, or two measured sessions of the same protocol to check that the result repeats.\n");
+    exit(2);
+}
+$analysisDirectory = array_shift($arguments);
+
+try {
+    if (file_exists($analysisDirectory)) {
+        throw new RuntimeException("{$analysisDirectory} already exists; choose a new analysis directory");
+    }
+    $analysis = PerformanceAnalysis::analyze(array_map(StudyRecords::fromDirectory(...), $arguments));
+    $markdown = PerformanceSummary::markdown($analysis);
+    $json = json_encode($analysis, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR)."\n";
+
+    $parentDirectory = dirname($analysisDirectory);
+    if (! is_dir($parentDirectory) && ! mkdir($parentDirectory, 0777, true)) {
+        throw new RuntimeException("Unable to create {$parentDirectory}");
+    }
+    $partialDirectory = $parentDirectory.'/.'.basename($analysisDirectory).'.partial-'.bin2hex(random_bytes(6));
+    if (! mkdir($partialDirectory, 0777)
+        || file_put_contents($partialDirectory.'/performance.json', $json) !== strlen($json)
+        || file_put_contents($partialDirectory.'/performance.md', $markdown) !== strlen($markdown)
+        || ! rename($partialDirectory, $analysisDirectory)) {
+        throw new RuntimeException("Unable to write the analysis to {$analysisDirectory}");
+    }
+} catch (Throwable $exception) {
+    if (isset($partialDirectory) && is_dir($partialDirectory)) {
+        exec('rm -rf '.escapeshellarg($partialDirectory));
+    }
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+echo $markdown;

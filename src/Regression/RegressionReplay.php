@@ -8,7 +8,7 @@ use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
-use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
+use SignerPHP\PdfSigningQualification\Acquisition\SyntheticInput;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -22,10 +22,6 @@ final class RegressionReplay
     public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/regressions.schema.json';
 
     public const string SOURCE_ID = 'regression';
-
-    private const string GENERATOR_NAMESPACE = 'SignerPHP\\PdfSigningQualification\\Tests\\Fixtures\\Synthetic\\';
-
-    private const string REPOSITORY_URL = 'https://github.com/SignerPHP/pdf-signing-qualification';
 
     /**
      * @param  Closure(): DateTimeImmutable  $clock
@@ -113,21 +109,7 @@ final class RegressionReplay
 
     private function generate(string $caseId, string $generator): string
     {
-        $class = self::GENERATOR_NAMESPACE.basename($generator, '.php');
-        if (! class_exists($class) || ! method_exists($class, 'create')) {
-            throw new RuntimeException("The generator {$generator} of the regression case {$caseId} does not define {$class}::create()");
-        }
-
-        $directory = $this->inputDirectory.'/'.$caseId;
-        if (! is_dir($directory) && ! mkdir($directory, 0700, true)) {
-            throw new RuntimeException("Unable to create {$directory}");
-        }
-        $path = $class::create($directory);
-        if (! is_string($path) || ! is_file($path)) {
-            throw new RuntimeException("The generator {$generator} of the regression case {$caseId} did not write a file");
-        }
-
-        return $path;
+        return SyntheticInput::generate($generator, $this->inputDirectory.'/'.$caseId, "the regression case {$caseId}");
     }
 
     /**
@@ -136,16 +118,9 @@ final class RegressionReplay
      */
     private function acquisition(string $sourceId, string $caseId, string $generator, array $declared, array $generated): array
     {
-        $license = ['expression' => 'MIT', 'evidence_url' => self::REPOSITORY_URL.'/blob/main/LICENSE'];
-        $record = [
-            'schema' => Acquirer::RECORD_SCHEMA,
-            'source_id' => $sourceId,
-            'source' => ['id' => self::SOURCE_ID, 'url' => self::REPOSITORY_URL, 'revision' => ['kind' => 'version', 'value' => '1'], 'license' => $license],
-            'path' => $caseId.'.pdf',
-            'file_url' => self::REPOSITORY_URL.'/blob/main/'.$generator,
-        ];
+        $record = SyntheticInput::record($sourceId, self::SOURCE_ID, $caseId.'.pdf', $generator);
         if ($generated === $declared) {
-            return $record + ['status' => 'available', 'retrieved_at' => $this->now(), 'sha256' => $declared['sha256'], 'byte_size' => $declared['byte_size'], 'license' => $license];
+            return SyntheticInput::available($record, $declared, $this->now());
         }
 
         return $record + [

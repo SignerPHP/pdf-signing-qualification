@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/host-controls.schema.json",
+    "title": "Host controls, version 1",
+    "description": "The host controls read from inside the sandbox just before one run of a performance session, and the protocol controls they did not meet.",
+    "type": "object",
+    "required": ["schema", "label", "recorded_at", "cpuset", "scaling_governors", "boost", "load_average", "violations"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/host-controls.schema.json" },
+        "label": { "type": "string", "pattern": "^[0-9]{2,3}-[A-Za-z0-9][A-Za-z0-9._-]*$" },
+        "recorded_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+        "cpuset": {
+            "description": "The CPUs the sandbox may run on, from `cpuset.cpus.effective` of its cgroup.",
+            "oneOf": [
+                { "type": "object", "required": ["status", "cpus"], "additionalProperties": false, "properties": { "status": { "const": "available" }, "cpus": { "type": "string", "pattern": "^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$" } } },
+                { "type": "object", "required": ["status", "reason"], "additionalProperties": false, "properties": { "status": { "const": "unavailable" }, "reason": { "$ref": "common.schema.json#/$defs/nonEmptyString" } } }
+            ]
+        },
+        "scaling_governors": {
+            "description": "The scaling governor of each CPU of the cpuset, by CPU number, or `unavailable` when it could not be read.",
+            "type": "object",
+            "propertyNames": { "pattern": "^[0-9]+$" },
+            "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "boost": { "enum": ["enabled", "disabled", "unavailable"] },
+        "load_average": {
+            "description": "The host load averages over 1, 5 and 15 minutes.",
+            "oneOf": [
+                { "type": "array", "items": { "type": "number", "minimum": 0 }, "minItems": 3, "maxItems": 3 },
+                { "type": "null" }
+            ]
+        },
+        "violations": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+        }
+    }
+}

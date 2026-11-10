@@ -1,0 +1,283 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/performance.schema.json",
+    "title": "Paired performance analysis, version 1",
+    "description": "The analysis of one or two sessions of the paired performance study: the eligibility of each input, the coverage of the whole population, and per session the paired distributions of wall time, CPU time and peak memory, the fixed-cost reference and the runs in execution order, with the repeatability of the result when two sessions are given.",
+    "type": "object",
+    "required": ["schema", "protocol", "implementations", "environment", "eligibility", "coverage", "sessions", "repeatability"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/performance.schema.json" },
+        "protocol": { "$ref": "common.schema.json#/$defs/artifact" },
+        "implementations": {
+            "description": "The two implementations, the first being the numerator of every ratio and difference.",
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+                "type": "object",
+                "required": ["id", "revision", "runtime"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                    "revision": { "$ref": "common.schema.json#/$defs/revision" },
+                    "runtime": { "type": ["object", "null"] }
+                }
+            }
+        },
+        "environment": {
+            "type": "object",
+            "required": ["os", "cpu_model", "container_image", "resource_limits"],
+            "additionalProperties": false,
+            "properties": {
+                "os": { "type": "object" },
+                "cpu_model": { "type": ["object", "null"] },
+                "container_image": { "type": "object" },
+                "resource_limits": { "type": ["object", "null"] }
+            }
+        },
+        "eligibility": {
+            "type": "object",
+            "required": ["rule", "inputs", "eligible", "excluded", "eligible_inputs"],
+            "additionalProperties": false,
+            "properties": {
+                "rule": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "inputs": { "$ref": "#/$defs/count" },
+                "eligible": { "$ref": "#/$defs/count" },
+                "excluded": {
+                    "description": "The inputs left out, each counted once under the first condition it fails, in this order.",
+                    "type": "object",
+                    "required": ["input_unavailable", "not_attempted", "execution_not_succeeded", "output_not_valid", "measurement_unavailable"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "input_unavailable": { "$ref": "#/$defs/count" },
+                        "not_attempted": { "$ref": "#/$defs/count" },
+                        "execution_not_succeeded": { "$ref": "#/$defs/count" },
+                        "output_not_valid": { "$ref": "#/$defs/count" },
+                        "measurement_unavailable": { "$ref": "#/$defs/count" }
+                    }
+                },
+                "eligible_inputs": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/inputIdentifier" } }
+            }
+        },
+        "coverage": {
+            "description": "Per implementation, over every measured run of every session given: the outcomes of the attempts and the validity of the outputs over the whole population, eligible or not.",
+            "type": "object",
+            "minProperties": 2,
+            "maxProperties": 2,
+            "additionalProperties": {
+                "type": "object",
+                "required": ["runs", "attempts", "outcomes", "valid_outputs", "inputs", "inputs_by_validity"],
+                "additionalProperties": false,
+                "properties": {
+                    "runs": { "$ref": "#/$defs/count" },
+                    "attempts": { "$ref": "#/$defs/count" },
+                    "outcomes": {
+                        "type": "object",
+                        "required": ["succeeded", "failed", "timed_out", "not_run"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "succeeded": { "$ref": "#/$defs/count" },
+                            "failed": { "$ref": "#/$defs/count" },
+                            "timed_out": { "$ref": "#/$defs/count" },
+                            "not_run": { "$ref": "#/$defs/count" }
+                        }
+                    },
+                    "valid_outputs": { "$ref": "#/$defs/count" },
+                    "inputs": { "$ref": "#/$defs/count" },
+                    "inputs_by_validity": {
+                        "type": "object",
+                        "required": ["valid_in_every_run", "valid_in_some_runs", "never_valid"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "valid_in_every_run": { "$ref": "#/$defs/count" },
+                            "valid_in_some_runs": { "$ref": "#/$defs/count" },
+                            "never_valid": { "$ref": "#/$defs/count" }
+                        }
+                    }
+                }
+            }
+        },
+        "sessions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": { "$ref": "#/$defs/session" }
+        },
+        "repeatability": {
+            "oneOf": [
+                { "type": "null" },
+                {
+                    "type": "object",
+                    "required": ["tolerance", "within_tolerance", "items"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "tolerance": { "type": "number", "exclusiveMinimum": 0 },
+                        "within_tolerance": { "type": "boolean" },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["metric", "statistic", "earlier", "later", "relative_change", "within_tolerance"],
+                                "additionalProperties": false,
+                                "properties": {
+                                    "metric": { "$ref": "#/$defs/metric" },
+                                    "statistic": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                                    "earlier": { "type": ["number", "null"] },
+                                    "later": { "type": ["number", "null"] },
+                                    "relative_change": {
+                                        "description": "The later value over the earlier one, minus 1; null when either is missing or the earlier is not positive, so the statistic cannot be compared and the sessions do not repeat each other.",
+                                        "type": ["number", "null"]
+                                    },
+                                    "within_tolerance": { "type": "boolean" }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "$defs": {
+        "count": { "type": "integer", "minimum": 0 },
+        "metric": { "enum": ["wall_time_seconds", "cpu_seconds", "peak_memory_bytes"] },
+        "quantiles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["probability", "value"],
+                "additionalProperties": false,
+                "properties": {
+                    "probability": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+                    "value": { "type": "number" }
+                }
+            }
+        },
+        "distribution": {
+            "type": "object",
+            "required": ["median", "interval", "quantiles"],
+            "properties": {
+                "median": { "type": "number" },
+                "interval": {
+                    "description": "The bootstrap percentile interval of the median, resampling documents.",
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "minItems": 2,
+                    "maxItems": 2
+                },
+                "quantiles": { "$ref": "#/$defs/quantiles" },
+                "documents": { "$ref": "#/$defs/count" },
+                "first_lower": { "$ref": "#/$defs/count" }
+            },
+            "additionalProperties": false
+        },
+        "session": {
+            "type": "object",
+            "required": ["study_id", "session", "seed", "measured_runs", "metrics", "references", "runs"],
+            "additionalProperties": false,
+            "properties": {
+                "study_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "session": { "oneOf": [{ "const": "calibration" }, { "type": "integer", "minimum": 1 }] },
+                "seed": { "type": "integer", "minimum": 0 },
+                "measured_runs": { "type": "object", "additionalProperties": { "$ref": "#/$defs/count" } },
+                "metrics": {
+                    "type": "object",
+                    "required": ["wall_time_seconds", "cpu_seconds", "peak_memory_bytes"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "wall_time_seconds": { "$ref": "#/$defs/pairedMetric" },
+                        "cpu_seconds": { "$ref": "#/$defs/pairedMetric" },
+                        "peak_memory_bytes": { "$ref": "#/$defs/pairedMetric" }
+                    }
+                },
+                "references": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "required": ["attempts", "valid_and_measured", "metrics"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "attempts": { "$ref": "#/$defs/count" },
+                            "valid_and_measured": { "$ref": "#/$defs/count" },
+                            "metrics": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        { "type": "null" },
+                                        {
+                                            "type": "object",
+                                            "required": ["median", "quantiles"],
+                                            "additionalProperties": false,
+                                            "properties": { "median": { "type": "number" }, "quantiles": { "$ref": "#/$defs/quantiles" } }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "implementation_id", "role", "run_id", "started_at", "finished_at", "medians", "controls"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "label": { "type": "string" },
+                            "implementation_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                            "role": { "enum": ["calibration", "warm_up", "measured"] },
+                            "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                            "started_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+                            "finished_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
+                            "medians": { "type": "object", "additionalProperties": { "type": ["number", "null"] } },
+                            "controls": {
+                                "type": "object",
+                                "required": ["cpuset", "scaling_governors", "boost", "load_average", "violations"],
+                                "additionalProperties": false,
+                                "properties": {
+                                    "cpuset": { "type": ["string", "null"] },
+                                    "scaling_governors": { "type": "array", "items": { "type": "string" } },
+                                    "boost": { "enum": ["enabled", "disabled", "unavailable"] },
+                                    "load_average": { "oneOf": [{ "type": "null" }, { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }] },
+                                    "violations": { "type": "array", "items": { "type": "string" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "pairedMetric": {
+            "type": "object",
+            "required": ["implementations", "ratio", "difference", "dispersion"],
+            "additionalProperties": false,
+            "properties": {
+                "implementations": {
+                    "description": "Per implementation, the distribution over the eligible documents of each document's median over the measured runs of the session; null when no input is eligible.",
+                    "oneOf": [
+                        { "type": "null" },
+                        { "type": "object", "minProperties": 2, "maxProperties": 2, "additionalProperties": { "$ref": "#/$defs/distribution" } }
+                    ]
+                },
+                "ratio": {
+                    "description": "The paired ratio, first over second, of each document's medians.",
+                    "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/distribution" }]
+                },
+                "difference": {
+                    "description": "The paired difference, first minus second, of each document's medians, with the number of documents where the first is lower.",
+                    "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/distribution" }]
+                },
+                "dispersion": {
+                    "description": "Per implementation, the median and the largest coefficient of variation of a document over the measured runs of the session.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "oneOf": [
+                            { "type": "null" },
+                            { "type": "object", "required": ["median", "maximum"], "additionalProperties": false, "properties": { "median": { "type": "number" }, "maximum": { "type": "number" } } }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

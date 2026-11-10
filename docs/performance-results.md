@@ -22,6 +22,7 @@ docker compose run --rm sandbox composer analyze-performance -- var/performance/
 | Controls | Sandbox pinned to CPUs `4-7`, governor `performance`, boost disabled; met before every one of the 24 runs, with a 1-minute load average of 0.86 to 1.96 |
 | Image | `sha256:6f950873a936411c7a9fadafa3229e953b55f5917d94c566b7fb7ef9f5919e00`, the same for every run |
 | Sessions | `performance-1-20261109T151948Z` (seed 20261110) and `performance-2-20261109T161853Z` (seed 20261111), each with one warm-up and five measured runs per implementation |
+| Records | Session 1: `performance-1-20261109T151948Z.tar.xz`, SHA-256 `72a0490d2163d92a0d59c337cbca6b4e61905b5e3eb032505bb1e9f33ac59212`; session 2: `performance-2-20261109T161853Z.tar.xz`, SHA-256 `32ad47db19c633d6a6a8436912cdd980aef8898609dc18d08d34628daa5155cc`; analysis of both: `analysis-sessions-1-2.tar.xz`, SHA-256 `8b59af5ce3f9abe60054e0fdb7c661e57595fab6fd5935cefc2c6eecafff69c8`; attached to release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1) |
 
 ## Coverage of the whole panel
 

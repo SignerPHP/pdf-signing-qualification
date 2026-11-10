@@ -12,6 +12,7 @@ First complete run of the pilot over the [pilot sample](pilot-sample.md), produc
 | Source configuration | `config/inputs.json` with SHA-256 `c6ca54495ff2d87abe592c552792ed468b5419db392b6e59237d3ccb753952cc` |
 | Expected rejections | `config/expected-rejections.json` with SHA-256 `fd1c9906de8e57f60706d3aa035a53f4c148fbd5b6ca3b63593f30670dd33b21` |
 | Environment | Debian GNU/Linux 12 (bookworm), PHP 8.4.27, x86_64, project image built from this revision's `Dockerfile` |
+| Records | `run-20261106T150907Z.tar.xz`, SHA-256 `86b605ac29f1e549f404dbc24db244bcd85be72423e65f32de3c22a61d2408f0` and `run-20261106T151233Z.tar.xz`, SHA-256 `9f21feaced898918c735fa8746357f5e8c2f76c0dc7bbdb79879dd1236b8b45d`, attached to release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1) |
 
 Two runs on these revisions gave the same execution outcome for each of the 27 attempts and the same verdict for each of the 108 observations. Their summaries differ only in the names of the signature fields, which `pdf-signer` generates at random.
 

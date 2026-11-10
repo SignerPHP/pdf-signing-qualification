@@ -20,6 +20,7 @@ Each command builds the image, acquires the inputs once, runs each implementatio
 | Image | `sha256:5f06c07ed60b98fe4e96cec10382bd4526e923434701ab91d2e2df6c8785be1e`, the same for the eight runs |
 | Main panel | `config/main-panel/inputs.json` with SHA-256 `83bb6856302496b5dc9f22f1ab5c8bf9e2fe98372c5b0ecd5c42862a20a97cc5`, expected rejections with SHA-256 `a2eb2e33a06ff8612dc12af661a9e8b018cedda303bd4ed66fdcad65d5ccadd0` |
 | Pilot sample | `config/inputs.json` with SHA-256 `0b4cd0e74b6fb5c1652e04f28b02bb600c14866a89dde8dacefa5f0b50ff7575`, expected rejections with SHA-256 `fd1c9906de8e57f60706d3aa035a53f4c148fbd5b6ca3b63593f30670dd33b21` |
+| Records | Main panel: `differential-20261107T204257Z.tar.xz`, SHA-256 `7318064492dadc01454c0d478db913454ed50b6437e26c32f50c2f06937a4a58`; pilot sample: `differential-20261107T210046Z.tar.xz`, SHA-256 `fa6ba63e3d4a2a1200d0ea9dedd965b0db0df43256d52eea222055d83cb145c3`; attached to release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1) |
 
 ## Denominators
 

@@ -1,0 +1,217 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/comparison.schema.json",
+    "title": "Run comparison, version 1",
+    "description": "What changed between a reference run and a candidate run: the differences between their configurations, and for each input and scenario the capability, execution outcome and verdict of each analyzer in both runs, classified as fixed, persistent, introduced, changed or unchanged.",
+    "type": "object",
+    "required": ["schema", "reference", "candidate", "differences", "totals", "inputs"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/comparison.schema.json" },
+        "reference": { "$ref": "#/$defs/run" },
+        "candidate": { "$ref": "#/$defs/run" },
+        "differences": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/difference" }
+        },
+        "totals": {
+            "type": "object",
+            "required": ["inputs", "changes"],
+            "additionalProperties": false,
+            "properties": {
+                "inputs": {
+                    "type": "object",
+                    "required": ["paired", "only_in_reference", "only_in_candidate", "unavailable", "input_changed"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "paired": { "type": "integer", "minimum": 0 },
+                        "only_in_reference": { "type": "integer", "minimum": 0 },
+                        "only_in_candidate": { "type": "integer", "minimum": 0 },
+                        "unavailable": { "type": "integer", "minimum": 0 },
+                        "input_changed": { "type": "integer", "minimum": 0 }
+                    }
+                },
+                "changes": {
+                    "type": "object",
+                    "required": ["introduced", "fixed", "persistent", "changed", "unchanged"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "introduced": { "type": "integer", "minimum": 0 },
+                        "fixed": { "type": "integer", "minimum": 0 },
+                        "persistent": { "type": "integer", "minimum": 0 },
+                        "changed": { "type": "integer", "minimum": 0 },
+                        "unchanged": { "type": "integer", "minimum": 0 }
+                    }
+                }
+            }
+        },
+        "inputs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/input" }
+        }
+    },
+    "$defs": {
+        "run": {
+            "type": "object",
+            "required": ["run_id", "scenario_id", "implementation", "analyzers"],
+            "additionalProperties": false,
+            "properties": {
+                "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+                "implementation": { "$ref": "run.schema.json#/$defs/tool" },
+                "analyzers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "$ref": "run.schema.json#/$defs/tool" }
+                }
+            }
+        },
+        "difference": {
+            "type": "object",
+            "required": ["subject", "reference", "candidate"],
+            "additionalProperties": false,
+            "properties": {
+                "subject": {
+                    "enum": [
+                        "scenario",
+                        "implementation",
+                        "implementation_runtime",
+                        "analyzer",
+                        "analyzer_policy",
+                        "source_configuration",
+                        "expected_rejections",
+                        "container_image",
+                        "resource_limits"
+                    ]
+                },
+                "analyzer_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "reference": {},
+                "candidate": {}
+            },
+            "if": { "properties": { "subject": { "enum": ["analyzer", "analyzer_policy"] } } },
+            "then": { "required": ["analyzer_id"] },
+            "else": { "not": { "required": ["analyzer_id"] } }
+        },
+        "side": {
+            "type": "object",
+            "required": ["attempt_id", "input"],
+            "additionalProperties": false,
+            "properties": {
+                "attempt_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+                "input": { "$ref": "attempt.schema.json#/properties/input" }
+            }
+        },
+        "item": {
+            "type": "object",
+            "required": ["subject", "reference", "candidate", "change"],
+            "additionalProperties": false,
+            "properties": {
+                "subject": { "enum": ["capability", "execution", "verdict"] },
+                "analyzer_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "reference": { "type": "string" },
+                "candidate": { "type": "string" },
+                "change": { "enum": ["introduced", "fixed", "persistent", "changed", "unchanged"] }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "subject": { "const": "verdict" } } },
+                    "then": {
+                        "required": ["analyzer_id"],
+                        "properties": {
+                            "reference": { "$ref": "common.schema.json#/$defs/verdict" },
+                            "candidate": { "$ref": "common.schema.json#/$defs/verdict" }
+                        }
+                    },
+                    "else": { "not": { "required": ["analyzer_id"] } }
+                },
+                {
+                    "if": { "properties": { "subject": { "const": "capability" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "$ref": "attempt.schema.json#/properties/capability" },
+                            "candidate": { "$ref": "attempt.schema.json#/properties/capability" },
+                            "change": { "enum": ["changed", "unchanged"] }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "subject": { "const": "execution" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "$ref": "attempt.schema.json#/properties/execution/properties/outcome" },
+                            "candidate": { "$ref": "attempt.schema.json#/properties/execution/properties/outcome" }
+                        }
+                    }
+                }
+            ]
+        },
+        "input": {
+            "type": "object",
+            "required": ["source_id", "scenario_id", "status", "reference", "candidate", "items"],
+            "additionalProperties": false,
+            "properties": {
+                "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+                "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+                "status": { "enum": ["paired", "only_in_reference", "only_in_candidate", "unavailable", "input_changed"] },
+                "reference": {
+                    "oneOf": [{ "$ref": "#/$defs/side" }, { "type": "null" }]
+                },
+                "candidate": {
+                    "oneOf": [{ "$ref": "#/$defs/side" }, { "type": "null" }]
+                },
+                "items": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/item" }
+                }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "status": { "const": "paired" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "$ref": "#/$defs/availableSide" },
+                            "candidate": { "$ref": "#/$defs/availableSide" },
+                            "items": { "minItems": 2 }
+                        }
+                    },
+                    "else": { "properties": { "items": { "maxItems": 0 } } }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "only_in_reference" } } },
+                    "then": { "properties": { "reference": { "type": "object" }, "candidate": { "type": "null" } } }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "only_in_candidate" } } },
+                    "then": { "properties": { "reference": { "type": "null" }, "candidate": { "type": "object" } } }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "unavailable" } } },
+                    "then": {
+                        "properties": { "reference": { "type": "object" }, "candidate": { "type": "object" } },
+                        "anyOf": [
+                            { "properties": { "reference": { "$ref": "#/$defs/unavailableSide" } } },
+                            { "properties": { "candidate": { "$ref": "#/$defs/unavailableSide" } } }
+                        ]
+                    }
+                },
+                {
+                    "if": { "properties": { "status": { "const": "input_changed" } } },
+                    "then": {
+                        "properties": {
+                            "reference": { "$ref": "#/$defs/availableSide" },
+                            "candidate": { "$ref": "#/$defs/availableSide" }
+                        }
+                    }
+                }
+            ]
+        },
+        "availableSide": {
+            "type": "object",
+            "properties": { "input": { "properties": { "status": { "const": "available" } } } }
+        },
+        "unavailableSide": {
+            "type": "object",
+            "properties": { "input": { "properties": { "status": { "const": "unavailable" } } } }
+        }
+    }
+}

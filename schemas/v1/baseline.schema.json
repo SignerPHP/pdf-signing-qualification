@@ -1,0 +1,24 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/baseline.schema.json",
+    "title": "Input baseline, version 1",
+    "description": "The judgement of one analyzer, under one policy, about one property of one available input, made before signing. It belongs to the run and the input, not to an attempt, and it is never merged with the verdict on an output.",
+    "type": "object",
+    "required": ["schema", "id", "run_id", "source_id", "analyzer", "policy", "property", "input_artifact", "verdict", "evidence", "observed_at"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/baseline.schema.json" },
+        "id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+        "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+        "analyzer": { "$ref": "observation.schema.json#/properties/analyzer" },
+        "policy": { "$ref": "observation.schema.json#/properties/policy" },
+        "property": { "$ref": "observation.schema.json#/properties/property" },
+        "input_artifact": { "$ref": "common.schema.json#/$defs/artifact" },
+        "verdict": { "enum": ["valid", "invalid", "inconclusive", "not_applicable"] },
+        "evidence": { "$ref": "observation.schema.json#/properties/evidence" },
+        "observed_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" }
+    },
+    "if": { "properties": { "verdict": { "const": "not_applicable" } } },
+    "then": { "properties": { "property": { "const": "cms_signature" } } }
+}

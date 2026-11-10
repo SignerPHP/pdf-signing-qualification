@@ -31,13 +31,23 @@ COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 ENV COMPOSER_HOME=/tmp/composer \
     HOME=/tmp
 
+ARG PDF_SIGNER_REVISION=f27e4064be107b8a662f370a9acdcecd786da9f7
+
 RUN set -eux; \
-    commit=f27e4064be107b8a662f370a9acdcecd786da9f7; \
+    revision="$PDF_SIGNER_REVISION"; \
     directory=/opt/implementations/pdf-signer; \
     git init -q "$directory"; \
-    git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "$commit"; \
+    if ! printf '%s' "$revision" | grep -Eqx '[0-9a-f]{40}'; then \
+        echo "PDF_SIGNER_REVISION must be a full commit hash, got: $revision" >&2; \
+        exit 1; \
+    fi; \
+    git -C "$directory" fetch -q --depth 1 https://github.com/SignerPHP/pdf-signer.git "$revision"; \
     git -C "$directory" checkout -q FETCH_HEAD; \
-    test "$(git -C "$directory" rev-parse HEAD)" = "$commit"; \
+    test "$(git -C "$directory" rev-parse HEAD)" = "$revision"; \
+    if [ ! -f "$directory/composer.lock" ]; then \
+        echo "pdf-signer $revision has no composer.lock, so its dependencies are not locked" >&2; \
+        exit 1; \
+    fi; \
     composer install --working-dir="$directory" --no-dev --no-interaction --no-progress --prefer-dist; \
     rm -rf "$directory/.git" "$COMPOSER_HOME"
 

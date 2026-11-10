@@ -2,6 +2,8 @@
 
 A regression case turns a reported defect into an input that can be replayed against any revision of an implementation. Each case is declared in [`config/regressions/`](../config/regressions/), following [`regression.schema.json`](../schemas/v1/regression.schema.json): the issue it comes from, the scenario it runs under, the exact input and the condition that shows the defect. Its test runs it through the attempt runner and the validator panel and fixes the outcome observed at the pinned revision, so that a new revision which changes it fails the test until the baseline is reviewed.
 
+Every run also replays every case and writes in `regressions.json` whether its condition is present in the output, with the evidence. The condition is checked by code registered for the case id in [`RegressionConditions`](../src/Regression/RegressionConditions.php), so a new case needs its check before a run accepts it. `compare-runs` compares the condition of each case between two runs, and `bin/replay` does it between two `pdf-signer` revisions; see [replays](replays.md).
+
 Regression cases are a failure-enriched selection. They are not part of the pilot sample and say nothing about overall compatibility.
 
 ## `hybrid-xref`
@@ -10,6 +12,7 @@ Regression cases are a failure-enriched selection. They are not part of the pilo
 - **Scenario:** `basic-invisible-sha256`.
 - **Input:** a synthetic PDF 1.5 of 721 bytes produced by [`HybridXrefPdf`](../tests/Fixtures/Synthetic/HybridXrefPdf.php). Its catalog, page tree and page are in an object stream that only the cross-reference stream at offset 445 lists; the cross-reference table covers objects 0 and 4 to 6, and the trailer names the stream with `/XRefStm 445`. qpdf, Poppler and pyHanko read it.
 - **Condition:** the final trailer of the signed output, as `qpdf --show-object=trailer` reports it, still has `/XRefStm 445`, an offset inside the original revision.
+- **Check in a run:** [`HybridXrefCondition`](../src/Regression/HybridXrefCondition.php). `present` when the final trailer has a `/XRefStm` smaller than the size of the input, `absent` when it has none or a larger one, and `undetermined` when qpdf cannot show the trailer.
 - **Test:** [`HybridXrefRegressionTest`](../tests/Regression/HybridXrefRegressionTest.php).
 
 ### Baseline at `pdf-signer` `f27e4064be107b8a662f370a9acdcecd786da9f7`

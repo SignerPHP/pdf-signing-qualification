@@ -391,4 +391,43 @@ final class SummaryTest extends TestCase
 
         self::assertStringContainsString("## Failures\n\nEvery attempt succeeded and every output was judged valid.\n", $markdown);
     }
+
+    public function test_incompatible_revision_is_stated_and_its_attempts_are_still_listed(): void
+    {
+        $run = self::runRecord() + ['implementation_compatibility' => ['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help, so the adapter cannot run this revision']];
+        $attempts = [self::attempt('qpdf:good.pdf', 'failed', 'pdf-signer exited with code 1: unknown option')];
+        $observations = [
+            self::observation('qpdf:good.pdf', 'pyhanko', 'not_evaluated', 'No output'),
+            self::observation('qpdf:good.pdf', 'qpdf', 'not_evaluated', 'No output'),
+        ];
+
+        $markdown = Summary::markdown($run, $attempts, $observations, []);
+
+        self::assertStringContainsString("**The adapter cannot run this revision of `pdf-signer`:** pdf-signer does not list --no-default-timestamp in its help, so the adapter cannot run this revision. Every attempt was still run, so each one records what happened.\n\n## Executions", $markdown);
+        self::assertStringContainsString('| `qpdf:good.pdf` | `supported` | `failed` | pdf-signer exited with code 1: unknown option |', $markdown);
+    }
+
+    public function test_compatible_revision_and_a_run_without_regression_cases_are_stated_plainly(): void
+    {
+        $run = self::runRecord() + ['implementation_compatibility' => ['status' => 'compatible']];
+        $regressions = ['run_id' => $run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
+
+        $markdown = Summary::markdown($run, [], [], [], $regressions);
+
+        self::assertStringNotContainsString('cannot run this revision', $markdown);
+        self::assertStringContainsString("## Regression cases\n\nNo regression case was declared.\n", $markdown);
+    }
+
+    public function test_regression_case_not_replayed_by_the_run_is_listed_with_its_reason(): void
+    {
+        $regressions = ['run_id' => 'run-20261031T120000Z', 'attempts' => [], 'observations' => [], 'cases' => [[
+            'case_id' => 'hybrid-xref',
+            'attempt_id' => null,
+            'condition' => ['status' => 'not_evaluated', 'evidence' => 'The case runs under scenario other-scenario, and this run is of scenario basic-invisible-sha256'],
+        ]]];
+
+        $markdown = Summary::markdown(self::runRecord(), [], [], [], $regressions);
+
+        self::assertStringContainsString('| `hybrid-xref` | none | none | `not_evaluated` | The case runs under scenario other-scenario, and this run is of scenario basic-invisible-sha256 | none |', $markdown);
+    }
 }

@@ -16,6 +16,7 @@ use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 use SignerPHP\PdfSigningQualification\Signing\SigningImplementation;
 use SignerPHP\PdfSigningQualification\Signing\SigningRequest;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
+use SignerPHP\PdfSigningQualification\Tests\Validation\FakeCommandRunner;
 use SignerPHP\PdfSigningQualification\Tests\Validation\ProcessStatus;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
@@ -171,6 +172,54 @@ final class AttemptRunnerTest extends TestCase
         foreach ($panel->observe(new ValidationSubject($record['id'], $inputArtifact, $result->outputPath)) as $observation) {
             self::assertSame('valid', $observation['verdict'], $observation['analyzer']['id'].': '.$observation['evidence']['raw_output']);
         }
+    }
+
+    public function test_pdf_signer_at_the_pinned_revision_accepts_every_option_of_its_adapter(): void
+    {
+        self::assertNull($this->runner()->incompatibility(new PdfSignerImplementation));
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_revision_that_does_not_list_an_option_of_the_adapter_is_incompatible(): void
+    {
+        $installationDirectory = self::$directory.'/pdf-signer-without-timestamp-option';
+        mkdir($installationDirectory.'/bin', 0777, true);
+        file_put_contents($installationDirectory.'/bin/signer-sign', "<?php\necho \"Usage: --input= --output= --cert= --password= --no-default-appearance\\n\";\n");
+
+        $reason = $this->runner()->incompatibility(new PdfSignerImplementation($installationDirectory));
+
+        self::assertSame('pdf-signer does not list --no-default-timestamp in its help, so the adapter cannot run this revision', $reason);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_option_is_listed_only_under_its_own_name_and_not_inside_a_longer_one(): void
+    {
+        $installationDirectory = self::$directory.'/pdf-signer-with-renamed-certificate-option';
+        mkdir($installationDirectory.'/bin', 0777, true);
+        file_put_contents($installationDirectory.'/bin/signer-sign', "<?php\necho \"Usage: --input=/in.pdf --output=/out.pdf --certificate=/c.pfx --password=secret\\n  --certification-level=2\\n  --no-default-appearance\\n  --no-default-timestamp\\n\";\n");
+
+        $reason = $this->runner()->incompatibility(new PdfSignerImplementation($installationDirectory));
+
+        self::assertSame('pdf-signer does not list --cert in its help, so the adapter cannot run this revision', $reason);
+    }
+
+    public function test_revision_without_the_entry_point_of_the_adapter_is_incompatible(): void
+    {
+        $installationDirectory = self::$directory.'/pdf-signer-without-entry-point';
+        mkdir($installationDirectory);
+
+        $reason = $this->runner()->incompatibility(new PdfSignerImplementation($installationDirectory));
+
+        self::assertNotNull($reason);
+        self::assertStringStartsWith('The help of pdf-signer exited with code 1: Could not open input file', $reason);
+    }
+
+    public function test_implementation_without_a_compatibility_check_is_not_checked(): void
+    {
+        $commandRunner = new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(0, ''));
+
+        self::assertNull($this->runner(commandRunner: $commandRunner)->incompatibility(self::command(static fn (): array => ['false'])));
+        self::assertSame([], $commandRunner->commands);
     }
 
     public function test_malformed_input_is_a_failed_attempt_with_the_implementation_error(): void

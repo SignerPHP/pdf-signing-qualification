@@ -27,4 +27,9 @@ interface SigningImplementation
      * @return list<string>
      */
     public function command(SigningRequest $request): array;
+
+    /**
+     * @return array{command: list<string>, options: list<string>}|null
+     */
+    public function compatibilityCheck(): ?array;
 }

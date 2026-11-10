@@ -17,7 +17,7 @@ final class Summary
      * @param  list<array>  $observations
      * @param  list<array>  $baselines
      */
-    public static function markdown(array $run, array $attempts, array $observations, array $baselines): string
+    public static function markdown(array $run, array $attempts, array $observations, array $baselines, ?array $regressions = null): string
     {
         $sourceIds = array_column(array_map(static fn (array $attempt): array => ['id' => $attempt['id'], 'source_id' => $attempt['input']['source_id']], $attempts), 'source_id', 'id');
 
@@ -34,6 +34,7 @@ final class Summary
             '',
             "Scenario `{$run['scenario_id']}`, implementation ".self::tool($run['implementation']).', analyzers '.self::sentence(array_values(array_map(self::tool(...), $run['analyzers']))).'.',
             '',
+            ...self::compatibility($run),
             ...self::executions($attempts),
             '',
             '## Verdicts',
@@ -42,12 +43,66 @@ final class Summary
             '',
             ...self::baseline($baselineAnalyzers, $comparisonAnalyzerIds, $attempts, $observations, $baselines, $baselineVerdicts, $sourceIds),
             ...self::expectedRejections($attempts),
+            ...self::regressions($regressions, $attempts, $observations),
             '## Failures',
             '',
             ...self::failures($attempts, $observations, $sourceIds, $baselineVerdicts, $comparisonAnalyzerIds),
         ];
 
         return implode("\n", $lines)."\n";
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function compatibility(array $run): array
+    {
+        $compatibility = $run['implementation_compatibility'] ?? null;
+        if ($compatibility === null || $compatibility['status'] !== 'incompatible') {
+            return [];
+        }
+
+        return ['**The adapter cannot run this revision of `'.$run['implementation']['id'].'`:** '.self::cell($compatibility['reason']).'. Every attempt was still run, so each one records what happened.', ''];
+    }
+
+    /**
+     * @param  list<array>  $attempts
+     * @param  list<array>  $observations
+     * @return list<string>
+     */
+    private static function regressions(?array $regressions, array $attempts, array $observations): array
+    {
+        if ($regressions === null) {
+            return [];
+        }
+        if ($regressions['cases'] === []) {
+            return ['## Regression cases', '', 'No regression case was declared.', ''];
+        }
+
+        $attemptsById = array_column([...$attempts, ...$regressions['attempts']], null, 'id');
+        $verdicts = [];
+        foreach ([...$observations, ...$regressions['observations']] as $observation) {
+            $verdicts[$observation['attempt_id']][] = "`{$observation['analyzer']['id']}` `{$observation['verdict']}`";
+        }
+
+        $lines = [
+            '## Regression cases',
+            '',
+            'Each case is replayed on its own input and tells whether the condition of its defect is present in the output. They are a failure-enriched selection, so they are not counted in the totals above.',
+            '',
+            '| Case | Input | Execution | Condition | Evidence | Verdicts |',
+            '| ---- | ----- | --------- | --------- | -------- | -------- |',
+        ];
+        foreach ($regressions['cases'] as $case) {
+            $attempt = $case['attempt_id'] === null ? null : $attemptsById[$case['attempt_id']];
+            $input = $attempt === null ? 'none' : "`{$attempt['input']['source_id']}`";
+            $execution = $attempt === null ? 'none' : "`{$attempt['execution']['outcome']}`";
+            $caseVerdicts = $case['attempt_id'] === null ? [] : ($verdicts[$case['attempt_id']] ?? []);
+            $lines[] = "| `{$case['case_id']}` | {$input} | {$execution} | `{$case['condition']['status']}` | ".self::cell($case['condition']['evidence']).' | '.($caseVerdicts === [] ? 'none' : implode(', ', $caseVerdicts)).' |';
+        }
+        $lines[] = '';
+
+        return $lines;
     }
 
     /**

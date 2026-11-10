@@ -36,6 +36,9 @@ final readonly class StudyRecords
         if ($study['protocol'] !== ['sha256' => hash('sha256', $protocol->contents), 'byte_size' => strlen($protocol->contents)]) {
             throw new RuntimeException("The protocol.json in {$directory} is not the protocol its study.json was planned with");
         }
+        if ($study['seed'] !== $protocol->seedOf($study['session']) || $study['runs'] !== $protocol->plan($study['session'])) {
+            throw new RuntimeException("The study.json in {$directory} is not the plan its protocol draws for session {$study['session']}");
+        }
 
         $runs = [];
         $controls = [];
@@ -64,7 +67,7 @@ final readonly class StudyRecords
             }
             $controls[$label] = $runControls;
 
-            $references[$label] = self::reference("{$directory}/references/{$label}", $planned['implementation_id']);
+            $references[$label] = self::reference("{$directory}/references/{$label}", $runs[$label], $protocol->document['reference']['repetitions']);
         }
 
         return new self($study, $protocol, $runs, $controls, $references);
@@ -73,31 +76,58 @@ final readonly class StudyRecords
     /**
      * @return array{attempts: list<array>, measurements: list<array>, observations: list<array>}
      */
-    private static function reference(string $directory, string $implementationId): array
+    private static function reference(string $directory, RunRecords $records, int $repetitions): array
     {
         $validator = new SchemaValidator;
+        $implementationId = $records->run['implementation']['id'];
+        $scenarioId = $records->run['scenario_id'];
         $attempts = array_values(self::readJson($directory.'/attempts.json'));
         $measurements = array_values(self::readJson($directory.'/measurements.json'));
         $observations = array_values(self::readJson($directory.'/observations.json'));
-        $attemptIds = [];
+        if (count($attempts) !== $repetitions) {
+            throw new RuntimeException("The reference in {$directory} has ".count($attempts)." attempts, not the {$repetitions} repetitions of the protocol");
+        }
+
+        $outcomes = [];
         foreach ($attempts as $attempt) {
             $validator->assertValid((array) $attempt, AttemptRunner::ATTEMPT_SCHEMA, "reference attempt in {$directory}");
-            if ($attempt['implementation']['id'] !== $implementationId || ! str_starts_with($attempt['input']['source_id'], FixedCostReference::SOURCE_ID.':')) {
-                throw new RuntimeException("The reference attempt {$attempt['id']} in {$directory} is not of {$implementationId} on the reference document");
+            if ($attempt['implementation'] !== $records->run['implementation'] || ! str_starts_with($attempt['input']['source_id'], FixedCostReference::SOURCE_ID.':')) {
+                throw new RuntimeException("The reference attempt {$attempt['id']} in {$directory} is not of {$implementationId} at the revision of the run on the reference document");
             }
-            $attemptIds[$attempt['id']] = $attempt['execution']['outcome'];
+            if ($attempt['scenario_id'] !== $scenarioId) {
+                throw new RuntimeException("The reference attempt {$attempt['id']} in {$directory} is not under the scenario {$scenarioId} of the run");
+            }
+            if (isset($outcomes[$attempt['id']])) {
+                throw new RuntimeException("The reference attempt {$attempt['id']} in {$directory} is recorded more than once");
+            }
+            $outcomes[$attempt['id']] = $attempt['execution']['outcome'];
         }
+
+        $measured = [];
         foreach ($measurements as $measurement) {
             $validator->assertValid((array) $measurement, AttemptRunner::MEASUREMENT_SCHEMA, "reference measurement in {$directory}");
-            if (($attemptIds[$measurement['attempt_id']] ?? null) !== $measurement['execution_outcome']) {
-                throw new RuntimeException("The reference measurement of {$measurement['attempt_id']} in {$directory} does not match a reference attempt and its outcome");
+            $attemptId = $measurement['attempt_id'];
+            if (($outcomes[$attemptId] ?? null) !== $measurement['execution_outcome'] || isset($measured[$attemptId])) {
+                throw new RuntimeException("The reference in {$directory} does not have one measurement for each attempt that ran, with its outcome");
             }
+            $measured[$attemptId] = true;
         }
+        if (count($measured) !== count(array_filter($outcomes, static fn (string $outcome): bool => $outcome !== 'not_run'))) {
+            throw new RuntimeException("The reference in {$directory} does not have one measurement for each attempt that ran, with its outcome");
+        }
+
+        $analyzers = $records->run['analyzers'];
+        $observed = [];
         foreach ($observations as $observation) {
             $validator->assertValid((array) $observation, ToolValidator::OBSERVATION_SCHEMA, "reference observation in {$directory}");
-            if (! isset($attemptIds[$observation['attempt_id']])) {
-                throw new RuntimeException("The reference observation {$observation['id']} in {$directory} is not of a reference attempt");
+            $key = $observation['attempt_id']."\n".$observation['analyzer']['id'];
+            if (! isset($outcomes[$observation['attempt_id']]) || ! in_array($observation['analyzer'], $analyzers, true) || isset($observed[$key])) {
+                throw new RuntimeException("The reference in {$directory} has not one observation from each analyzer of the run on each attempt");
             }
+            $observed[$key] = true;
+        }
+        if (count($observed) !== count($outcomes) * count($analyzers)) {
+            throw new RuntimeException("The reference in {$directory} has not one observation from each analyzer of the run on each attempt");
         }
 
         /** @var array{attempts: list<array>, measurements: list<array>, observations: list<array>} */

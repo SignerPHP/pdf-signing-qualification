@@ -68,6 +68,7 @@ final class AnalyzePerformanceCommandTest extends TestCase
         self::assertStringContainsString('## Session 2', $output);
         self::assertStringContainsString('## Repeatability', $output);
         self::assertStringContainsString('**it does**', $output);
+        self::assertStringNotContainsString('not comparable', $output);
         self::assertStringContainsString('no implementation is declared faster or lighter in general', $output);
         self::assertStringContainsString('| `pdf-signer` | 4 | 8 | 4 of 8 (50.0%) | 4 of 8 (50.0%) |', $output);
     }

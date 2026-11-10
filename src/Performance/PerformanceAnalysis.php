@@ -30,14 +30,18 @@ final class PerformanceAnalysis
     public static function analyze(array $studies): array
     {
         self::assertAnalyzable($studies);
+        usort($studies, static fn (StudyRecords $earlier, StudyRecords $later): int => self::sessionOrder($earlier) <=> self::sessionOrder($later));
         $protocol = $studies[0]->protocol;
         [$first, $second] = $protocol->implementations();
 
+        $indexesByLabel = [];
         $indexes = [];
         foreach ($studies as $studyIndex => $study) {
             foreach ($study->study['runs'] as $planned) {
+                $index = self::index($study->runs[$planned['label']]);
+                $indexesByLabel[$studyIndex][$planned['label']] = $index;
                 if (in_array($planned['role'], self::MEASURED_ROLES, true)) {
-                    $indexes[$studyIndex][$planned['implementation_id']][] = self::index($study->runs[$planned['label']]);
+                    $indexes[$studyIndex][$planned['implementation_id']][] = $index;
                 }
             }
         }
@@ -76,7 +80,7 @@ final class PerformanceAnalysis
 
         $sessions = [];
         foreach ($studies as $studyIndex => $study) {
-            $sessions[] = self::session($study, $indexes[$studyIndex], $eligible, $first, $second);
+            $sessions[] = self::session($study, $indexes[$studyIndex], $indexesByLabel[$studyIndex], $eligible, $first, $second);
         }
 
         $analysis = [
@@ -153,6 +157,11 @@ final class PerformanceAnalysis
                 }
             }
         }
+    }
+
+    private static function sessionOrder(StudyRecords $study): int
+    {
+        return $study->study['session'] === Protocol::CALIBRATION ? 0 : (int) $study->study['session'];
     }
 
     private static function settings(RunRecords $records): array
@@ -290,9 +299,10 @@ final class PerformanceAnalysis
 
     /**
      * @param  array<string, list<array<string, array{attempt: array, verdicts: list<string>, metrics: array<string, float>|null}>>>  $indexes
+     * @param  array<string, array<string, array{attempt: array, verdicts: list<string>, metrics: array<string, float>|null}>>  $indexesByLabel
      * @param  list<string>  $eligible
      */
-    private static function session(StudyRecords $study, array $indexes, array $eligible, string $first, string $second): array
+    private static function session(StudyRecords $study, array $indexes, array $indexesByLabel, array $eligible, string $first, string $second): array
     {
         $protocol = $study->protocol->document;
         $randomizer = new Randomizer(new Mt19937($study->study['seed']));
@@ -350,7 +360,7 @@ final class PerformanceAnalysis
         $runs = [];
         foreach ($study->study['runs'] as $planned) {
             $records = $study->runs[$planned['label']];
-            $index = self::index($records);
+            $index = $indexesByLabel[$planned['label']];
             $runMedians = [];
             foreach (self::METRICS as $metric) {
                 $values = [];
@@ -455,11 +465,8 @@ final class PerformanceAnalysis
                 'median paired ratio' => [$earlier['metrics'][$metric]['ratio']['median'] ?? null, $later['metrics'][$metric]['ratio']['median'] ?? null],
             ];
             foreach ($statistics as $statistic => [$earlierValue, $laterValue]) {
-                if ($earlierValue === null || $laterValue === null || $earlierValue <= 0.0) {
-                    continue;
-                }
-                $change = $laterValue / $earlierValue - 1;
-                $items[] = ['metric' => $metric, 'statistic' => $statistic, 'earlier' => $earlierValue, 'later' => $laterValue, 'relative_change' => $change, 'within_tolerance' => abs($change) <= $tolerance];
+                $change = $earlierValue === null || $laterValue === null || $earlierValue <= 0.0 ? null : $laterValue / $earlierValue - 1;
+                $items[] = ['metric' => $metric, 'statistic' => $statistic, 'earlier' => $earlierValue, 'later' => $laterValue, 'relative_change' => $change, 'within_tolerance' => $change !== null && abs($change) <= $tolerance];
             }
         }
 

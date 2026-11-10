@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Performance;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Performance\PerformanceAnalysis;
@@ -172,8 +173,8 @@ final class PerformanceAnalysisTest extends TestCase
     {
         $references = PerformanceAnalysis::analyze([$this->study(1)])['sessions'][0]['references'];
 
-        self::assertSame(2, $references['jsignpdf']['attempts']);
-        self::assertSame(2, $references['jsignpdf']['valid_and_measured']);
+        self::assertSame(4, $references['jsignpdf']['attempts']);
+        self::assertSame(4, $references['jsignpdf']['valid_and_measured']);
         self::assertEqualsWithDelta(0.9, $references['jsignpdf']['metrics']['wall_time_seconds']['median'], 1e-12);
         self::assertEqualsWithDelta(0.11, $references['pdf-signer']['metrics']['cpu_seconds']['median'], 1e-12);
     }
@@ -197,6 +198,36 @@ final class PerformanceAnalysisTest extends TestCase
         self::assertFalse($repeatability['within_tolerance']);
         $outside = array_values(array_filter($repeatability['items'], static fn (array $item): bool => ! $item['within_tolerance']));
         self::assertSame(['median of jsignpdf', 'median paired ratio'], array_column($outside, 'statistic'));
+    }
+
+    public function test_later_session_is_the_one_with_the_higher_number_whatever_the_order_of_the_arguments(): void
+    {
+        $later = static fn (RunFixture $run, array $planned) => self::signsBoth($run, $planned, $planned['implementation_id'] === 'jsignpdf' ? 1.11 : 1.0);
+        $first = $this->study(1);
+        $second = $this->study(2, $later);
+
+        $inOrder = PerformanceAnalysis::analyze([$first, $second]);
+        $reversed = PerformanceAnalysis::analyze([$second, $first]);
+
+        self::assertFalse($inOrder['repeatability']['within_tolerance']);
+        self::assertSame($inOrder['repeatability'], $reversed['repeatability']);
+        self::assertSame([1, 2], array_column($reversed['sessions'], 'session'));
+    }
+
+    public function test_statistic_that_cannot_be_compared_is_listed_and_keeps_the_sessions_from_repeating(): void
+    {
+        $withoutMemory = static function (RunFixture $run, array $planned): void {
+            $jsignpdf = $planned['implementation_id'] === 'jsignpdf';
+            $run->succeeded(self::SMALL, StudyFixture::VALID)->measured(self::SMALL, $jsignpdf ? 1.0 : 0.2, 0.2, 0.05, $jsignpdf ? 0 : 40_000_000);
+        };
+        $repeatability = PerformanceAnalysis::analyze([$this->study(1, $withoutMemory), $this->study(2, $withoutMemory)])['repeatability'];
+
+        self::assertFalse($repeatability['within_tolerance']);
+        $memory = array_values(array_filter($repeatability['items'], static fn (array $item): bool => $item['metric'] === 'peak_memory_bytes'));
+        self::assertSame(['median of pdf-signer', 'median of jsignpdf', 'median paired ratio'], array_column($memory, 'statistic'));
+        self::assertSame([true, false, false], array_column($memory, 'within_tolerance'));
+        self::assertNull($memory[1]['relative_change']);
+        self::assertNull($memory[2]['earlier']);
     }
 
     public function test_single_session_has_no_repeatability(): void
@@ -275,6 +306,70 @@ final class PerformanceAnalysisTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('so the session is not complete');
+
+        StudyRecords::fromDirectory($directory);
+    }
+
+    public function test_session_whose_plan_is_not_the_one_its_protocol_draws_is_refused(): void
+    {
+        $directory = StudyFixture::write($this->directory, 1, static fn (RunFixture $run, array $planned) => self::signsBoth($run, $planned));
+        $study = json_decode((string) file_get_contents($directory.'/study.json'), true, flags: JSON_THROW_ON_ERROR);
+        $study['runs'][0]['role'] = 'measured';
+        file_put_contents($directory.'/study.json', json_encode($study, JSON_THROW_ON_ERROR));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('is not the plan its protocol draws for session 1');
+
+        StudyRecords::fromDirectory($directory);
+    }
+
+    public static function brokenReferences(): iterable
+    {
+        yield 'fewer repetitions than the protocol' => [static function (array $reference): array {
+            array_pop($reference['attempts']);
+            array_pop($reference['measurements']);
+            $reference['observations'] = array_slice($reference['observations'], 0, -2);
+
+            return $reference;
+        }, 'has 1 attempts, not the 2 repetitions of the protocol'];
+        yield 'attempt recorded twice' => [static function (array $reference): array {
+            $reference['attempts'][1] = $reference['attempts'][0];
+
+            return $reference;
+        }, 'is recorded more than once'];
+        yield 'attempt without its measurement' => [static function (array $reference): array {
+            array_pop($reference['measurements']);
+
+            return $reference;
+        }, 'does not have one measurement for each attempt that ran'];
+        yield 'measured twice' => [static function (array $reference): array {
+            $reference['measurements'][1] = $reference['measurements'][0];
+
+            return $reference;
+        }, 'does not have one measurement for each attempt that ran'];
+        yield 'under another scenario than the run' => [static function (array $reference): array {
+            foreach ($reference['attempts'] as $index => $attempt) {
+                $reference['attempts'][$index]['scenario_id'] = 'other-scenario';
+            }
+
+            return $reference;
+        }, 'not under the scenario basic-invisible-sha256 of the run'];
+        yield 'judged by other analyzers than the run' => [static function (array $reference): array {
+            foreach ($reference['observations'] as $index => $observation) {
+                $reference['observations'][$index]['analyzer']['revision']['value'] = '99.0.0';
+            }
+
+            return $reference;
+        }, 'not one observation from each analyzer of the run'];
+    }
+
+    #[DataProvider('brokenReferences')]
+    public function test_reference_that_does_not_match_the_protocol_and_its_run_is_refused(\Closure $change, string $message): void
+    {
+        $directory = StudyFixture::write($this->directory, 1, static fn (RunFixture $run, array $planned) => self::signsBoth($run, $planned), referenceChanges: static fn (array $reference, array $planned): array => $planned['label'] === '03-'.$planned['implementation_id'] ? $change($reference) : $reference);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage($message);
 
         StudyRecords::fromDirectory($directory);
     }

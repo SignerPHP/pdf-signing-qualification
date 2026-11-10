@@ -17,14 +17,7 @@ use SignerPHP\PdfSigningQualification\Signing\Implementations;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
-use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
-use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
-use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
-use SignerPHP\PdfSigningQualification\Validation\PriorSignaturesValidator;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
-use SignerPHP\PdfSigningQualification\Validation\PyHankoValidator;
-use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
-use SignerPHP\PdfSigningQualification\Validation\SignatureCoverageValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -91,15 +84,7 @@ try {
 
     $limits = new ResourceLimits;
     $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', $limits, $clock);
-    $panel = new ValidationPanel([
-        new PyHankoValidator(new ProcessRunner, $clock),
-        new PdfsigValidator(new ProcessRunner, $clock),
-        new OpenSslCmsValidator(new ProcessRunner, $clock),
-        new QpdfCheckValidator(new ProcessRunner, $clock),
-        new InputPreservationValidator(new ProcessRunner, $clock),
-        new PriorSignaturesValidator(new ProcessRunner, $clock),
-        new SignatureCoverageValidator(new ProcessRunner, $clock),
-    ]);
+    $panel = ValidationPanel::installed($clock);
 
     $regressionReplay = new RegressionReplay($attemptRunner, $panel, $regressionConditions, $scratchDirectory.'/regression-inputs', $clock);
 

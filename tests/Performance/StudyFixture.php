@@ -13,12 +13,12 @@ final class StudyFixture
 {
     public const array VALID = ['pdfsig' => 'valid', 'qpdf' => 'valid'];
 
-    public const array PROTOCOL = ['warm_up_runs' => 1, 'measured_runs' => 2, 'calibration_runs' => 2];
+    public const array PROTOCOL = ['warm_up_runs' => 1, 'measured_runs' => 2, 'calibration_runs' => 2, 'reference' => ['generator' => 'tests/Fixtures/Synthetic/MinimalPdf.php', 'sha256' => '39d1a47d379f2b659aee63c13d4bcaac131dec23205e1ca713a6c0817fced4ba', 'byte_size' => 349, 'repetitions' => 2]];
 
     /**
      * @param  Closure(RunFixture, array{label: string, implementation_id: string, role: string}): void  $attempts
      */
-    public static function write(string $directory, string|int $session, Closure $attempts, array $protocolChanges = [], ?Closure $runChanges = null): string
+    public static function write(string $directory, string|int $session, Closure $attempts, array $protocolChanges = [], ?Closure $runChanges = null, ?Closure $referenceChanges = null): string
     {
         $protocol = ProtocolTest::protocol(array_replace(self::PROTOCOL, $protocolChanges));
         $timestamp = '20261109T12000'.($session === Protocol::CALIBRATION ? '0' : (string) $session).'Z';
@@ -51,16 +51,25 @@ final class StudyFixture
                 'violations' => [],
             ]));
 
-            $referenceRun = (new RunFixture("{$runId}-reference-01"))->implementation($planned['implementation_id'], self::revision($planned['implementation_id']));
+            $reference = ['attempts' => [], 'measurements' => [], 'observations' => []];
             $wallTime = $planned['implementation_id'] === 'jsignpdf' ? 0.9 : 0.1;
-            $referenceRun->succeeded('reference:minimal.pdf', self::VALID)->measured('reference:minimal.pdf', $wallTime, $wallTime, 0.01, $planned['implementation_id'] === 'jsignpdf' ? 120_000_000 : 30_000_000);
             $temporary = "{$studyDirectory}/.reference-{$label}";
-            $referenceRun->write($temporary);
-            mkdir("{$studyDirectory}/references/{$label}", 0777, true);
-            foreach (['attempts', 'measurements', 'observations'] as $name) {
-                rename("{$temporary}/{$name}.json", "{$studyDirectory}/references/{$label}/{$name}.json");
+            for ($repetition = 1; $repetition <= $protocol->document['reference']['repetitions']; $repetition++) {
+                $referenceRun = (new RunFixture(sprintf('%s-reference-%02d', $runId, $repetition)))->implementation($run->run['implementation']['id'], $run->run['implementation']['revision']);
+                $referenceRun->succeeded('reference:minimal.pdf', self::VALID)->measured('reference:minimal.pdf', $wallTime, $wallTime, 0.01, $planned['implementation_id'] === 'jsignpdf' ? 120_000_000 : 30_000_000);
+                $referenceRun->write("{$temporary}-{$repetition}");
+                foreach (array_keys($reference) as $name) {
+                    array_push($reference[$name], ...json_decode((string) file_get_contents("{$temporary}-{$repetition}/{$name}.json"), true, flags: JSON_THROW_ON_ERROR));
+                }
+                exec('rm -rf '.escapeshellarg("{$temporary}-{$repetition}"));
             }
-            exec('rm -rf '.escapeshellarg($temporary));
+            if ($referenceChanges !== null) {
+                $reference = $referenceChanges($reference, $planned);
+            }
+            mkdir("{$studyDirectory}/references/{$label}", 0777, true);
+            foreach ($reference as $name => $documents) {
+                file_put_contents("{$studyDirectory}/references/{$label}/{$name}.json", $encode($documents));
+            }
         }
 
         return $studyDirectory;

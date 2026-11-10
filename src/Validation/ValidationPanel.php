@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Validation;
 
+use Closure;
+use DateTimeImmutable;
+
 final class ValidationPanel
 {
     /**
@@ -12,6 +15,22 @@ final class ValidationPanel
     public function __construct(
         private readonly array $validators,
     ) {}
+
+    /**
+     * @param  Closure(): DateTimeImmutable  $clock
+     */
+    public static function installed(Closure $clock): self
+    {
+        return new self([
+            new PyHankoValidator(new ProcessRunner, $clock),
+            new PdfsigValidator(new ProcessRunner, $clock),
+            new OpenSslCmsValidator(new ProcessRunner, $clock),
+            new QpdfCheckValidator(new ProcessRunner, $clock),
+            new InputPreservationValidator(new ProcessRunner, $clock),
+            new PriorSignaturesValidator(new ProcessRunner, $clock),
+            new SignatureCoverageValidator(new ProcessRunner, $clock),
+        ]);
+    }
 
     /**
      * @return list<array{id: string, revision: array{kind: 'version', value: string}}>

@@ -10,14 +10,7 @@ use SignerPHP\PdfSigningQualification\Signing\Implementations;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
-use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
-use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
-use SignerPHP\PdfSigningQualification\Validation\PdfsigValidator;
-use SignerPHP\PdfSigningQualification\Validation\PriorSignaturesValidator;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
-use SignerPHP\PdfSigningQualification\Validation\PyHankoValidator;
-use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
-use SignerPHP\PdfSigningQualification\Validation\SignatureCoverageValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 
 require __DIR__.'/../vendor/autoload.php';
@@ -30,6 +23,7 @@ if (count($arguments) !== 2 || array_filter($arguments, static fn (string $argum
 [$studyDirectory, $label] = $arguments;
 $studyDirectory = rtrim($studyDirectory, '/');
 $referenceDirectory = "{$studyDirectory}/references/{$label}";
+$partialDirectory = "{$studyDirectory}/references/.{$label}.partial-".bin2hex(random_bytes(6));
 $scenarioPath = __DIR__.'/../config/scenarios/basic-invisible-sha256.json';
 $scratchDirectory = '/sandbox/reference-'.bin2hex(random_bytes(8));
 $encodeJson = static fn (array $document): string => json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
@@ -48,34 +42,33 @@ try {
     if (file_exists($referenceDirectory)) {
         throw new RuntimeException("{$referenceDirectory} already exists");
     }
+    if (! is_dir(dirname($partialDirectory)) && ! mkdir(dirname($partialDirectory), 0777, true) && ! is_dir(dirname($partialDirectory))) {
+        throw new RuntimeException('Unable to create '.dirname($partialDirectory));
+    }
+    if (! mkdir($partialDirectory, 0777)) {
+        throw new RuntimeException("Unable to create {$partialDirectory}");
+    }
     if (! mkdir($scratchDirectory, 0700) || ! mkdir($scratchDirectory.'/credential', 0700) || ! mkdir($scratchDirectory.'/work', 0700)) {
         throw new RuntimeException("Unable to create the scratch directory {$scratchDirectory}");
     }
     $credential = TestCredential::generate($scratchDirectory.'/credential');
-    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $referenceDirectory.'/outputs', new ResourceLimits, $clock);
-    $panel = new ValidationPanel([
-        new PyHankoValidator(new ProcessRunner, $clock),
-        new PdfsigValidator(new ProcessRunner, $clock),
-        new OpenSslCmsValidator(new ProcessRunner, $clock),
-        new QpdfCheckValidator(new ProcessRunner, $clock),
-        new InputPreservationValidator(new ProcessRunner, $clock),
-        new PriorSignaturesValidator(new ProcessRunner, $clock),
-        new SignatureCoverageValidator(new ProcessRunner, $clock),
-    ]);
+    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $partialDirectory.'/outputs', new ResourceLimits, $clock);
+    $panel = ValidationPanel::installed($clock);
     $scenario = json_decode((string) file_get_contents($scenarioPath), true, flags: JSON_THROW_ON_ERROR);
     $records = (new FixedCostReference($attemptRunner, $panel, $scratchDirectory.'/input', $clock))
         ->measure(basename($studyDirectory)."-{$label}-reference", $scenario, $implementation, $protocol->document['reference']);
 
-    if (! is_dir($referenceDirectory) && ! mkdir($referenceDirectory, 0777, true)) {
-        throw new RuntimeException("Unable to create {$referenceDirectory}");
-    }
     foreach ($records as $name => $documents) {
         $json = $encodeJson($documents);
-        if (file_put_contents("{$referenceDirectory}/{$name}.json", $json) !== strlen($json)) {
-            throw new RuntimeException("Unable to write {$referenceDirectory}/{$name}.json");
+        if (file_put_contents("{$partialDirectory}/{$name}.json", $json) !== strlen($json)) {
+            throw new RuntimeException("Unable to write {$partialDirectory}/{$name}.json");
         }
     }
+    if (! rename($partialDirectory, $referenceDirectory)) {
+        throw new RuntimeException("Unable to move {$partialDirectory} to {$referenceDirectory}");
+    }
 } catch (Throwable $exception) {
+    exec('rm -rf '.escapeshellarg($partialDirectory));
     fwrite(STDERR, $exception->getMessage()."\n");
     $exitCode = 1;
 } finally {

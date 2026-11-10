@@ -90,13 +90,17 @@ final class PerformanceSummary
                 '',
                 '## Repeatability',
                 '',
-                "The later session repeats the earlier one when every statistic below changes by at most {$percent}%: ".($repeatability['within_tolerance'] ? '**it does**.' : '**it does not**.'),
+                "The later session repeats the earlier one when every statistic below can be compared and changes by at most {$percent}%: ".($repeatability['within_tolerance'] ? '**it does**.' : '**it does not**.'),
                 '',
                 '| Metric | Statistic | Earlier session | Later session | Change | Within tolerance |',
                 '| ------ | --------- | --------------: | ------------: | -----: | ---------------- |',
             ];
             foreach ($repeatability['items'] as $item) {
-                $lines[] = '| '.self::METRIC_NAMES[$item['metric']]." | {$item['statistic']} | ".self::value($item['metric'], $item['earlier'], str_contains($item['statistic'], 'ratio')).' | '.self::value($item['metric'], $item['later'], str_contains($item['statistic'], 'ratio')).' | '.self::signedPercent($item['relative_change']).' | '.($item['within_tolerance'] ? 'yes' : 'no').' |';
+                $ratio = str_contains($item['statistic'], 'ratio');
+                $earlier = $item['earlier'] === null ? 'undefined' : self::value($item['metric'], $item['earlier'], $ratio);
+                $later = $item['later'] === null ? 'undefined' : self::value($item['metric'], $item['later'], $ratio);
+                $change = $item['relative_change'] === null ? 'not comparable' : self::signedPercent($item['relative_change']);
+                $lines[] = '| '.self::METRIC_NAMES[$item['metric']]." | {$item['statistic']} | {$earlier} | {$later} | {$change} | ".($item['within_tolerance'] ? 'yes' : 'no').' |';
             }
         }
 

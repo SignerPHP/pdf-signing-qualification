@@ -61,8 +61,14 @@ while read -r label implementation role; do
     run_directory="$study_directory/run-$timestamp-$label"
     mkdir "$run_directory"
     cp "$study_directory/acquisitions.json" "$run_directory/acquisitions.json"
-    $pinned run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$implementation" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" > /dev/null < /dev/null
-    $pinned run --rm -T sandbox bin/measure-reference "$study_directory" "$label" < /dev/null
+    if ! $pinned run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$implementation" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" > /dev/null < /dev/null; then
+        echo "The run $label of $implementation failed; the session stopped there, and its runs so far are in $study_directory." >&2
+        exit 1
+    fi
+    if ! $pinned run --rm -T sandbox bin/measure-reference "$study_directory" "$label" < /dev/null; then
+        echo "The fixed-cost reference after $label failed; the session stopped there, and its runs so far are in $study_directory." >&2
+        exit 1
+    fi
 done <<PLAN
 $plan
 PLAN

@@ -123,9 +123,12 @@
                                 "properties": {
                                     "metric": { "$ref": "#/$defs/metric" },
                                     "statistic": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
-                                    "earlier": { "type": "number" },
-                                    "later": { "type": "number" },
-                                    "relative_change": { "type": "number" },
+                                    "earlier": { "type": ["number", "null"] },
+                                    "later": { "type": ["number", "null"] },
+                                    "relative_change": {
+                                        "description": "The later value over the earlier one, minus 1; null when either is missing or the earlier is not positive, so the statistic cannot be compared and the sessions do not repeat each other.",
+                                        "type": ["number", "null"]
+                                    },
                                     "within_tolerance": { "type": "boolean" }
                                 }
                             }

@@ -29,6 +29,7 @@ final class Summary
             '',
             ...self::verdicts($run['analyzers'], $observations),
             '',
+            ...self::expectedRejections($attempts),
             '## Failures',
             '',
             ...self::failures($attempts, $observations, $sourceIds),
@@ -44,17 +45,55 @@ final class Summary
     private static function executions(array $attempts): array
     {
         $counts = array_fill_keys(self::OUTCOMES, 0);
+        $rejectedAsExpected = 0;
         foreach ($attempts as $attempt) {
-            $counts[$attempt['execution']['outcome']]++;
+            if (self::isRejectedAsExpected($attempt)) {
+                $rejectedAsExpected++;
+            } else {
+                $counts[$attempt['execution']['outcome']]++;
+            }
         }
 
         $lines = ['## Executions', '', '| Outcome | Attempts |', '| ------- | -------: |'];
         foreach ($counts as $outcome => $count) {
             $lines[] = "| `{$outcome}` | {$count} |";
         }
+        $lines[] = "| Rejected as expected | {$rejectedAsExpected} |";
         $lines[] = '| Total | '.count($attempts).' |';
 
         return $lines;
+    }
+
+    /**
+     * @param  list<array>  $attempts
+     * @return list<string>
+     */
+    private static function expectedRejections(array $attempts): array
+    {
+        $rejections = array_filter($attempts, self::isRejectedAsExpected(...));
+        if ($rejections === []) {
+            return [];
+        }
+
+        $lines = ['## Expected rejections', '', '| Input | Error |', '| ----- | ----- |'];
+        foreach ($rejections as $attempt) {
+            $lines[] = "| `{$attempt['input']['source_id']}` | ".self::cell((string) ($attempt['execution']['error']['message'] ?? '')).' |';
+        }
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    private static function isExpectedRejection(array $attempt): bool
+    {
+        return $attempt['capability'] === 'expected_rejection';
+    }
+
+    private static function isRejectedAsExpected(array $attempt): bool
+    {
+        return self::isExpectedRejection($attempt)
+            && $attempt['execution']['outcome'] === 'failed'
+            && ! in_array($attempt['execution']['exit_code'], [null, 0], true);
     }
 
     /**
@@ -90,10 +129,13 @@ final class Summary
      */
     private static function failures(array $attempts, array $observations, array $sourceIds): array
     {
-        $unsuccessfulAttempts = array_filter($attempts, static fn (array $attempt): bool => $attempt['execution']['outcome'] !== 'succeeded');
+        $unsuccessfulAttempts = array_filter($attempts, static fn (array $attempt): bool => $attempt['execution']['outcome'] !== 'succeeded' && ! self::isRejectedAsExpected($attempt));
+        $unexpectedSuccesses = array_filter($attempts, static fn (array $attempt): bool => self::isExpectedRejection($attempt) && $attempt['execution']['outcome'] === 'succeeded');
         $judgedOutputs = array_filter($observations, static fn (array $observation): bool => in_array($observation['verdict'], ['invalid', 'inconclusive'], true));
-        if ($unsuccessfulAttempts === [] && $judgedOutputs === []) {
-            return ['Every attempt succeeded and every output was judged valid.'];
+        if ($unsuccessfulAttempts === [] && $unexpectedSuccesses === [] && $judgedOutputs === []) {
+            return [array_filter($attempts, self::isRejectedAsExpected(...)) === []
+                ? 'Every attempt succeeded and every output was judged valid.'
+                : 'No other attempt failed and no output was judged invalid or inconclusive.'];
         }
 
         $lines = [];
@@ -101,6 +143,13 @@ final class Summary
             array_push($lines, '### Executions that did not succeed', '', '| Input | Capability | Outcome | Error |', '| ----- | ---------- | ------- | ----- |');
             foreach ($unsuccessfulAttempts as $attempt) {
                 $lines[] = "| `{$attempt['input']['source_id']}` | `{$attempt['capability']}` | `{$attempt['execution']['outcome']}` | ".self::cell((string) ($attempt['execution']['error']['message'] ?? '')).' |';
+            }
+            $lines[] = '';
+        }
+        if ($unexpectedSuccesses !== []) {
+            array_push($lines, '### Expected rejections that succeeded', '', '| Input |', '| ----- |');
+            foreach ($unexpectedSuccesses as $attempt) {
+                $lines[] = "| `{$attempt['input']['source_id']}` |";
             }
             $lines[] = '';
         }

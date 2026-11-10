@@ -38,7 +38,7 @@ final class AttemptRunner
         private readonly Closure $clock,
     ) {}
 
-    public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath): AttemptResult
+    public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath, bool $rejectionExpected = false): AttemptResult
     {
         (new SchemaValidator)->assertValid($scenario, self::SCENARIO_SCHEMA, 'scenario');
         (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, 'acquisition record');
@@ -102,7 +102,7 @@ final class AttemptRunner
         $outputPath = $stagedOutputPath === null ? null : $this->keepOutput($stagedOutputPath);
 
         return self::result($record + [
-            'capability' => 'supported',
+            'capability' => $rejectionExpected ? 'expected_rejection' : 'supported',
             'execution' => [
                 'outcome' => $outcome,
                 'exit_code' => $result->exitCode,

@@ -189,6 +189,28 @@ final class AttemptRunnerTest extends TestCase
         $this->assertWorkDirectoryIsEmpty();
     }
 
+    public function test_declared_rejection_that_fails_is_recorded_as_expected_rejection(): void
+    {
+        $inputPath = self::inputWith('declared-rejection.pdf', "%PDF-1.7\nthis is not a PDF body\n");
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), new PdfSignerImplementation, self::availableAcquisition($inputPath), $inputPath, rejectionExpected: true);
+
+        self::assertSchemaValid($result);
+        self::assertSame('expected_rejection', $result->record['capability']);
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->outputPath);
+    }
+
+    public function test_declared_rejection_that_succeeds_keeps_the_observed_outcome(): void
+    {
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), new PdfSignerImplementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath, rejectionExpected: true);
+
+        self::assertSchemaValid($result);
+        self::assertSame('expected_rejection', $result->record['capability']);
+        self::assertSame('succeeded', $result->record['execution']['outcome']);
+        self::assertFileExists((string) $result->outputPath);
+    }
+
     public function test_attempt_exceeding_the_time_limit_is_timed_out_and_its_children_are_terminated(): void
     {
         $childPidPath = self::$directory.'/child.pid';
@@ -294,6 +316,16 @@ final class AttemptRunnerTest extends TestCase
         self::assertSame('unsupported', $result->record['capability']);
         self::assertSame('not_run', $result->record['execution']['outcome']);
         self::assertNull($result->record['output']);
+    }
+
+    public function test_declared_rejection_of_an_unsupported_scenario_stays_unsupported(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['true'], supported: false);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath, rejectionExpected: true);
+
+        self::assertSchemaValid($result);
+        self::assertSame('unsupported', $result->record['capability']);
     }
 
     public function test_input_that_differs_from_its_acquisition_record_is_refused(): void

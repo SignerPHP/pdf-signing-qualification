@@ -1,0 +1,201 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/differential.schema.json",
+    "title": "Differential comparison of two implementations, version 1",
+    "description": "Two runs of each of two implementations over the same inputs, scenario, analyzers and limits: the denominators of every run, and for each input the capability, execution outcome and verdict of each analyzer in the four runs, each classified as an agreement, a shared failure or a difference with the evidence that supports its class.",
+    "type": "object",
+    "required": ["schema", "scenario_id", "selection", "analyzers", "first", "second", "totals", "inputs"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/differential.schema.json" },
+        "scenario_id": { "$ref": "common.schema.json#/$defs/scenarioId" },
+        "selection": { "enum": ["failure_enriched", "stratified", "representative"] },
+        "analyzers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/analyzer" }
+        },
+        "first": { "$ref": "#/$defs/side" },
+        "second": { "$ref": "#/$defs/side" },
+        "totals": {
+            "type": "object",
+            "required": ["inputs", "items", "inputs_by_classification"],
+            "additionalProperties": false,
+            "properties": {
+                "inputs": {
+                    "type": "object",
+                    "required": ["paired", "unavailable", "input_changed"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "paired": { "type": "integer", "minimum": 0 },
+                        "unavailable": { "type": "integer", "minimum": 0 },
+                        "input_changed": { "type": "integer", "minimum": 0 }
+                    }
+                },
+                "items": { "$ref": "#/$defs/classificationTotals" },
+                "inputs_by_classification": { "$ref": "#/$defs/classificationTotals" }
+            }
+        },
+        "inputs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/input" }
+        }
+    },
+    "$defs": {
+        "classification": {
+            "enum": [
+                "agreement",
+                "shared_failure",
+                "capability_mismatch",
+                "expected_rejection",
+                "reproducible_implementation_defect",
+                "validator_disagreement",
+                "unresolved_finding"
+            ]
+        },
+        "classificationTotals": {
+            "type": "object",
+            "required": [
+                "agreement",
+                "shared_failure",
+                "capability_mismatch",
+                "expected_rejection",
+                "reproducible_implementation_defect",
+                "validator_disagreement",
+                "unresolved_finding"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "agreement": { "type": "integer", "minimum": 0 },
+                "shared_failure": { "type": "integer", "minimum": 0 },
+                "capability_mismatch": { "type": "integer", "minimum": 0 },
+                "expected_rejection": { "type": "integer", "minimum": 0 },
+                "reproducible_implementation_defect": { "type": "integer", "minimum": 0 },
+                "validator_disagreement": { "type": "integer", "minimum": 0 },
+                "unresolved_finding": { "type": "integer", "minimum": 0 }
+            }
+        },
+        "analyzer": {
+            "type": "object",
+            "required": ["id", "revision", "property", "baseline"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "revision": { "$ref": "common.schema.json#/$defs/revision" },
+                "property": { "$ref": "observation.schema.json#/properties/property" },
+                "baseline": { "type": "boolean" }
+            }
+        },
+        "coverage": {
+            "type": "object",
+            "required": ["unavailable", "unsupported", "rejected_as_expected", "not_signed", "signed", "total"],
+            "additionalProperties": false,
+            "properties": {
+                "unavailable": { "type": "integer", "minimum": 0 },
+                "unsupported": { "type": "integer", "minimum": 0 },
+                "rejected_as_expected": { "type": "integer", "minimum": 0 },
+                "not_signed": { "type": "integer", "minimum": 0 },
+                "signed": { "type": "integer", "minimum": 0 },
+                "total": { "type": "integer", "minimum": 0 }
+            }
+        },
+        "run": {
+            "type": "object",
+            "required": ["run_id", "container_image", "implementation_compatibility", "coverage"],
+            "additionalProperties": false,
+            "properties": {
+                "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "container_image": { "$ref": "run.schema.json#/properties/environment/properties/container_image" },
+                "implementation_runtime": { "$ref": "run.schema.json#/properties/implementation_runtime" },
+                "implementation_compatibility": {
+                    "oneOf": [{ "$ref": "run.schema.json#/properties/implementation_compatibility" }, { "type": "null" }]
+                },
+                "coverage": { "$ref": "#/$defs/coverage" }
+            }
+        },
+        "side": {
+            "type": "object",
+            "required": ["implementation", "runs"],
+            "additionalProperties": false,
+            "properties": {
+                "implementation": { "$ref": "run.schema.json#/$defs/tool" },
+                "runs": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": { "$ref": "#/$defs/run" }
+                }
+            }
+        },
+        "values": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "string", "minLength": 1 }
+        },
+        "item": {
+            "type": "object",
+            "required": ["subject", "first", "second", "classification", "reason", "observation_ids", "baseline_ids"],
+            "additionalProperties": false,
+            "properties": {
+                "subject": { "enum": ["capability", "execution", "verdict"] },
+                "analyzer_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                "first": { "$ref": "#/$defs/values" },
+                "second": { "$ref": "#/$defs/values" },
+                "classification": { "$ref": "#/$defs/classification" },
+                "defective_side": { "enum": ["first", "second"] },
+                "reason": { "type": "string", "minLength": 1 },
+                "observation_ids": {
+                    "type": "array",
+                    "items": { "$ref": "common.schema.json#/$defs/inputIdentifier" }
+                },
+                "baseline_ids": {
+                    "type": "array",
+                    "items": { "$ref": "common.schema.json#/$defs/inputIdentifier" }
+                }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "subject": { "const": "verdict" } } },
+                    "then": {
+                        "required": ["analyzer_id"],
+                        "properties": { "observation_ids": { "minItems": 4, "maxItems": 4 } }
+                    },
+                    "else": {
+                        "not": { "required": ["analyzer_id"] },
+                        "properties": { "observation_ids": { "maxItems": 0 } }
+                    }
+                },
+                {
+                    "if": { "properties": { "classification": { "const": "reproducible_implementation_defect" } } },
+                    "then": { "required": ["defective_side"] },
+                    "else": { "not": { "required": ["defective_side"] } }
+                }
+            ]
+        },
+        "input": {
+            "type": "object",
+            "required": ["source_id", "status", "first_attempt_ids", "second_attempt_ids", "items"],
+            "additionalProperties": false,
+            "properties": {
+                "source_id": { "$ref": "common.schema.json#/$defs/inputIdentifier" },
+                "status": { "enum": ["paired", "unavailable", "input_changed"] },
+                "first_attempt_ids": { "$ref": "#/$defs/attemptIds" },
+                "second_attempt_ids": { "$ref": "#/$defs/attemptIds" },
+                "items": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/item" }
+                }
+            },
+            "if": { "properties": { "status": { "const": "paired" } } },
+            "then": { "properties": { "items": { "minItems": 2 } } },
+            "else": { "properties": { "items": { "maxItems": 0 } } }
+        },
+        "attemptIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "$ref": "common.schema.json#/$defs/inputIdentifier" }
+        }
+    }
+}

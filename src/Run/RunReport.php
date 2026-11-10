@@ -14,7 +14,7 @@ final class RunReport
 
     private const array VERDICTS = ['valid', 'invalid', 'inconclusive', 'not_evaluated', 'not_applicable'];
 
-    private const array COVERAGE_COLUMNS = [
+    public const array COVERAGE_COLUMNS = [
         'unavailable' => 'Unavailable (`not_evaluated`)',
         'unsupported' => '`unsupported`',
         'rejected_as_expected' => 'Rejected as expected',
@@ -32,6 +32,14 @@ final class RunReport
     {
         $directory = rtrim($directory, '/');
         $records = RunRecords::fromDirectory($directory);
+        $configuration = self::sourceConfiguration($directory, $records);
+        $inputs = SourceConfiguration::fromJson($configuration);
+
+        return self::markdown($records, self::selectionOf($configuration), $inputs);
+    }
+
+    public static function sourceConfiguration(string $directory, RunRecords $records): string
+    {
         $configurationPath = $directory.'/'.self::SOURCE_CONFIGURATION_FILE;
         $configuration = is_file($configurationPath) ? @file_get_contents($configurationPath) : false;
         if ($configuration === false) {
@@ -40,11 +48,16 @@ final class RunReport
         if (['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)] !== $records->run['source_configuration']) {
             throw new RuntimeException("{$configurationPath} is not the source configuration recorded in the run.json of {$directory}");
         }
-        $inputs = SourceConfiguration::fromJson($configuration);
+
+        return $configuration;
+    }
+
+    public static function selectionOf(string $configuration): string
+    {
         /** @var array{selection: string} $declaration */
         $declaration = json_decode($configuration, true, flags: JSON_THROW_ON_ERROR);
 
-        return self::markdown($records, $declaration['selection'], $inputs);
+        return $declaration['selection'];
     }
 
     /**
@@ -125,7 +138,7 @@ final class RunReport
     /**
      * @return list<string>
      */
-    private static function selection(string $selection): array
+    public static function selection(string $selection): array
     {
         if ($selection === 'failure_enriched') {
             return ['**This sample is failure-enriched, so no count or share in this report is a compatibility rate.** Its inputs were chosen for the defects and edge cases they hold, not to stand for the documents found in practice.', ''];
@@ -364,7 +377,7 @@ final class RunReport
      * @param  list<array>  $attempts
      * @return array<string, int>
      */
-    private static function countCoverage(array $attempts): array
+    public static function countCoverage(array $attempts): array
     {
         $counts = array_fill_keys(array_keys(self::COVERAGE_COLUMNS), 0);
         foreach ($attempts as $attempt) {

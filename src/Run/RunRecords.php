@@ -9,6 +9,7 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
 
 final readonly class RunRecords
@@ -16,12 +17,14 @@ final readonly class RunRecords
     /**
      * @param  list<array>  $attempts
      * @param  list<array>  $observations
+     * @param  list<array>|null  $baselines
      */
     public function __construct(
         public array $run,
         public array $attempts,
         public array $observations,
         public ?array $regressions = null,
+        public ?array $baselines = null,
     ) {}
 
     public static function fromDirectory(string $directory): self
@@ -47,10 +50,10 @@ final readonly class RunRecords
                 throw new RuntimeException("The attempt {$attempt['id']} in {$directory} does not belong to the run {$run['id']} and its scenario {$run['scenario_id']}");
             }
             $sourceId = $attempt['input']['source_id'];
-            if (isset($sourceIds[$sourceId])) {
+            if (array_key_exists($sourceId, $sourceIds)) {
                 throw new RuntimeException("The run in {$directory} has more than one attempt on {$sourceId}");
             }
-            $sourceIds[$sourceId] = true;
+            $sourceIds[$sourceId] = $attempt['input']['status'] === 'available' ? ['sha256' => $attempt['input']['sha256'], 'byte_size' => $attempt['input']['byte_size']] : null;
             $attemptsById[$attempt['id']] = [];
         }
 
@@ -93,7 +96,30 @@ final readonly class RunRecords
             }
         }
 
-        return new self($run, $attempts, $observations, $regressions);
+        $baselines = null;
+        if (file_exists($directory.'/baselines.json')) {
+            $baselines = array_values(self::readJson($directory.'/baselines.json'));
+            $baselineIds = [];
+            foreach ($baselines as $index => $baseline) {
+                if (! is_array($baseline)) {
+                    throw new RuntimeException('Baseline '.($index + 1)." in {$directory} is not an object");
+                }
+                $validator->assertValid($baseline, CommandLineValidator::BASELINE_SCHEMA, 'baseline '.(string) ($baseline['id'] ?? $index + 1)." in {$directory}");
+                if ($baseline['run_id'] !== $run['id'] || ! array_key_exists($baseline['source_id'], $sourceIds)) {
+                    throw new RuntimeException("The baseline {$baseline['id']} in {$directory} is not for an input of the run {$run['id']}");
+                }
+                if ($baseline['input_artifact'] !== $sourceIds[$baseline['source_id']]) {
+                    throw new RuntimeException("The baseline {$baseline['id']} in {$directory} is not of the input the run attempted on {$baseline['source_id']}");
+                }
+                $baselineKey = $baseline['source_id']."\n".$baseline['analyzer']['id'];
+                if (isset($baselineIds[$baselineKey])) {
+                    throw new RuntimeException("The input {$baseline['source_id']} in {$directory} has more than one baseline from {$baseline['analyzer']['id']}");
+                }
+                $baselineIds[$baselineKey] = true;
+            }
+        }
+
+        return new self($run, $attempts, $observations, $regressions, $baselines);
     }
 
     /**

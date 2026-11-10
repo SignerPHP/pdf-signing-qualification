@@ -1,0 +1,98 @@
+#!/bin/sh
+set -eu
+
+cd "$(dirname "$0")/.."
+
+usage() {
+    echo "Usage: bin/differential [--panel=pilot|main] [first-implementation second-implementation]" >&2
+    echo "Without implementations it compares pdf-signer with jsignpdf." >&2
+    exit 2
+}
+
+panel=pilot
+case "${1:-}" in
+    --panel=*)
+        panel="${1#--panel=}"
+        shift
+        ;;
+esac
+case "$panel" in
+    pilot)
+        inputs_configuration=config/inputs.json
+        expected_rejections=config/expected-rejections.json
+        ;;
+    main)
+        inputs_configuration=config/main-panel/inputs.json
+        expected_rejections=config/main-panel/expected-rejections.json
+        ;;
+    *)
+        echo "Unknown panel $panel; use pilot or main." >&2
+        exit 2
+        ;;
+esac
+case "$#" in
+    0)
+        first_implementation=pdf-signer
+        second_implementation=jsignpdf
+        ;;
+    2)
+        first_implementation="$1"
+        second_implementation="$2"
+        ;;
+    *)
+        usage
+        ;;
+esac
+if [ "$first_implementation" = "$second_implementation" ]; then
+    echo "Both implementations are $first_implementation; compare two revisions of one implementation with bin/replay." >&2
+    exit 2
+fi
+
+export HOST_UID="${HOST_UID:-$(id -u)}"
+export HOST_GID="${HOST_GID:-$(id -g)}"
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+differential_directory="var/differentials/differential-$timestamp"
+
+docker compose build sandbox >&2
+docker compose run --rm -T app composer install --no-interaction --no-progress >&2
+docker compose run --rm -T sandbox bin/check-implementation "$first_implementation"
+docker compose run --rm -T sandbox bin/check-implementation "$second_implementation"
+
+mkdir -p var/differentials
+mkdir "$differential_directory"
+
+acquisition_status=0
+docker compose run --rm -T app composer acquire -- "$inputs_configuration" > "$differential_directory/acquisitions.json" || acquisition_status=$?
+if [ "$acquisition_status" -gt 1 ]; then
+    echo "The acquisition was aborted; see the messages above. Nothing was signed." >&2
+    exit "$acquisition_status"
+fi
+
+image_id="$(docker image inspect --format '{{.Id}}' "pdf-signing-qualification:${PDF_SIGNER_REVISION:+pdf-signer-}${PDF_SIGNER_REVISION:-local}")"
+
+run_once() {
+    run_directory="$differential_directory/run-$timestamp-$1-$2"
+    mkdir "$run_directory"
+    cp "$differential_directory/acquisitions.json" "$run_directory/acquisitions.json"
+    docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$1" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" >&2
+    if ! docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null; then
+        echo "The report of $run_directory could not be written; see the messages above. The run records are complete and are still compared." >&2
+    fi
+}
+
+for repetition in 1 2; do
+    run_once "$first_implementation" "$repetition"
+    run_once "$second_implementation" "$repetition"
+done
+
+comparison_status=0
+docker compose run --rm -T sandbox bin/compare-implementations \
+    "$differential_directory/run-$timestamp-$first_implementation-1" \
+    "$differential_directory/run-$timestamp-$first_implementation-2" \
+    "$differential_directory/run-$timestamp-$second_implementation-1" \
+    "$differential_directory/run-$timestamp-$second_implementation-2" \
+    "$differential_directory/comparison" || comparison_status=$?
+
+echo "Results written to $differential_directory" >&2
+exit "$comparison_status"

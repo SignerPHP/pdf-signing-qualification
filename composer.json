@@ -38,6 +38,7 @@
             "bin/run-attempts"
         ],
         "compare-runs": "bin/compare-runs",
+        "compare-implementations": "bin/compare-implementations",
         "report": "bin/report",
         "tests": "vendor/bin/phpunit",
         "pint:fix": "vendor/bin/pint",

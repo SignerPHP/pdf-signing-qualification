@@ -1,0 +1,56 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Run\DifferentialComparison;
+use SignerPHP\PdfSigningQualification\Run\DifferentialSummary;
+use SignerPHP\PdfSigningQualification\Run\RunRecords;
+use SignerPHP\PdfSigningQualification\Run\RunReport;
+use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) !== 5 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: compare-implementations <first-run> <first-run-repeated> <second-run> <second-run-repeated> <comparison-directory>\n");
+    fwrite(STDERR, "The first two runs are of one implementation and the next two of another, over the same inputs, scenario, analyzers and limits.\n");
+    exit(2);
+}
+[$firstDirectory, $firstRepeatedDirectory, $secondDirectory, $secondRepeatedDirectory, $comparisonDirectory] = $arguments;
+
+try {
+    if (file_exists($comparisonDirectory)) {
+        throw new RuntimeException("{$comparisonDirectory} already exists; choose a new comparison directory");
+    }
+    $first = [RunRecords::fromDirectory($firstDirectory), RunRecords::fromDirectory($firstRepeatedDirectory)];
+    $second = [RunRecords::fromDirectory($secondDirectory), RunRecords::fromDirectory($secondRepeatedDirectory)];
+    $configuration = RunReport::sourceConfiguration(rtrim($firstDirectory, '/'), $first[0]);
+    SourceConfiguration::fromJson($configuration);
+    $selection = RunReport::selectionOf($configuration);
+    $comparison = DifferentialComparison::compare($first, $second, $selection);
+    (new SchemaValidator)->assertValid($comparison, DifferentialComparison::SCHEMA, 'differential comparison');
+    $markdown = DifferentialSummary::markdown($comparison);
+    $json = json_encode($comparison, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
+
+    $parentDirectory = dirname($comparisonDirectory);
+    if (! is_dir($parentDirectory) && ! mkdir($parentDirectory, 0777, true)) {
+        throw new RuntimeException("Unable to create {$parentDirectory}");
+    }
+    $partialDirectory = $parentDirectory.'/.'.basename($comparisonDirectory).'.partial-'.bin2hex(random_bytes(6));
+    if (! mkdir($partialDirectory, 0777)
+        || file_put_contents($partialDirectory.'/differential.json', $json) !== strlen($json)
+        || file_put_contents($partialDirectory.'/differential.md', $markdown) !== strlen($markdown)
+        || ! rename($partialDirectory, $comparisonDirectory)) {
+        throw new RuntimeException("Unable to write the comparison to {$comparisonDirectory}");
+    }
+} catch (Throwable $exception) {
+    if (isset($partialDirectory) && is_dir($partialDirectory)) {
+        exec('rm -rf '.escapeshellarg($partialDirectory));
+    }
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+echo $markdown;

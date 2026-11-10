@@ -22,6 +22,9 @@ final class RunFixture
 
     private ?array $regressions = null;
 
+    /** @var list<array> */
+    private array $baselines = [];
+
     /** @var array<string, list<string>> */
     private array $strata = [];
 
@@ -49,6 +52,40 @@ final class RunFixture
             'source_configuration' => ['sha256' => str_repeat('d', 64), 'byte_size' => 13_321],
             'expected_rejections' => ['sha256' => str_repeat('e', 64), 'byte_size' => 373],
         ];
+    }
+
+    public function implementation(string $implementationId, array $revision): self
+    {
+        $this->run['implementation'] = ['id' => $implementationId, 'revision' => $revision];
+        foreach ($this->attempts as $index => $attempt) {
+            $this->attempts[$index]['implementation'] = $this->run['implementation'];
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  array<string, string>  $verdicts
+     */
+    public function baselines(string $sourceId, array $verdicts, string $inputContent = 'input'): self
+    {
+        foreach ($verdicts as $analyzerId => $verdict) {
+            $this->baselines[] = [
+                'schema' => self::PREFIX.'baseline.schema.json',
+                'id' => "{$this->run['id']}/{$sourceId}/{$analyzerId}",
+                'run_id' => $this->run['id'],
+                'source_id' => $sourceId,
+                'analyzer' => ['id' => $analyzerId, 'revision' => array_column($this->run['analyzers'], 'revision', 'id')[$analyzerId]],
+                'policy' => ['id' => $analyzerId.'-default'],
+                'property' => self::property($analyzerId),
+                'input_artifact' => ['sha256' => hash('sha256', $inputContent), 'byte_size' => strlen($inputContent)],
+                'verdict' => $verdict,
+                'evidence' => ['summary' => "{$analyzerId} judged the input {$verdict}"],
+                'observed_at' => '2026-11-07T12:00:09Z',
+            ];
+        }
+
+        return $this;
     }
 
     public function implementationCommit(string $commit): self
@@ -199,7 +236,7 @@ final class RunFixture
 
     public function records(): RunRecords
     {
-        return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions);
+        return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions, $this->baselines);
     }
 
     private function regressionCase(string $caseId, ?string $attemptId, string $condition, string $definitionContent = ''): self
@@ -221,6 +258,7 @@ final class RunFixture
         $encode = static fn (array $document): string => json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         file_put_contents($directory.'/attempts.json', $encode($this->attempts));
         file_put_contents($directory.'/observations.json', $encode($this->observations));
+        file_put_contents($directory.'/baselines.json', $encode($this->baselines));
         if ($this->regressions !== null) {
             file_put_contents($directory.'/regressions.json', $encode($this->regressions));
         }
@@ -233,6 +271,15 @@ final class RunFixture
         file_put_contents($directory.'/run.json', $encode($run));
 
         return $directory;
+    }
+
+    private static function property(string $analyzerId): string
+    {
+        return match ($analyzerId) {
+            'qpdf' => 'structure',
+            'cmp' => 'input_preservation',
+            default => 'cms_signature',
+        };
     }
 
     public function attemptId(string $sourceId): string
@@ -275,7 +322,7 @@ final class RunFixture
                 'attempt_id' => $this->attemptId($sourceId),
                 'analyzer' => $analyzer,
                 'policy' => ['id' => $analyzer['id'].'-default'],
-                'property' => $analyzer['id'] === 'qpdf' ? 'structure' : 'cms_signature',
+                'property' => self::property($analyzer['id']),
                 'input_artifact' => $input,
                 'output_artifact' => $verdict === 'not_evaluated' ? null : $output,
                 'verdict' => $verdict,

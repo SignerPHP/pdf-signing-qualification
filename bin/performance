@@ -1,0 +1,74 @@
+#!/bin/sh
+set -eu
+
+cd "$(dirname "$0")/.."
+
+usage() {
+    echo "Usage: bin/performance <calibration|session-number>" >&2
+    echo "Runs one session of the paired performance study under config/performance/protocol.json." >&2
+    exit 2
+}
+
+[ "$#" -eq 1 ] || usage
+session="$1"
+case "$session" in
+    calibration) ;;
+    [1-9]|[1-9][0-9]) ;;
+    *) usage ;;
+esac
+
+protocol="${PERFORMANCE_PROTOCOL:-config/performance/protocol.json}"
+
+export HOST_UID="${HOST_UID:-$(id -u)}"
+export HOST_GID="${HOST_GID:-$(id -g)}"
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+study_directory="var/performance/performance-$session-$timestamp"
+
+docker compose build sandbox >&2
+docker compose run --rm -T app composer install --no-interaction --no-progress >&2
+
+settings="$(docker compose run --rm -T sandbox php -r '
+    require "vendor/autoload.php";
+    $protocol = SignerPHP\PdfSigningQualification\Performance\Protocol::fromFile($argv[1])->document;
+    echo $protocol["host"]["cpus"], " ", $protocol["panel"]["inputs_configuration"], " ", $protocol["panel"]["expected_rejections"], "\n";
+' "$protocol")"
+set -- $settings
+export PERFORMANCE_CPUS="$1"
+inputs_configuration="$2"
+expected_rejections="$3"
+pinned="docker compose -f compose.yaml -f compose.performance.yaml"
+
+mkdir -p var/performance
+mkdir "$study_directory"
+plan="$(docker compose run --rm -T sandbox bin/plan-performance "$protocol" "$session" "$study_directory")"
+
+acquisition_status=0
+docker compose run --rm -T app composer acquire -- "$inputs_configuration" > "$study_directory/acquisitions.json" || acquisition_status=$?
+if [ "$acquisition_status" -gt 1 ]; then
+    echo "The acquisition was aborted; see the messages above. Nothing was signed." >&2
+    exit "$acquisition_status"
+fi
+
+image_id="$(docker image inspect --format '{{.Id}}' "pdf-signing-qualification:${PDF_SIGNER_REVISION:+pdf-signer-}${PDF_SIGNER_REVISION:-local}")"
+
+while read -r label implementation role; do
+    echo "Run $label: $implementation, $role" >&2
+    if ! $pinned run --rm -T sandbox bin/check-host-controls "$study_directory" "$label" < /dev/null; then
+        echo "The session stopped before $label; the runs before it are in $study_directory." >&2
+        exit 1
+    fi
+    run_directory="$study_directory/run-$timestamp-$label"
+    mkdir "$run_directory"
+    cp "$study_directory/acquisitions.json" "$run_directory/acquisitions.json"
+    $pinned run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$implementation" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" > /dev/null < /dev/null
+    $pinned run --rm -T sandbox bin/measure-reference "$study_directory" "$label" < /dev/null
+done <<PLAN
+$plan
+PLAN
+
+analysis_status=0
+docker compose run --rm -T sandbox bin/analyze-performance "$study_directory/analysis" "$study_directory" || analysis_status=$?
+
+echo "Results written to $study_directory" >&2
+exit "$analysis_status"

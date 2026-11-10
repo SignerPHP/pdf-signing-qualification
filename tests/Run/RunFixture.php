@@ -25,6 +25,9 @@ final class RunFixture
     /** @var list<array> */
     private array $baselines = [];
 
+    /** @var list<array>|null */
+    private ?array $measurements = null;
+
     /** @var array<string, list<string>> */
     private array $strata = [];
 
@@ -234,9 +237,47 @@ final class RunFixture
         return $this;
     }
 
+    public function measured(string $sourceId, float $wallTimeSeconds, float $cpuUserSeconds, float $cpuSystemSeconds, int $peakMemoryBytes): self
+    {
+        $attempt = array_values(array_filter($this->attempts, fn (array $attempt): bool => $attempt['id'] === $this->attemptId($sourceId)))[0];
+        $this->measurements ??= [];
+        $this->measurements[] = [
+            'schema' => SchemaValidator::SCHEMA_PREFIX.'v2/measurement.schema.json',
+            'attempt_id' => $attempt['id'],
+            'boundary' => 'process_tree',
+            'instrumented' => false,
+            'execution_outcome' => $attempt['execution']['outcome'],
+            'metrics' => [
+                'wall_time_seconds' => ['status' => 'available', 'value' => $wallTimeSeconds],
+                'cpu_user_seconds' => ['status' => 'available', 'value' => $cpuUserSeconds],
+                'cpu_system_seconds' => ['status' => 'available', 'value' => $cpuSystemSeconds],
+                'peak_memory_bytes' => ['status' => 'available', 'value' => $peakMemoryBytes],
+            ],
+        ];
+
+        return $this;
+    }
+
+    public function unmeasured(string $sourceId, string $reason): self
+    {
+        $attempt = array_values(array_filter($this->attempts, fn (array $attempt): bool => $attempt['id'] === $this->attemptId($sourceId)))[0];
+        $unavailable = ['status' => 'unavailable', 'reason' => $reason];
+        $this->measurements ??= [];
+        $this->measurements[] = [
+            'schema' => SchemaValidator::SCHEMA_PREFIX.'v2/measurement.schema.json',
+            'attempt_id' => $attempt['id'],
+            'boundary' => 'process_tree',
+            'instrumented' => false,
+            'execution_outcome' => $attempt['execution']['outcome'],
+            'metrics' => ['wall_time_seconds' => $unavailable, 'cpu_user_seconds' => $unavailable, 'cpu_system_seconds' => $unavailable, 'peak_memory_bytes' => $unavailable],
+        ];
+
+        return $this;
+    }
+
     public function records(): RunRecords
     {
-        return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions, $this->baselines);
+        return new RunRecords($this->run, $this->attempts, $this->observations, $this->regressions, $this->baselines, $this->measurements);
     }
 
     private function regressionCase(string $caseId, ?string $attemptId, string $condition, string $definitionContent = ''): self
@@ -261,6 +302,9 @@ final class RunFixture
         file_put_contents($directory.'/baselines.json', $encode($this->baselines));
         if ($this->regressions !== null) {
             file_put_contents($directory.'/regressions.json', $encode($this->regressions));
+        }
+        if ($this->measurements !== null) {
+            file_put_contents($directory.'/measurements.json', $encode($this->measurements));
         }
         $run = $this->run;
         if ($this->strata !== []) {

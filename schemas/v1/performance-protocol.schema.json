@@ -1,0 +1,90 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/performance-protocol.schema.json",
+    "title": "Performance protocol, version 1",
+    "description": "The protocol of the paired performance study, fixed before a measured session: the implementations, the panel, the host controls, the repetitions, the seed of the execution order, the fixed-cost reference, the eligibility rule and the statistics.",
+    "type": "object",
+    "required": ["schema", "implementations", "panel", "host", "seed", "calibration_runs", "warm_up_runs", "measured_runs", "reference", "eligibility", "quantiles", "bootstrap", "repeatability_tolerance"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/performance-protocol.schema.json" },
+        "implementations": {
+            "description": "The two implementations compared; ratios are the first over the second.",
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/identifier" },
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true
+        },
+        "panel": {
+            "type": "object",
+            "required": ["inputs_configuration", "expected_rejections"],
+            "additionalProperties": false,
+            "properties": {
+                "inputs_configuration": { "$ref": "common.schema.json#/$defs/relativePath" },
+                "expected_rejections": { "$ref": "common.schema.json#/$defs/relativePath" }
+            }
+        },
+        "host": {
+            "description": "The controls every run of a session must find in place before it starts.",
+            "type": "object",
+            "required": ["cpus", "scaling_governor", "boost"],
+            "additionalProperties": false,
+            "properties": {
+                "cpus": {
+                    "description": "The CPUs the sandbox is pinned to, in the cpuset list format.",
+                    "type": "string",
+                    "pattern": "^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$"
+                },
+                "scaling_governor": { "$ref": "common.schema.json#/$defs/identifier" },
+                "boost": { "enum": ["enabled", "disabled"] }
+            }
+        },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "calibration_runs": { "type": "integer", "minimum": 2 },
+        "warm_up_runs": { "type": "integer", "minimum": 0 },
+        "measured_runs": { "type": "integer", "minimum": 2 },
+        "reference": {
+            "description": "The fixed-cost reference: a minimal synthetic document signed a number of times after every run.",
+            "type": "object",
+            "required": ["generator", "sha256", "byte_size", "repetitions"],
+            "additionalProperties": false,
+            "properties": {
+                "generator": {
+                    "allOf": [
+                        { "$ref": "common.schema.json#/$defs/relativePath" },
+                        { "pattern": "^tests/Fixtures/Synthetic/[A-Za-z0-9]+\\.php$" }
+                    ]
+                },
+                "sha256": { "$ref": "common.schema.json#/$defs/sha256" },
+                "byte_size": { "type": "integer", "minimum": 1 },
+                "repetitions": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "eligibility": {
+            "description": "The rule an input meets to enter the paired analysis, stated before the session.",
+            "$ref": "common.schema.json#/$defs/nonEmptyString"
+        },
+        "quantiles": {
+            "type": "array",
+            "items": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+        },
+        "bootstrap": {
+            "type": "object",
+            "required": ["resamples", "confidence"],
+            "additionalProperties": false,
+            "properties": {
+                "resamples": { "type": "integer", "minimum": 100 },
+                "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+            }
+        },
+        "repeatability_tolerance": {
+            "description": "The largest relative change between two sessions of a median or of the median paired ratio that still counts as a repetition of the result.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+        }
+    }
+}

@@ -1,0 +1,40 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Performance\Protocol;
+use SignerPHP\PdfSigningQualification\Signing\Implementations;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) !== 3 || array_filter($arguments, static fn (string $argument): bool => str_starts_with($argument, '-')) !== []) {
+    fwrite(STDERR, "Usage: plan-performance <protocol> <calibration|session-number> <study-directory>\n");
+    exit(2);
+}
+[$protocolPath, $session, $studyDirectory] = $arguments;
+$studyDirectory = rtrim($studyDirectory, '/');
+
+try {
+    $protocol = Protocol::fromFile($protocolPath);
+    foreach ($protocol->implementations() as $implementationId) {
+        Implementations::select($implementationId);
+    }
+    if (! is_dir($studyDirectory) || file_exists($studyDirectory.'/study.json') || file_exists($studyDirectory.'/protocol.json')) {
+        throw new RuntimeException("{$studyDirectory} must be an existing directory without a study.json or protocol.json");
+    }
+    $study = $protocol->study(basename($studyDirectory), $session, (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z'));
+    $json = json_encode($study, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+    if (file_put_contents($studyDirectory.'/protocol.json', $protocol->contents) !== strlen($protocol->contents)
+        || file_put_contents($studyDirectory.'/study.json', $json) !== strlen($json)) {
+        throw new RuntimeException("Unable to write the study plan into {$studyDirectory}");
+    }
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+foreach ($study['runs'] as $run) {
+    echo "{$run['label']} {$run['implementation_id']} {$run['role']}\n";
+}

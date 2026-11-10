@@ -7,7 +7,6 @@ namespace SignerPHP\PdfSigningQualification\Run;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
-use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class RunReport
 {
@@ -66,7 +65,7 @@ final class RunReport
             $observationsByAttempt[$observation['attempt_id']][] = $observation;
         }
         $analyzerIds = array_column($records->run['analyzers'], 'id');
-        $strata = self::strata();
+        $strata = SourceConfiguration::strata();
         $attemptsByStratum = array_fill_keys($strata, []);
         foreach ($records->attempts as $attempt) {
             foreach ($inputsById[$attempt['input']['source_id']]->strata as $stratum) {
@@ -107,16 +106,6 @@ final class RunReport
     }
 
     /**
-     * @return list<string>
-     */
-    public static function strata(): array
-    {
-        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v2/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
-
-        return array_values(array_column($schema['$defs']['stratum']['oneOf'], 'const'));
-    }
-
-    /**
      * @param  list<array>  $attempts
      * @param  array<string, Input>  $inputsById
      */
@@ -140,6 +129,9 @@ final class RunReport
     {
         if ($selection === 'failure_enriched') {
             return ['**This sample is failure-enriched, so no count or share in this report is a compatibility rate.** Its inputs were chosen for the defects and edge cases they hold, not to stand for the documents found in practice.', ''];
+        }
+        if ($selection === 'stratified') {
+            return ['**This sample is stratified, so a share in this report holds for one stratum of its pool of candidates, not for the whole pool nor for PDFs in general.** Its inputs were drawn by a quota per stratum, so rare strata weigh more here than in the pool.', ''];
         }
 
         return ['The source configuration declares this sample representative of the documents found in practice.', ''];

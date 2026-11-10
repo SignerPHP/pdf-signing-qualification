@@ -1,0 +1,10 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/expected-rejections.schema.json",
+    "rejections": [
+        {
+            "source_id": "qpdf:qpdf/qtest/qpdf/enc-XI-long-password.pdf",
+            "scenario_id": "basic-invisible-sha256",
+            "reason": "AES-256 with a 130-character user password that the qpdf test suite passes to it; the scenario gives the signer no password, so the document cannot be opened"
+        }
+    ]
+}

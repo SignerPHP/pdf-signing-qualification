@@ -65,6 +65,11 @@ final class RunReportTest extends TestCase
             '| `incremental` | 1 | 0 | 0 | 0 | 0 | 1 |',
             '| `signed` | 1 | 0 | 0 | 0 | 0 | 1 |',
             '| `malformed` | 3 | 0 | 0 | 1 | 2 | 0 |',
+            '| `forms` | 0 | 0 | 0 | 0 | 0 | 0 |',
+            '| `legacy` | 0 | 0 | 0 | 0 | 0 | 0 |',
+            '| `large` | 0 | 0 | 0 | 0 | 0 | 0 |',
+            '| `timestamped` | 0 | 0 | 0 | 0 | 0 | 0 |',
+            '| `revocation` | 0 | 0 | 0 | 0 | 0 | 0 |',
             '| All inputs | 9 | 1 | 1 | 1 | 2 | 4 |',
         ])."\n", $report);
         self::assertStringContainsString('Strata overlap: an input usually belongs to several strata, so the rows of a table do not add up to its last row.', $report);
@@ -207,6 +212,14 @@ final class RunReportTest extends TestCase
 
         self::assertStringNotContainsString('failure-enriched', $report);
         self::assertStringContainsString('The source configuration declares this sample representative of the documents found in practice.', $report);
+    }
+
+    public function test_stratified_sample_is_reported_per_stratum_only(): void
+    {
+        $report = $this->report(self::fixture()->selection('stratified'));
+
+        self::assertStringNotContainsString('failure-enriched, so', $report);
+        self::assertStringContainsString('**This sample is stratified, so a share in this report holds for one stratum of its pool of candidates, not for the whole pool nor for PDFs in general.** Its inputs were drawn by a quota per stratum, so rare strata weigh more here than in the pool.', $report);
     }
 
     public function test_regression_cases_are_left_out_of_the_counts(): void

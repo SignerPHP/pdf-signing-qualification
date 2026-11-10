@@ -1,0 +1,1564 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json",
+    "selection": "stratified",
+    "sources": [
+        {
+            "id": "qpdf",
+            "url": "https://github.com/qpdf/qpdf",
+            "revision": {
+                "kind": "commit",
+                "value": "4eba95899886e851cc41d76886483b347612f2a8"
+            },
+            "file_url": "https://raw.githubusercontent.com/qpdf/qpdf/{revision}/{path}",
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://github.com/qpdf/qpdf/blob/4eba95899886e851cc41d76886483b347612f2a8/LICENSE.txt"
+            }
+        },
+        {
+            "id": "verapdf-corpus",
+            "url": "https://github.com/veraPDF/veraPDF-corpus",
+            "revision": {
+                "kind": "commit",
+                "value": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+            },
+            "file_url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/{revision}/{path}",
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            }
+        },
+        {
+            "id": "pyhanko",
+            "url": "https://github.com/MatthiasValvekens/pyHanko",
+            "revision": {
+                "kind": "commit",
+                "value": "0a9f7977343f4cc9d5926314b5a2d180028e58a0"
+            },
+            "file_url": "https://raw.githubusercontent.com/MatthiasValvekens/pyHanko/{revision}/{path}",
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "source": "qpdf",
+            "path": "compare-for-test/qtest/compare/diff-data-enc.pdf",
+            "sha256": "287224ca68b74751cfbaa15aa43aa012d97d85d308f33dc7472e7992e05462b0",
+            "byte_size": 1519,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "compare-for-test/qtest/compare/enc2.pdf",
+            "sha256": "a2e9678dc1b2a192741f7c9da2c567bba61418a637a25bb88456d709138ac338",
+            "byte_size": 1519,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "compare-for-test/qtest/compare/ostream1.pdf",
+            "sha256": "dc58232f88627f5a5507cd062477aa2d54e756703403e96a112057505ec19914",
+            "byte_size": 833,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "compare-for-test/qtest/compare/start.pdf",
+            "sha256": "7b3657dbc80f97b2ae097fd12b9b66df5ab56f56f5a10e173f7fa22f29bfd5a6",
+            "byte_size": 877,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "examples/qtest/set-form-values/form-out.pdf",
+            "sha256": "ba0ac8db2b09ca67d5e7ecbae3be3db576ad79fe1847462a7fe134e0c9407d44",
+            "byte_size": 32259,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/V4.pdf",
+            "sha256": "d82598d67a99b412c19f3a841a23b69bb74c4e4db716ed21f4f61b90ee7d05e7",
+            "byte_size": 14781,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/appearances-quack.pdf",
+            "sha256": "9aaf3e13d6172173dc2a2f4602ca9efece0ec16371b1c48e21965f988fa65f4f",
+            "byte_size": 69330,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-content.pdf",
+            "sha256": "e1a6ebaadd386a0b1e638e3b50c8557da74ebeb1ebb31292fb6b221892a979e0",
+            "byte_size": 135172,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "encrypted",
+                "signed",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad-direct-root.pdf",
+            "sha256": "0d7549c02c38717627deb10d1155c1b513d35036208e77d687597c77d04dc3b4",
+            "byte_size": 284,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad11.pdf",
+            "sha256": "345bdd78fa02d953f58636b211b633da0f0b1dee9124b14a5dbd9b07026ce0d6",
+            "byte_size": 970,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad27.pdf",
+            "sha256": "478916fab51c507800e691f3cb5be436f1f5d3c95f0916849476dc603f40cab5",
+            "byte_size": 778,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad3.pdf",
+            "sha256": "8d8567a3445617d76b04b7185e6c7da7e8bdaa4ee0b1b9f7f1b31d469ae7a863",
+            "byte_size": 751,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/bad4.pdf",
+            "sha256": "d7d2d764156c7c9a08ff6a579ce644402bf6d835ba559c53b5860e218b5044b7",
+            "byte_size": 750,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/badlin1.pdf",
+            "sha256": "236e5197c21f3dd1b032951d205156988b788e4ce1e36d16cd17a1c5781a0799",
+            "byte_size": 13103,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/c-check-warn-in.pdf",
+            "sha256": "e916cf6eecf06586f6dd0ddb567cc384e7de9e4a9023816493b275b1fc44a41b",
+            "byte_size": 764,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/c-r6-in.pdf",
+            "sha256": "b616425b595e376dbbfc19dbb89a66678afd4eb74f85575f667778afa1add892",
+            "byte_size": 11206,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/copy-foreign-objects-in.pdf",
+            "sha256": "9f22565ddeb538808ca7e6584a51af374a1f56fdb72c1aac21b71d08d24a1a66",
+            "byte_size": 4410,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/digitally-signed.pdf",
+            "sha256": "05e969415b03d9782b0b132f147b86cb42eafddf6176aaf2710334a9cc643c3c",
+            "byte_size": 68846,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "signed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/enc-XI-long-password.pdf",
+            "sha256": "ec991b965a89d0bac064641a0f5c3fe354ada22a4dc3da853d7a9ffaf13b6ddc",
+            "byte_size": 10915,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/endobj-at-eol-fixed.pdf",
+            "sha256": "7c34baaec7ccf3076f1669926d56f46c15c3bea018d1f4e03672cb406b9cde7f",
+            "byte_size": 799,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/endobj-at-eol.pdf",
+            "sha256": "52f4946a573552caacd6fb427b4eff84a50255446898ae33453783018d2e6654",
+            "byte_size": 798,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/fields-pages-out.pdf",
+            "sha256": "7fe97c31f592642903c857c7ca738cde84afbb982dc615b159f18b02738e177b",
+            "byte_size": 43173,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/form-fields-and-annotations-shared.pdf",
+            "sha256": "10ff29590d32e1b81c9ac07ccfcc7535314932edf80238817f7ae68e682a28f0",
+            "byte_size": 11607,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/global_damaged.pdf",
+            "sha256": "132ca5c178aca2e580475dfaf38e46b04c8ffc2a471fa505205ce43ba4847989",
+            "byte_size": 827,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good17.pdf",
+            "sha256": "7383ca2c3a1da7c0691e0b8a63ebee3c91b62041ee5a3433a69e721b6c48f190",
+            "byte_size": 17031,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "hybrid",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/good18.pdf",
+            "sha256": "e6ea41e27e7ebbb0d89472e698d0cb16beefff768a584ea144ae650f8c4bbaa7",
+            "byte_size": 16642,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "hybrid",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/hybrid-xref.pdf",
+            "sha256": "df1ae8b9cb2378aaeda6fdc11146dd37328737fd050941390d2c6bd188eea0e4",
+            "byte_size": 16902,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "hybrid",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/image-streams.pdf",
+            "sha256": "d84a925580d8d336619d819edc5cdbf0fedcc9a87f64d145bca38411df0c69f1",
+            "byte_size": 2970696,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "large"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/incremental-3.pdf",
+            "sha256": "f40a2393e3272a2e037af195570f2339561e1285038cdb501d6881b75c6c7291",
+            "byte_size": 944,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "incremental"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/inline-images-ii-all.pdf",
+            "sha256": "db9ea8fe6343237cbab9a1c752f653540bc471e6cfe139e76ba90a13f9c1c66f",
+            "byte_size": 8832900,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "legacy",
+                "large"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/inline-images-ii-some.pdf",
+            "sha256": "596b0dc6f9c0aa280cc7f10606ec6101a159f4748d893e999ef85f292d9e3b64",
+            "byte_size": 7966862,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "legacy",
+                "large"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/inline-images.pdf",
+            "sha256": "8ae2fc89f4edd5579c2b05a2b9678388b29515143252ac40f6ec97eb7d97e1df",
+            "byte_size": 300684,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "legacy"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/invalid-id-xref.pdf",
+            "sha256": "3ba3e9d562acd30caa668bab1e6bd80d2477baf128cafaeb0196a03519700954",
+            "byte_size": 969,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/large-inline-image-ii-all.pdf",
+            "sha256": "2b517b44e3f0bf86a3eae25a17d60e3d99d675c5edb7cafd9bd4e9b70db21714",
+            "byte_size": 2442597,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "large"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/large-inline-image-ii-some.pdf",
+            "sha256": "a00fe5ecdf028de7a6494c075cd732e3c30e67601648695974bc7eb7aca1c933",
+            "byte_size": 2442329,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "large"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/minimal-signed-restricted.pdf",
+            "sha256": "60027d4631455ef6e4c6dd55360d6db91257031145105262d27db69d3f1ef086",
+            "byte_size": 135790,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "encrypted",
+                "signed",
+                "revocation"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/name-pound-images.pdf",
+            "sha256": "3b04f40397cf52a2d31de91f25f66febe20aaf944a146246123e978ad801e4ba",
+            "byte_size": 82024,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "legacy"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/name-tree.pdf",
+            "sha256": "b85e9442f89c69f9a9a561b588e3f08c4b0b17b43ba48acfef556aaae41f3374",
+            "byte_size": 4059,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/newline-before-endstream-nl-objstm.pdf",
+            "sha256": "e7d9d66532658a5b82c69caac746d7f645ae6c5bbf783351d81daccd2a801a17",
+            "byte_size": 1730,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/obj0.pdf",
+            "sha256": "9408227f3c62f25bb6811fcb4a2ea1d46d11c664143ca74b21c25bd2061b1a42",
+            "byte_size": 859,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/object-stream.pdf",
+            "sha256": "7e895514a76bff9c9bb699a14275735c9f5c61415fda7acc1e3e80d3003bc730",
+            "byte_size": 792,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/overlay-copy-annotations.pdf",
+            "sha256": "bbaef4be610a92c49017ddb5554107e09e80b81cfdda1dcb2fa161fb62a326ae",
+            "byte_size": 140474,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/override-compressed-object.pdf",
+            "sha256": "bcb8ebd65256c5ee7dca24c41a3c76b85dfd668478d3b7cd6108e00496dbe5ef",
+            "byte_size": 1817,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/pound-in-name.pdf",
+            "sha256": "e83c22921e1f4e484052a0574e272fc2f709dbf19dcac0f230649c98c9239c8c",
+            "byte_size": 944,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "legacy"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/recover-xref-stream.pdf",
+            "sha256": "9a78166f8d25c467ac45a39113728043c2a1595e74a39bb697d29565a0e5b2ac",
+            "byte_size": 3817,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental",
+                "malformed"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/resolved-appearance-conflicts.pdf",
+            "sha256": "eba1177cff528d9ef3f040f9c2a73d88a697161c09151ff7ead7319924bc723d",
+            "byte_size": 8336,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/resolved-field-conflicts.pdf",
+            "sha256": "4abf5dd9c40fb000da5786aa58d81e9af067817d8e9bf95506a570f4033b4608",
+            "byte_size": 35422,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/resource-from-dr.pdf",
+            "sha256": "a277b1b65e9bf69b2afb9a6bb79eb867383f77dd0eaff63d9da5c0652f1c8d97",
+            "byte_size": 68902,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "qpdf",
+            "path": "qpdf/qtest/qpdf/unfilterable-with-crypt.pdf",
+            "sha256": "8c3bb2177b76d8340797e9d16469d083dfdacc45492a81241de6a9bb6df894c7",
+            "byte_size": 17868,
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t03-pass-a.pdf",
+            "sha256": "279b932fe0d6d5ed16b32c66facb49bf0d88149aa301a6ada46618a822f38fc7",
+            "byte_size": 9573,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-1b/6.7 Metadata/6.7.2 Properties/veraPDF test suite 6-7-2-t08-fail-d.pdf",
+            "sha256": "513a9280da0a5c53accf56a16f1acfdf447c02405fe02e4c1e92d99b4cff409b",
+            "byte_size": 3663,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2a/6.7 Logical structure/6.7.4 Natural language specification/veraPDF test suite 6-7-4-t01-pass-c.pdf",
+            "sha256": "776258d37588dfe8bca1d6a7fe3f2d3f3bfdb07171cfd13ea747a46a4949a4fa",
+            "byte_size": 18078,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-fail-b.pdf",
+            "sha256": "59e893264a514507f853d51ac4f30146175955301853bc8e73e3c7d31c8574eb",
+            "byte_size": 11519,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "signed"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.12 Permissions/veraPDF test suite 6-1-12-t02-pass-a.pdf",
+            "sha256": "072b4eb93c38ab1f50875b4163719ede16ee93def87ad32290a599ce52f92017",
+            "byte_size": 11516,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "signed"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf",
+            "sha256": "4a623b3cc87bd545f5952a07e841bde22e16759cf3cfcfed13ffce30cfee10b7",
+            "byte_size": 4159,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t02-fail-a.pdf",
+            "sha256": "313a4e8de7da8d1829b263647f13ad5f8df5678c265a491e13cc4dfe6458ca1f",
+            "byte_size": 62251,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-f.pdf",
+            "sha256": "113a669918385b1d95187884d1de459f4f3476d5d5fbe672f6253699aa3011ec",
+            "byte_size": 7845,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-2b/6.5 Action/6.5.1 General/veraPDF test suite 6-5-1-t01-fail-e.pdf",
+            "sha256": "ca6d29d1477cb692553bb09f55fd9023833b886a74582a5d469d0ecf2ad60298",
+            "byte_size": 5372,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.1 File structure/6.1.11 Permissions/veraPDF test suite 6-1-11-t01-pass-a.pdf",
+            "sha256": "0f9d20855519c455802a8d85e6b5afac9ec65719421a02973977e3447cba3419",
+            "byte_size": 7207,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "signed"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t02-pass-c.pdf",
+            "sha256": "8b0b6003736dea360a0818fbed3f55cd2d6a08985472abb1742efa951d7ded9b",
+            "byte_size": 9767,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-c.pdf",
+            "sha256": "556f874230f47d31360e50a3138519ee4de222597f89cab18be246a931984e1c",
+            "byte_size": 378674,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.3 Annotations/6.3.1 Annotation types/veraPDF test suite 6-3-1-t01-fail-d.pdf",
+            "sha256": "996fa50216f6414aba34da768f5edf3008e8b697efd72f01df4416fba83a5166",
+            "byte_size": 91808,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.3 Annotations/6.3.1 Annotation types/veraPDF test suite 6-3-1-t01-fail-e.pdf",
+            "sha256": "77e423613137e67e559809bc538523b54ce0140c837d7abdf74732b9ba967dbd",
+            "byte_size": 10873228,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.3 Annotations/6.3.2 Annotation dictionaries/veraPDF test suite 6-3-2-t02-fail-b.pdf",
+            "sha256": "7df7af61b51b3d88e79ecd7f26a74e598dd6b11394694b1f597533e625d17847",
+            "byte_size": 3815,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.3 Annotations/6.3.3 Annotation appearances/veraPDF test suite 6-3-3-t02-pass-b.pdf",
+            "sha256": "9a91e8724c8428da2898251d60822b9c822a0e76a4fed80b170543e2fb1ef9ed",
+            "byte_size": 6123,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.4 Interactive forms/6.4.1 General/veraPDF test suite 6-4-1-t01-fail-a.pdf",
+            "sha256": "5babb722906ecf885b6ede1db594ea10cd7933aed1440b5d36c130bfbe40ece2",
+            "byte_size": 5385,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4/6.6 Action/6.6.1 General/veraPDF test suite 6-6-1-t01-fail-i.pdf",
+            "sha256": "90f6b76aeac997bfbd41310e9de771b6ee756fcfe9b51465b70ec4c884f6f01f",
+            "byte_size": 10765,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "forms"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4e/6.3 Annotations/6.3.1 Annotation types/veraPDF test suite 6-3-1-t01-pass-b.pdf",
+            "sha256": "e19e4602b35fdd1f35e3e81aa6471174f60161216f73b8b963f094fde2a1c17a",
+            "byte_size": 5436367,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4e/6.3 Annotations/6.3.1 Annotation types/veraPDF test suite 6-3-1-t01-pass-d.pdf",
+            "sha256": "9f3af0b42fc395be1fcd80499bf7cb6214488a512dbbd0b4ae604cd03ea6518c",
+            "byte_size": 10873240,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_A-4e/6.3 Annotations/6.3.2 Annotation dictionaries/veraPDF test suite 6-3-2-t01-fail-b.pdf",
+            "sha256": "e2516a8eae2426218c82f7f64c61dddca23a9caf35247255fcf51dcfc16822c2",
+            "byte_size": 10873236,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.1 General/7.1-t09-fail-a.pdf",
+            "sha256": "ed7723d771024aeda98ee59a8c71362166ff706e64a9ad9b6affa9b07ef09355",
+            "byte_size": 26129,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "incremental"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf",
+            "sha256": "80cca3eb633c48ca14e279f0b5035cc6c0de93b472fa75b22fe2ded2bce8f802",
+            "byte_size": 23383,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.18 Annotations/7.18.1 General/7.18.1-t02-pass-h.pdf",
+            "sha256": "d39c58600f04eb80684ee007bf679d3d1a918c1605a7335ecfef4343c3823bc5",
+            "byte_size": 1475131,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.18 Annotations/7.18.7 File Attachments/7.18.7-t01-fail-d.pdf",
+            "sha256": "46edbf75750542cace5280c86d67a45ed716ac2730d60a5d07572c5939aa6f54",
+            "byte_size": 106067,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t03-pass-b.pdf",
+            "sha256": "cb58116ebca262e41cbc467a95340d681f490856dae142948676c44589051fb9",
+            "byte_size": 40251,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "incremental"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t07-fail-a.pdf",
+            "sha256": "b80533de2069b4ff5add28296115a51cf9849c26877bba44b5baf145b4e7ee63",
+            "byte_size": 30419,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t25-fail-a.pdf",
+            "sha256": "9670752b15f4a1363bc265cf5bd6791094cb2a35aaebeb17b208b2884a67f457",
+            "byte_size": 2640198,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "forms",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t25-pass-a.pdf",
+            "sha256": "4fd4e18eb9d2a95e76f0f370fbffa5b7b60a5b701d0057c5c27969d096fd11a4",
+            "byte_size": 2640176,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "forms",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.2 Text/7.2-t25-pass-b.pdf",
+            "sha256": "551eb2432a65c879efc70e7911cc57892b5035255cbd4ab5ff5e1360dc163a81",
+            "byte_size": 2664191,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "forms",
+                "large"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.1 General/7.21.3.1-t01-fail-a.pdf",
+            "sha256": "70406609aaadd2fae8a9bb02aef24609b703661a2918f217e8158d90fea13268",
+            "byte_size": 60224,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.3 CMaps/7.21.3.3-t01-fail-a.pdf",
+            "sha256": "af7a228a1c68556ff2e77ba14657d094fb01bbbf3a71fb93c6c6516f94a463cf",
+            "byte_size": 60014,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.21 Fonts/7.21.7 Unicode character maps/7.21.7-t02-fail-c.pdf",
+            "sha256": "087eb396f97371cc047e5b0b3d8932262995201586d2005b924ab466a744d47d",
+            "byte_size": 26044,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "classic",
+                "incremental"
+            ]
+        },
+        {
+            "source": "verapdf-corpus",
+            "path": "PDF_UA-1/7.4 Headings/7.4.4 Unnumbered headings/7.4.4-t02-pass-a.pdf",
+            "sha256": "ea1d258cd5356209de7cdb522bb7d8fb96e22b432395ede03bc5f437c9cc5556",
+            "byte_size": 33643,
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/coverage-anomalies/weird-byterange.pdf",
+            "sha256": "d1868dc15529973047309b7cc477675cf3923b0f3906272073275d7ba77970ef",
+            "byte_size": 7486,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/ed448-shake256-nolen.pdf",
+            "sha256": "bac219bc36b370c8c2f340d8c44232ef4f21200cb8ce6669f63837e85e964537",
+            "byte_size": 10490,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/extensions-indirect.pdf",
+            "sha256": "9e839295e5bd2d79da4183cc599fc2791bc699b142241e9df5ad900da1b19934",
+            "byte_size": 25221,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/form-update-override-appearance-stream-ap-indirect-sneaky.pdf",
+            "sha256": "b7ac270c96e4c87f4cff1292b6ce798f1e7a2b83136fc0882c3a552d04822868",
+            "byte_size": 28316,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/form-update-override-appearance-stream.pdf",
+            "sha256": "c523cc46f57f113f79fff8a95b4d446622671a798c6e748491f38193a822bbc1",
+            "byte_size": 28266,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-aes256-malformed-perms.pdf",
+            "sha256": "d61d85ba9900676d56be63a11da5c936f5d58cbd2ab202b67b0a3532366a618d",
+            "byte_size": 1403,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-aes256.pdf",
+            "sha256": "eda8c19fae7b63e715f0936d0359b698bc81ab69107e159507842f08dce8b69a",
+            "byte_size": 1403,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-hybrid-xref-mswordstyle.pdf",
+            "sha256": "29dd43dae03397973f9c17c7a19338b683d85552bac0ec54a64b4e9909d9156d",
+            "byte_size": 970,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "hybrid",
+                "incremental"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-hybrid-xref-weirdgen.pdf",
+            "sha256": "5174af9b604cebe0685a6e6c0b40ecd115f953dced09d1ba2846e7aced706253",
+            "byte_size": 1089,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "hybrid",
+                "incremental"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-hybrid-xref.pdf",
+            "sha256": "e48dcffaadac2573107d40364f707f48999c1376935cdddab04a893a1d644d75",
+            "byte_size": 1089,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "hybrid",
+                "incremental"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-signed-twice-both-created.pdf",
+            "sha256": "2ef1b801c4d168d0deb5904f5d272e64e2f080c9273e92d8803272fd9d1721c9",
+            "byte_size": 107981,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental",
+                "signed",
+                "timestamped"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-signed-twice-second-created.pdf",
+            "sha256": "e495f94833076bc28a09fd8e18e5febc90ab1a4674846cb1e87e476b6ecb4fc4",
+            "byte_size": 109918,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental",
+                "signed",
+                "timestamped"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-startxref-hopeless.pdf",
+            "sha256": "f49c09ca82c095dc49f65810d77c02f01ac756e0b381de3da49d439e32a734c4",
+            "byte_size": 739,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-startxref-hopeless3.pdf",
+            "sha256": "73c6cf9c9e34fd0e18a845d57a9eac7077916d2b569f2e0499a158ad05b17a9d",
+            "byte_size": 740,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-startxref-obo2.pdf",
+            "sha256": "7496494a07bafe30b8df1e702fdcf1d80d595ac2626ee2bf9b71693592289c96",
+            "byte_size": 739,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-startxref-obo4.pdf",
+            "sha256": "10baddaf7df97c0f558f944b5c637ed25ca1d4f4967c1c9a7f9e953d18d08274",
+            "byte_size": 707,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-startxref-obo6.pdf",
+            "sha256": "51aad10d13cd0512757b728b22e6b8a15bd083553978d3e7df4a4c7dfa9a02e5",
+            "byte_size": 707,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "none",
+                "malformed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-two-fields-aes256.pdf",
+            "sha256": "f2e652ce919ecb3a742c92e00466327867820df2acd8aebcd33bb9bf9d1bfa96",
+            "byte_size": 1848,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "encrypted"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/minimal-two-fields-signed-twice.pdf",
+            "sha256": "9aad3553e8ffdf0674eef661a9418089093cb98aa0fd1940bde87bf09a1a36af",
+            "byte_size": 50827,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "stream",
+                "objstm",
+                "incremental",
+                "signed",
+                "timestamped"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/pades-lta-dss-indirect-arrs-test-2.pdf",
+            "sha256": "cdec93477e9c452328096e915055cc1ea9e5a8039a83b6f4fdd117f3e5f8a93f",
+            "byte_size": 72472,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed",
+                "timestamped",
+                "revocation"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/pades-lta-dss-indirect-arrs-test.pdf",
+            "sha256": "30fe330df187588d204519e0eff373de50a10c0fac08483368ccfc7420c1c1e4",
+            "byte_size": 46884,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed",
+                "timestamped",
+                "revocation"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/separate-annots-kids-indir.pdf",
+            "sha256": "864b5b778f0b392989931e3eeeff3c9526c3c79ce4b1a1dc369058c69d5a839e",
+            "byte_size": 27794,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "incremental",
+                "signed"
+            ]
+        },
+        {
+            "source": "pyhanko",
+            "path": "internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/xref-malformed-prev.pdf",
+            "sha256": "87f0718d82a6cb7d8951c5f60878a779ac43acfd579638f158ad61e427a6d8ec",
+            "byte_size": 143,
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "strata": [
+                "classic",
+                "malformed"
+            ]
+        }
+    ]
+}

@@ -87,8 +87,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "signed",
-                "incremental"
+                "signed"
             ]
         },
         {
@@ -103,7 +102,8 @@
             "strata": [
                 "classic",
                 "encrypted",
-                "signed"
+                "signed",
+                "revocation"
             ]
         },
         {
@@ -118,8 +118,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "encrypted",
-                "incremental"
+                "encrypted"
             ]
         },
         {
@@ -147,8 +146,7 @@
             },
             "strata": [
                 "classic",
-                "encrypted",
-                "incremental"
+                "encrypted"
             ]
         },
         {
@@ -343,8 +341,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "encrypted",
-                "incremental"
+                "encrypted"
             ]
         },
         {
@@ -359,8 +356,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "encrypted",
-                "incremental"
+                "encrypted"
             ]
         },
         {
@@ -403,8 +399,7 @@
             "strata": [
                 "stream",
                 "objstm",
-                "signed",
-                "incremental"
+                "signed"
             ]
         },
         {

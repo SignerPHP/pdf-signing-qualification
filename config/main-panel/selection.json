@@ -1,0 +1,136 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-selection.schema.json",
+    "seed": "main-panel-1",
+    "quota_per_stratum": 12,
+    "large": {
+        "byte_size": 2097152,
+        "page_count": 1000
+    },
+    "sources": [
+        {
+            "id": "qpdf",
+            "url": "https://github.com/qpdf/qpdf",
+            "revision": {
+                "kind": "commit",
+                "value": "4eba95899886e851cc41d76886483b347612f2a8"
+            },
+            "file_url": "https://raw.githubusercontent.com/qpdf/qpdf/{revision}/{path}",
+            "license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://github.com/qpdf/qpdf/blob/4eba95899886e851cc41d76886483b347612f2a8/LICENSE.txt"
+            },
+            "listing_url": "https://api.github.com/repos/qpdf/qpdf/git/trees/{revision}?recursive=1",
+            "document_license": {
+                "expression": "Apache-2.0",
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+            },
+            "include": ["*.pdf"],
+            "exclude": [
+                {
+                    "pattern": "qpdf/qtest/qpdf/short-O-U.pdf",
+                    "reason": "The test suite says it copies the encryption parameters of a file that was sent privately"
+                },
+                {
+                    "pattern": "*/issue-*.pdf",
+                    "reason": "Reproduces a bug report, so it may derive from a file a reporter attached rather than one written by the qpdf maintainers"
+                },
+                {
+                    "pattern": "*/fuzz-*.pdf",
+                    "reason": "Produced by a fuzzer from inputs whose origin is not recorded"
+                }
+            ]
+        },
+        {
+            "id": "verapdf-corpus",
+            "url": "https://github.com/veraPDF/veraPDF-corpus",
+            "revision": {
+                "kind": "commit",
+                "value": "bb75f4f0073d9350dfd058c0162a367e6fadf25e"
+            },
+            "file_url": "https://raw.githubusercontent.com/veraPDF/veraPDF-corpus/{revision}/{path}",
+            "license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "listing_url": "https://api.github.com/repos/veraPDF/veraPDF-corpus/git/trees/{revision}?recursive=1",
+            "document_license": {
+                "expression": "CC-BY-4.0",
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+            },
+            "include": ["*.pdf"],
+            "exclude": [
+                {
+                    "pattern": "Isartor test files/*",
+                    "reason": "The Isartor test suite is published by the PDF Association, not by veraPDF, so the corpus README does not establish its license"
+                },
+                {
+                    "pattern": "TWG test files/*",
+                    "reason": "Written by the PDF Association Technical Working Group, not by veraPDF, so the corpus README does not establish their license"
+                }
+            ]
+        },
+        {
+            "id": "pyhanko",
+            "url": "https://github.com/MatthiasValvekens/pyHanko",
+            "revision": {
+                "kind": "commit",
+                "value": "0a9f7977343f4cc9d5926314b5a2d180028e58a0"
+            },
+            "file_url": "https://raw.githubusercontent.com/MatthiasValvekens/pyHanko/{revision}/{path}",
+            "license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "listing_url": "https://api.github.com/repos/MatthiasValvekens/pyHanko/git/trees/{revision}?recursive=1",
+            "document_license": {
+                "expression": "MIT",
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+            },
+            "include": ["internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/*.pdf"],
+            "exclude": [
+                {
+                    "pattern": "*/safedocs/*",
+                    "reason": "Comes from the DARPA SafeDocs project, not from the pyHanko maintainer, so the repository license does not establish its license"
+                },
+                {
+                    "pattern": "*/layout-tests/default-font.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it"
+                },
+                {
+                    "pattern": "*/layout-tests/text-stamp-color.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it"
+                },
+                {
+                    "pattern": "*/malformed-xref-space-padded.pdf",
+                    "reason": "Added by a contributor rather than the maintainer, so only the repository license covers it"
+                }
+            ]
+        }
+    ],
+    "rejected_sources": [
+        {
+            "url": "https://github.com/mozilla/pdf.js",
+            "reason": "The PDFs in test/pdfs come from bug reports and other projects, and none has an established license"
+        },
+        {
+            "url": "https://gitlab.freedesktop.org/poppler/test",
+            "reason": "Its COPYING (GPL-2.0) covers the test programs; the PDFs come from bug reports, and no record establishes the license of each document"
+        },
+        {
+            "url": "https://github.com/apache/pdfbox",
+            "reason": "Most test PDFs are attachments of issue reports, so the Apache-2.0 license of the code does not establish theirs"
+        },
+        {
+            "url": "https://github.com/Hopding/pdf-lib",
+            "reason": "The test assets were gathered from many places, and no record establishes the license of each document"
+        },
+        {
+            "url": "https://github.com/esig/dss",
+            "reason": "The PAdES validation samples come from many signers and products, and no record establishes the license of each document"
+        },
+        {
+            "url": "https://github.com/bfosupport/pdfa-testsuite",
+            "reason": "Its PDF/A-2 cases overlap those of the veraPDF corpus, which says it complements this suite, and its CC-BY-3.0 license is not yet on the list of licenses this project accepts"
+        }
+    ]
+}

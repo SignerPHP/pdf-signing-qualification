@@ -17,4 +17,14 @@ final readonly class Source
         public string $fileUrlTemplate,
         public array $license,
     ) {}
+
+    public function fileUrl(string $path): string
+    {
+        $encodedPath = implode('/', array_map(rawurlencode(...), explode('/', $path)));
+
+        return strtr($this->fileUrlTemplate, [
+            '{revision}' => rawurlencode($this->revision['value']),
+            '{path}' => $encodedPath,
+        ]);
+    }
 }

@@ -12,6 +12,17 @@ final class SourceConfiguration
     public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
 
     /**
+     * @return list<string>
+     */
+    public static function strata(): array
+    {
+        /** @var array{'$defs': array{stratum: array{oneOf: list<array{const: string}>}}} $schema */
+        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v2/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
+
+        return array_values(array_column($schema['$defs']['stratum']['oneOf'], 'const'));
+    }
+
+    /**
      * @return list<Input>
      */
     public static function fromFile(string $path): array

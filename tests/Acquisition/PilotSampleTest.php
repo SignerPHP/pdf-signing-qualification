@@ -14,8 +14,6 @@ final class PilotSampleTest extends TestCase
 
     private const string DOCUMENT = __DIR__.'/../../docs/pilot-sample.md';
 
-    private const array FREE_LICENSES = ['Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'CC-BY-4.0', 'CC0-1.0', 'MIT', 'MPL-2.0'];
-
     /**
      * @return list<string>
      */
@@ -57,7 +55,7 @@ final class PilotSampleTest extends TestCase
         $nonFreeLicenses = [];
         foreach (SourceConfiguration::fromFile(self::CONFIGURATION) as $input) {
             foreach (['source' => $input->source->license, 'document' => $input->license] as $scope => $license) {
-                if (! in_array($license['expression'], self::FREE_LICENSES, true)) {
+                if (! in_array($license['expression'], FreeLicenses::EXPRESSIONS, true)) {
                     $nonFreeLicenses[] = "{$input->id()} ({$scope}): {$license['expression']}";
                 }
             }

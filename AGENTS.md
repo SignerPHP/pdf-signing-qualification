@@ -23,7 +23,7 @@ On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 100
 
 ## Running the pilot
 
-`bin/pilot [implementation]` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. The implementation is `pdf-signer` unless another identifier, such as `jsignpdf`, is given; an unknown identifier is refused after the build, before anything is acquired. It writes everything under `var/runs/<run-id>/`:
+`bin/pilot [--panel=pilot|main] [implementation]` is the one command that runs the pilot from a clean checkout, on the host: it builds the image, installs the dependencies, runs `acquire` in `app` and `run-attempts` in `sandbox`, and passes the image id to the latter. The panel is the failure-enriched pilot sample of `config/inputs.json` unless `--panel=main` selects the main panel of `config/main-panel/`, with its own expected rejections; the option comes first. The implementation is `pdf-signer` unless another identifier, such as `jsignpdf`, is given; an unknown identifier is refused after the build, before anything is acquired. It writes everything under `var/runs/<run-id>/`:
 
 | File | Contents |
 | ---- | -------- |
@@ -46,11 +46,12 @@ An aborted acquisition (exit 2) stops it before anything is signed; unavailable 
 
 ## Commands
 
-Commands run as `docker compose run --rm <service> composer <script>`, in `app` for `acquire` and in `sandbox` for the others. `compare-runs` and `report` read results only, so they need neither the network nor the sandbox limits, and run in either.
+Commands run as `docker compose run --rm <service> composer <script>`, in `app` for `acquire` and `select-panel` and in `sandbox` for the others. `compare-runs` and `report` read results only, so they need neither the network nor the sandbox limits, and run in either.
 
 | Script | Purpose |
 | ------ | ------- |
-| `acquire` | Acquire the inputs declared in `config/inputs.json` into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
+| `acquire -- [inputs-configuration] [input-cache]` | Acquire the inputs declared in `config/inputs.json`, or the given configuration, into `var/cache/inputs/`; exits 1 if any is unavailable, 2 if the acquisition was aborted |
+| `select-panel -- [selection-plan] [output-directory] [candidate-cache]` | Draw the main panel from `config/main-panel/selection.json`: list and download every candidate of its pinned sources into `var/cache/candidates/`, record their strata with qpdf, draw the quota of each stratum with the plan's seed and write `inputs.json` and `pool.json` next to the plan; runs in `app`, exits 2 when a listing is truncated or a file does not match its listed object; see [docs/main-panel.md](docs/main-panel.md) |
 | `run-attempts -- [--implementation=<id>] <run-directory> [inputs-configuration] [input-cache] [expected-rejections] [regression-cases]` | Judge every available input whose record is in `<run-directory>/acquisitions.json`, sign it with the implementation (`pdf-signer` by default), validate each output and replay every regression case of `config/regressions/` or of the given directory; the option comes first, another input configuration needs its own expected rejections, because the versioned ones name its undeclared inputs, and it refuses to start for an unknown identifier, any other option, an expected rejection for an undeclared input or scenario, a regression case without a condition check, or unless there is exactly one record per declared input |
 | `compare-runs -- <reference-run> <candidate-run> <comparison-directory>` | Compare two finished run directories: pair their attempts by input and scenario and their regression cases by id, classify each capability, execution outcome, verdict and regression condition as `introduced`, `fixed`, `persistent`, `changed` or `unchanged`, state the differences between the runs, and write `comparison.json` and `comparison.md` to a new directory; exits 1 when the candidate run introduced a failure, 0 when it did not, and 2 when the runs cannot be compared, such as runs with no input in common under the same scenario |
 | `report -- <run-directory>` | Write the coverage and failure report of a finished run to `<run-directory>/report.md` and print it, from the run records and the run's copy of the source configuration only: a coverage matrix by stratum under the run's scenario, each analyzer's verdicts by stratum, the validator disagreements, and the failures grouped by cause and by input source, every table with its denominator; it says when the sample is failure-enriched, and exits 2 for a run it cannot report, such as one without `inputs.json` or whose copy does not match `run.json` |
@@ -64,15 +65,17 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | Path | Contents |
 | ---- | -------- |
 | `bin/` | Command-line entry points |
-| `config/inputs.json` | Versioned source configuration: how the sample was selected, upstream sources, revisions and the inputs selected from them, each with its strata |
+| `config/inputs.json` | Versioned source configuration of the pilot sample: how the sample was selected, upstream sources, revisions and the inputs selected from them, each with its strata |
+| `config/main-panel/` | The main panel: its selection plan (`selection.json`), the source configuration and pool that `select-panel` drew from it (`inputs.json`, `pool.json`) and its expected rejections; see [docs/main-panel.md](docs/main-panel.md) |
 | `config/expected-rejections.json` | Versioned declarations of the inputs expected to be rejected under a scenario, each with its reason, following `expected-rejections.schema.json` |
 | `config/scenarios/` | Versioned scenarios, one per file, following `scenario.schema.json` |
 | `config/regressions/` | Regression cases, one per file, following `regression.schema.json`; see [docs/regressions.md](docs/regressions.md) |
 | `docker/` | Files copied into the image, such as the hashed pyHanko requirements and the JSignPdf signing script |
-| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the [regression cases](docs/regressions.md), the [replays between revisions](docs/replays.md) and the [pilot results](docs/pilot-results.md) |
+| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the population and sampling of the [main panel](docs/main-panel.md), the [regression cases](docs/regressions.md), the [replays between revisions](docs/replays.md) and the [pilot results](docs/pilot-results.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process and, optionally, the command that checks it applies to the installed revision, see the schemas README |
 | `src/Regression/` | Loading of the regression cases, the condition check of each case and their replay within a run |
+| `src/Panel/` | Selection plan of a stratified panel, the strata classifier, the quota draw and the selector that writes the panel and its pool |
 | `src/Run/` | Pilot run over every declared input, its environment record and summary |
 | `src/Validation/` | Validator adapters; each one writes its own observation, see the schemas README |
 | `schemas/` | Versioned JSON Schemas for input sources, acquisitions, scenarios, runs, attempts, observations, baselines and measurements; see its README |
@@ -80,6 +83,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `tests/Fixtures/Synthetic/` | Original synthetic fixtures, each listed in the directory README |
 | `tests/Regression/` | One test per regression case, fixing the outcome observed at the pinned revisions, and the tests of the regression replay |
 | `var/cache/inputs/` | Acquired upstream inputs; ignored, reconstructible |
+| `var/cache/candidates/` | Candidates downloaded by `select-panel`, named by their Git object id; ignored, reconstructible |
 | `var/runs/` | Run outputs, one directory per run; ignored |
 | `var/replays/` | Replays between two revisions, one directory per replay; ignored |
 

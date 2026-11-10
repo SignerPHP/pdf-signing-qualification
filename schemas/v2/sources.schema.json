@@ -9,8 +9,8 @@
     "properties": {
         "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json" },
         "selection": {
-            "description": "How the inputs were selected. `failure_enriched` inputs were chosen for the defects and edge cases they hold, so a rate computed over them is not a compatibility rate; `representative` inputs were chosen to stand for the documents found in practice.",
-            "enum": ["failure_enriched", "representative"]
+            "description": "How the inputs were selected. `failure_enriched` inputs were chosen for the defects and edge cases they hold, so a rate computed over them is not a compatibility rate; `stratified` inputs were drawn from a stated pool of candidates by a quota per stratum, so a rate holds for one stratum of that pool, not for the pool as a whole nor for PDFs in general; `representative` inputs were chosen to stand for the documents found in practice.",
+            "enum": ["failure_enriched", "stratified", "representative"]
         },
         "sources": {
             "type": "array",
@@ -69,7 +69,12 @@
                 { "const": "encrypted", "description": "Standard security handler" },
                 { "const": "incremental", "description": "More than one revision (`startxref` sections)" },
                 { "const": "signed", "description": "At least one signature dictionary with a `/ByteRange`" },
-                { "const": "malformed", "description": "qpdf reports the file as damaged, an invalid cross-reference entry or stream, or cannot recognize its header" }
+                { "const": "malformed", "description": "qpdf reports the file as damaged, an invalid cross-reference entry or stream, or cannot recognize its header" },
+                { "const": "forms", "description": "An interactive form with at least one field that is not a signature field" },
+                { "const": "legacy", "description": "A header declaring a PDF version below 1.3" },
+                { "const": "large", "description": "At least the byte size or the page count that the selection plan sets as large" },
+                { "const": "timestamped", "description": "A document timestamp (`/ETSI.RFC3161`) or a signature carrying a signature timestamp token" },
+                { "const": "revocation", "description": "A document security store (`/DSS`) or a signature carrying non-empty Adobe revocation information" }
             ]
         }
     }

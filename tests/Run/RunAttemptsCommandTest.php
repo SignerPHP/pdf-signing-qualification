@@ -69,6 +69,7 @@ final class RunAttemptsCommandTest extends TestCase
     {
         $configuration = [
             'schema' => SourceConfiguration::SCHEMA,
+            'selection' => 'failure_enriched',
             'sources' => [[
                 'id' => 'local',
                 'url' => 'https://example.org/repository',
@@ -82,6 +83,7 @@ final class RunAttemptsCommandTest extends TestCase
                 'sha256' => hash('sha256', $content),
                 'byte_size' => strlen($content),
                 'license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license'],
+                'strata' => ['classic'],
             ], array_keys($declaredContents), $declaredContents),
         ];
         file_put_contents($this->configurationPath, json_encode($configuration, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -107,7 +109,9 @@ final class RunAttemptsCommandTest extends TestCase
     private function runCommand(string $runId, array $acquisitions, array $environment = [], array $options = [], bool $passExpectedRejections = true): array
     {
         $runDirectory = $this->directory.'/runs/'.$runId;
-        mkdir($runDirectory, 0777, true);
+        if (! is_dir($runDirectory)) {
+            mkdir($runDirectory, 0777, true);
+        }
         file_put_contents($runDirectory.'/acquisitions.json', json_encode($acquisitions, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $process = proc_open(
@@ -170,6 +174,7 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(['status' => 'available', 'id' => self::IMAGE_ID], $run['environment']['container_image']);
         self::assertSame(PHP_VERSION, $run['environment']['php_version']);
         self::assertSame(['sha256' => hash_file('sha256', $this->configurationPath), 'byte_size' => filesize($this->configurationPath)], $run['source_configuration']);
+        self::assertFileEquals($this->configurationPath, "{$this->directory}/runs/run-20261031T120000Z/inputs.json");
         self::assertSame(['sha256' => hash_file('sha256', $this->expectedRejectionsPath), 'byte_size' => filesize($this->expectedRejectionsPath)], $run['expected_rejections']);
         self::assertSame(['status' => 'compatible'], $run['implementation_compatibility']);
 
@@ -271,6 +276,23 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(1, $exitCode);
         self::assertStringContainsString('does not match its acquisition record for local:unsigned.pdf', $errorOutput);
         self::assertFileDoesNotExist("{$this->directory}/runs/run-changed-input/baselines.json");
+        self::assertFileDoesNotExist("{$this->directory}/runs/run-changed-input/inputs.json");
+    }
+
+    public function test_copy_of_the_configuration_in_the_run_directory_can_be_the_configuration_itself(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+        $configuration = (string) file_get_contents($this->configurationPath);
+        mkdir($this->directory.'/runs/run-own-copy', 0777, true);
+        $this->configurationPath = $this->directory.'/runs/run-own-copy/inputs.json';
+        file_put_contents($this->configurationPath, $configuration);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-own-copy', $acquisitions);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertStringEqualsFile($this->configurationPath, $configuration);
+        self::assertSame(['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)], $this->readRecords('run-own-copy', 'run.json')['source_configuration']);
     }
 
     public function test_declared_input_is_an_expected_rejection_and_the_others_stay_supported(): void

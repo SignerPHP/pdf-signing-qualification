@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
+use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Run\RunRecords;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
@@ -20,6 +21,11 @@ final class RunFixture
     private array $observations = [];
 
     private ?array $regressions = null;
+
+    /** @var array<string, list<string>> */
+    private array $strata = [];
+
+    private string $selection = 'failure_enriched';
 
     /**
      * @param  array<string, string>  $analyzerVersions
@@ -65,9 +71,9 @@ final class RunFixture
         return $this->attempt($sourceId, $capability, ['outcome' => 'succeeded', 'exit_code' => 0, 'started_at' => '2026-11-07T12:00:10Z', 'finished_at' => '2026-11-07T12:00:11Z', 'error' => null], $output, $verdicts, $inputContent);
     }
 
-    public function failed(string $sourceId, string $outcome = 'failed', ?int $exitCode = 1, string $capability = 'supported'): self
+    public function failed(string $sourceId, string $outcome = 'failed', ?int $exitCode = 1, string $capability = 'supported', ?string $message = null): self
     {
-        $execution = ['outcome' => $outcome, 'exit_code' => $exitCode, 'started_at' => '2026-11-07T12:00:10Z', 'finished_at' => '2026-11-07T12:00:11Z', 'error' => ['message' => "pdf-signer {$outcome}"]];
+        $execution = ['outcome' => $outcome, 'exit_code' => $exitCode, 'started_at' => '2026-11-07T12:00:10Z', 'finished_at' => '2026-11-07T12:00:11Z', 'error' => ['message' => $message ?? "pdf-signer {$outcome}"]];
 
         return $this->attempt($sourceId, $capability, $execution, null, [], 'input');
     }
@@ -93,6 +99,48 @@ final class RunFixture
         $this->observeAll($sourceId, null, null, []);
 
         return $this;
+    }
+
+    /**
+     * @param  list<string>  $strata
+     */
+    public function stratify(string $sourceId, array $strata): self
+    {
+        $this->strata[$sourceId] = $strata;
+
+        return $this;
+    }
+
+    public function selection(string $selection): self
+    {
+        $this->selection = $selection;
+
+        return $this;
+    }
+
+    public function evidence(string $sourceId, string $analyzerId, string $summary, array $details = []): self
+    {
+        foreach ($this->observations as $index => $observation) {
+            if ($observation['id'] === $this->attemptId($sourceId).'/'.$analyzerId) {
+                $this->observations[$index]['evidence'] = ['summary' => $summary, ...($details === [] ? [] : ['details' => $details])];
+            }
+        }
+
+        return $this;
+    }
+
+    public function sourceConfiguration(): array
+    {
+        $sources = [];
+        $inputs = [];
+        $license = ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license'];
+        foreach ($this->strata as $sourceId => $strata) {
+            [$source, $path] = explode(':', $sourceId, 2);
+            $sources[$source] = ['id' => $source, 'url' => "https://example.org/{$source}", 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)], 'file_url' => "https://example.org/{$source}/{revision}/{path}", 'license' => $license];
+            $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $license, 'strata' => $strata];
+        }
+
+        return ['schema' => SourceConfiguration::SCHEMA, 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];
     }
 
     public function policy(string $analyzerId, string $policyId): self
@@ -176,7 +224,13 @@ final class RunFixture
         if ($this->regressions !== null) {
             file_put_contents($directory.'/regressions.json', $encode($this->regressions));
         }
-        file_put_contents($directory.'/run.json', $encode($this->run));
+        $run = $this->run;
+        if ($this->strata !== []) {
+            $configuration = $encode($this->sourceConfiguration());
+            file_put_contents($directory.'/inputs.json', $configuration);
+            $run['source_configuration'] = ['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)];
+        }
+        file_put_contents($directory.'/run.json', $encode($run));
 
         return $directory;
     }

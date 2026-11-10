@@ -43,7 +43,7 @@ final class ExpectedRejectionsTest extends TestCase
         $license = ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license'];
         $source = new Source('local', 'https://example.org/repository', ['kind' => 'commit', 'value' => str_repeat('a', 40)], 'https://example.org/{revision}/{path}', $license);
 
-        return [new Input($source, 'not-a-pdf.pdf', str_repeat('b', 64), 5, $license), new Input($source, 'good.pdf', str_repeat('c', 64), 5, $license)];
+        return [new Input($source, 'not-a-pdf.pdf', str_repeat('b', 64), 5, $license, ['malformed']), new Input($source, 'good.pdf', str_repeat('c', 64), 5, $license, ['classic'])];
     }
 
     /**

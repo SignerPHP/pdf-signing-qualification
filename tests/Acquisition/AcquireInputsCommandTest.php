@@ -44,6 +44,7 @@ final class AcquireInputsCommandTest extends TestCase
             'sha256' => hash('sha256', $content),
             'byte_size' => strlen($content),
             'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://example.org/evidence'],
+            'strata' => ['classic'],
         ];
     }
 
@@ -74,6 +75,7 @@ final class AcquireInputsCommandTest extends TestCase
         $port = self::closedPort();
         $configuration = [
             'schema' => SourceConfiguration::SCHEMA,
+            'selection' => 'failure_enriched',
             'sources' => [[
                 'id' => 'local',
                 'url' => "https://127.0.0.1:{$port}/repository",

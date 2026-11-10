@@ -8,6 +8,7 @@ final readonly class Input
 {
     /**
      * @param  array{expression: string, evidence_url: string}  $license
+     * @param  list<string>  $strata
      */
     public function __construct(
         public Source $source,
@@ -15,6 +16,7 @@ final readonly class Input
         public string $sha256,
         public int $byteSize,
         public array $license,
+        public array $strata,
     ) {}
 
     public function id(): string

@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json",
+    "title": "Input sources, version 2",
+    "description": "Upstream projects pinned at an immutable revision and the files selected from them. Each input is identified as `<source>:<path>` and is acquired only if its bytes match the declared SHA-256 and byte size.",
+    "type": "object",
+    "required": ["schema", "selection", "sources", "inputs"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json" },
+        "selection": {
+            "description": "How the inputs were selected. `failure_enriched` inputs were chosen for the defects and edge cases they hold, so a rate computed over them is not a compatibility rate; `representative` inputs were chosen to stand for the documents found in practice.",
+            "enum": ["failure_enriched", "representative"]
+        },
+        "sources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "url", "revision", "file_url", "license"],
+                "additionalProperties": false,
+                "properties": {
+                    "id": { "$ref": "../v1/common.schema.json#/$defs/sourceId" },
+                    "url": { "$ref": "../v1/common.schema.json#/$defs/httpsUrl" },
+                    "revision": { "$ref": "../v1/common.schema.json#/$defs/revision" },
+                    "file_url": {
+                        "description": "Template of the download URL of one file at the pinned revision. `{revision}` is replaced by the revision value and `{path}` by the URL-encoded input path.",
+                        "type": "string",
+                        "allOf": [
+                            { "pattern": "^https://\\S+$" },
+                            { "pattern": "\\{revision\\}" },
+                            { "pattern": "\\{path\\}" }
+                        ]
+                    },
+                    "license": { "$ref": "../v1/common.schema.json#/$defs/license" }
+                }
+            }
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["source", "path", "sha256", "byte_size", "license", "strata"],
+                "additionalProperties": false,
+                "properties": {
+                    "source": { "$ref": "../v1/common.schema.json#/$defs/sourceId" },
+                    "path": { "$ref": "../v1/common.schema.json#/$defs/relativePath" },
+                    "sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
+                    "byte_size": { "type": "integer", "minimum": 0 },
+                    "license": { "$ref": "../v1/common.schema.json#/$defs/license" },
+                    "strata": {
+                        "description": "Every stratum the input belongs to, recorded from its bytes at the pinned revision. Strata overlap, so an input usually belongs to several.",
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": { "$ref": "#/$defs/stratum" }
+                    }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "stratum": {
+            "oneOf": [
+                { "const": "classic", "description": "Cross-reference table only" },
+                { "const": "stream", "description": "Cross-reference streams only" },
+                { "const": "hybrid", "description": "Cross-reference table whose trailer points to a cross-reference stream (`/XRefStm`)" },
+                { "const": "none", "description": "No usable cross-reference section; a reader has to rebuild it" },
+                { "const": "objstm", "description": "Object streams" },
+                { "const": "encrypted", "description": "Standard security handler" },
+                { "const": "incremental", "description": "More than one revision (`startxref` sections)" },
+                { "const": "signed", "description": "At least one signature dictionary with a `/ByteRange`" },
+                { "const": "malformed", "description": "qpdf reports the file as damaged, an invalid cross-reference entry or stream, or cannot recognize its header" }
+            ]
+        }
+    }
+}

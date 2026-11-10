@@ -9,7 +9,7 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class SourceConfiguration
 {
-    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/sources.schema.json';
+    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
 
     /**
      * @return list<Input>
@@ -21,6 +21,14 @@ final class SourceConfiguration
             throw new InvalidArgumentException("Unable to read the source configuration {$path}");
         }
 
+        return self::fromJson($contents);
+    }
+
+    /**
+     * @return list<Input>
+     */
+    public static function fromJson(string $contents): array
+    {
         self::assertFollowsSchema(json_decode($contents, flags: JSON_THROW_ON_ERROR));
 
         /** @var array $configuration */
@@ -67,7 +75,7 @@ final class SourceConfiguration
         foreach ($configuration['inputs'] as $declaration) {
             $source = $sources[$declaration['source']]
                 ?? throw new InvalidArgumentException("Input {$declaration['path']} refers to the undeclared source {$declaration['source']}");
-            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license']);
+            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license'], $declaration['strata']);
             if (isset($inputs[$input->id()])) {
                 throw new InvalidArgumentException("Input {$input->id()} is declared more than once");
             }

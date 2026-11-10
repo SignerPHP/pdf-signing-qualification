@@ -1,0 +1,28 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SignerPHP\PdfSigningQualification\Run\RunReport;
+
+require __DIR__.'/../vendor/autoload.php';
+
+$arguments = array_slice($argv, 1);
+if (count($arguments) !== 1 || str_starts_with($arguments[0], '-')) {
+    fwrite(STDERR, "Usage: report <run-directory>\n");
+    exit(2);
+}
+$runDirectory = rtrim($arguments[0], '/');
+
+try {
+    $report = RunReport::fromDirectory($runDirectory);
+    $reportPath = $runDirectory.'/report.md';
+    if (file_put_contents($reportPath, $report) !== strlen($report)) {
+        throw new RuntimeException("Unable to write {$reportPath}");
+    }
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
+}
+
+echo $report;

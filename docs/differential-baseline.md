@@ -67,7 +67,13 @@ The three `pdf-signer` defects come from `pdf-core`, which writes the incrementa
 
 All 25 are pyHanko against `pdfsig` or `openssl-cms`, which judge the same output `valid`; none is attributed to an implementation, and none is settled by vote.
 
-- On 23 of them pyHanko fails the `pdf-signer` output and passes the JSignPdf one. On six form inputs of the main panel (`form-out.pdf`, `appearances-quack.pdf`, `form-fields-and-annotations-shared.pdf`, `resolved-appearance-conflicts.pdf`, `resolved-field-conflicts.pdf` and `resource-from-dr.pdf`) pyHanko judges the `pdf-signer` output `invalid`. On the other 17 it ends with a generic processing error or refuses to read the file in strict mode, which is `inconclusive`; two of them, `diff-data-enc.pdf` and `enc2.pdf`, are AES-256 inputs. Their cause has not been examined.
+- On 23 of them pyHanko fails the `pdf-signer` output and passes the JSignPdf one: 18 on the main panel and 5 on the pilot. Their causes were read from the outputs and reproduced with the pyHanko of the image, reading each file in strict and non-strict mode:
+  - **Signature field outside the form** (6 inputs, `invalid`). On `form-out.pdf`, `appearances-quack.pdf`, `form-fields-and-annotations-shared.pdf`, `resolved-appearance-conflicts.pdf`, `resolved-field-conflicts.pdf` and `resource-from-dr.pdf`, the catalog holds `/AcroForm` as a direct dictionary. `pdf-core` then writes `/SigFlags 3` and `/Fields` with the new field into the catalog itself, because `SignatureObjectAssembler::resolveOrCreateAcroForm` returns the catalog when `/AcroForm` is not a reference, and the form's `/Fields` keeps only the fields of the input. pyHanko finds signatures through the form, so it finds none; `pdfsig` and `openssl-cms` find the widget through the annotations of the page. The same happens on `7.2-t25-fail-a.pdf`, `7.2-t25-pass-a.pdf` and `7.2-t25-pass-b.pdf`, where strict mode stops pyHanko first, and on `minimal-signed-restricted.pdf`, where pyHanko is `valid` because it judges only the signature the input already had.
+  - **Object number of the cross-reference stream reused** (10 inputs, `inconclusive`). On veraPDF `6-7-4-t01-pass-c.pdf`, `6-2-11-3-3-t02-fail-a.pdf`, `6-2-10-6-t02-pass-c.pdf`, `7.2-t07-fail-a.pdf`, `7.2-t25-fail-a.pdf`, `7.2-t25-pass-a.pdf`, `7.2-t25-pass-b.pdf` and `7.21.3.1-t01-fail-a.pdf` of the main panel, and `6-1-4-t03-fail-a.pdf` and `6-1-12-t01-pass-a.pdf` of the pilot, the input ends with a cross-reference stream that does not list itself, such as object 22 with `/Size 23` and `/Index [0 22]`. `pdf-core` numbers new objects after the highest entry of the cross-reference instead of from `/Size`, since `PdfDocumentPreparer` takes the highest object number from the entries, so the new signature widget takes the number of the input's cross-reference stream. pyHanko refuses that in strict mode (`XRef stream objects must not be clobbered in strict mode`); in non-strict mode it reads the file.
+  - **Encrypted inputs** (5 inputs, `inconclusive`). On `diff-data-enc.pdf`, `enc2.pdf` and veraPDF PDF/A-2b `6-1-3-t02-fail-a.pdf` of the main panel, and `V4-aes.pdf` and veraPDF PDF/A-4 `6-1-3-t02-fail-a.pdf` of the pilot, the update is written unencrypted, the defect of `V4.pdf` above: the field name of the new revision is in plain text, and pyHanko fails to decrypt it (`The length of the provided data is not a multiple of the block length`).
+  - **Inherited from the input** (2 inputs, `inconclusive`). pyHanko is already `inconclusive` on the inputs: `invalid-id-xref.pdf` of the main panel is encrypted without the `/ID` that its key derivation needs, and `leading-junk.pdf` of the pilot has bytes before its header. JSignPdf passes them because its output writes an `/ID` and drops the leading bytes.
+
+  The first two causes lie in `pdf-core` v0.1.1 and are still in its default branch on 2026-11-10.
 - On `minimal-signed-restricted.pdf` pyHanko is `inconclusive` on the JSignPdf output, whose appearance stream has the wrong length.
 
 ## Unresolved findings
@@ -83,7 +89,7 @@ Both implementations fail these items with the same value in every run (41 on th
 
 ## Reported defects
 
-The three defects of the table above whose cause lies in an implementation, two in `pdf-core` and one in JSignPdf, are not reported upstream yet. JSignPdf dropping the bytes before the header is a documented behavior of the adapter, so it will not be reported.
+The three defects of the table above whose cause lies in an implementation, two in `pdf-core` and one in JSignPdf, and the two `pdf-core` causes of the validator disagreements are not reported upstream yet. JSignPdf dropping the bytes before the header is a documented behavior of the adapter, so it will not be reported.
 
 ## Limits
 

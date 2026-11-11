@@ -213,7 +213,7 @@ final class UnexpectedToolOutcomeTest extends TestCase
         $observation = self::observe(PyHankoValidator::class, self::PYHANKO_VERSION, new CommandResult(1, $output));
 
         self::assertSame('inconclusive', $observation['verdict']);
-        self::assertSame('pyHanko refused to judge the signature(s) Signature1, Signature2 under its strict syntax policy: Settings do not permit validation of signatures in hybrid-reference files.; qpdf could not list the signatures of the output, so it cannot be checked that pyHanko judged every one: qpdf exited with code 1', $observation['evidence']['summary']);
+        self::assertSame('pyHanko refused to judge the signature(s) Signature1, Signature2 under its strict syntax policy: Settings do not permit validation of signatures in hybrid-reference files; qpdf could not list the signatures of the document, so it cannot be checked that pyHanko judged every one: qpdf exited with code 1', $observation['evidence']['summary']);
     }
 
     public function test_pyhanko_field_name_quoting_the_refusal_stays_a_signature(): void
@@ -268,7 +268,36 @@ final class UnexpectedToolOutcomeTest extends TestCase
         $observation = $validator->observe(new ValidationSubject('run-20261029T120000Z/synthetic/basic-invisible-sha256/synthetic-signer/1', self::INPUT_ARTIFACT, self::$signedPath));
 
         self::assertSame('inconclusive', $observation['verdict']);
-        self::assertSame('qpdf could not list the signatures of the output, so it cannot be checked that pyHanko judged every one: qpdf exited with code 2', $observation['evidence']['summary']);
+        self::assertSame('qpdf could not list the signatures of the document, so it cannot be checked that pyHanko judged every one: qpdf exited with code 2', $observation['evidence']['summary']);
+    }
+
+    public function test_pyhanko_is_not_valid_on_a_listing_of_a_document_that_qpdf_had_to_recover(): void
+    {
+        $listing = (string) json_encode(['qpdf' => [[], [
+            'obj:1 0 R' => ['value' => ['/Type' => '/Catalog', '/AcroForm' => ['/Fields' => ['2 0 R']]]],
+            'obj:2 0 R' => ['value' => ['/FT' => '/Sig', '/T' => 'u:Signature1', '/V' => '3 0 R']],
+            'obj:3 0 R' => ['value' => ['/Type' => '/Sig', '/ByteRange' => [0, 10, 20, 30], '/Contents' => 'b:3082abcd']],
+            'trailer' => ['value' => ['/Root' => '1 0 R']],
+        ]]]);
+        $runner = new class(self::PYHANKO_VERSION, $listing) implements CommandRunner
+        {
+            public function __construct(private readonly string $version, private readonly string $listing) {}
+
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return match (true) {
+                    $command[0] === 'qpdf' => new CommandResult(3, $this->listing),
+                    in_array('--version', $command, true) => new CommandResult(0, $this->version),
+                    default => new CommandResult(0, 'Signature1:'.str_repeat('a', 64).":INTACT:UNTRUSTED,UNTOUCHED\n"),
+                };
+            }
+        };
+        $validator = new PyHankoValidator($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-29T12:00:03Z'));
+
+        $observation = $validator->observe(new ValidationSubject('run-20261029T120000Z/synthetic/basic-invisible-sha256/synthetic-signer/1', self::INPUT_ARTIFACT, self::$signedPath));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('pyHanko judged 1 signature(s) intact and cryptographically valid, but qpdf had to recover the document, so it may not have listed every signature', $observation['evidence']['summary']);
     }
 
     public static function undecodableFieldNames(): iterable

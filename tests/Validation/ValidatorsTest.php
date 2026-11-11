@@ -53,6 +53,10 @@ final class ValidatorsTest extends TestCase
             'second-signature-outside-form' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'second-signature-outside-form', fieldInForm: false),
             'document-timestamp' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'document-timestamp', fieldName: '(Timestamp1)', signatureType: '/DocTimeStamp'),
         ];
+        foreach (['only-signature-outside-form' => ['fieldInForm' => false], 'bytes-kid-of-text-parent' => ['fieldName' => "\x9f\xcf", 'parentFieldName' => 'Parent'], 'text-kid-of-bytes-parent' => ['fieldName' => 'Kid', 'parentFieldName' => "\x9f\xcf"]] as $name => $options) {
+            mkdir(self::$directory.'/'.$name);
+            self::$fixtures[$name] = SyntheticSignedPdf::create(self::$directory.'/'.$name, ...$options);
+        }
     }
 
     public static function tearDownAfterClass(): void
@@ -240,7 +244,7 @@ final class ValidatorsTest extends TestCase
         self::assertSame('valid', $openSsl['verdict'], $openSsl['evidence']['summary']);
         self::assertCount(2, $openSsl['evidence']['details']['signatures']);
         self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
-        self::assertSame('pyHanko did not judge the signature(s) 8 0 R that qpdf lists in the output', $observation['evidence']['summary']);
+        self::assertSame('pyHanko did not judge the signature(s) 8 0 R that qpdf lists in the document', $observation['evidence']['summary']);
         self::assertSame(['Signature1'], array_column($observation['evidence']['details']['signatures'], 'field'));
         self::assertSame([['object' => '8 0 R', 'field' => null]], $observation['evidence']['details']['unjudged_signatures']);
     }
@@ -251,6 +255,34 @@ final class ValidatorsTest extends TestCase
 
         self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']."\n".$observation['evidence']['raw_output']);
         self::assertSame('pyHanko judged 1 signature(s) intact and cryptographically valid', $observation['evidence']['summary']);
+        self::assertSame([], $observation['evidence']['details']['unjudged_signatures']);
+    }
+
+    public function test_pyhanko_that_finds_no_signature_where_qpdf_lists_one_names_it_and_does_not_call_the_input_unsigned(): void
+    {
+        $path = self::$fixtures['only-signature-outside-form'];
+
+        $baseline = self::validator(PyHankoValidator::class)->baseline(new BaselineSubject(self::RUN_ID, self::SOURCE_ID, Artifact::describe($path), $path));
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, $path));
+
+        self::assertSame('inconclusive', $baseline['verdict'], $baseline['evidence']['summary']);
+        self::assertSame('pyHanko found no signature, but did not judge the signature(s) 6 0 R that qpdf lists in the document', $baseline['evidence']['summary']);
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame([['object' => '6 0 R', 'field' => null]], $observation['evidence']['details']['unjudged_signatures']);
+    }
+
+    public static function namesWithAnUndecodablePart(): iterable
+    {
+        yield 'kid given as bytes' => ['bytes-kid-of-text-parent'];
+        yield 'parent given as bytes' => ['text-kid-of-bytes-parent'];
+    }
+
+    #[DataProvider('namesWithAnUndecodablePart')]
+    public function test_pyhanko_name_with_an_undecodable_part_matches_the_listed_name(string $fixture): void
+    {
+        $observation = self::validator(PyHankoValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, self::INPUT_ARTIFACT, self::$fixtures[$fixture]));
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']."\n".$observation['evidence']['raw_output']);
         self::assertSame([], $observation['evidence']['details']['unjudged_signatures']);
     }
 

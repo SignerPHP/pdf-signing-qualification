@@ -93,7 +93,7 @@ final class SignatureCoverageValidator extends ComparisonValidator
     }
 
     /**
-     * @param  array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}  $signature
+     * @param  array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}  $signature
      * @return array{outcome: string, problem?: string}
      */
     private static function check(array $signature, string $outputPath, int $size): array

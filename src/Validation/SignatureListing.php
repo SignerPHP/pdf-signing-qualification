@@ -11,7 +11,7 @@ final class SignatureListing
     private const string REFERENCE_PATTERN = '/^\d+ \d+ R$/';
 
     /**
-     * @param  list<array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}>|null  $signatures
+     * @param  list<array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}>|null  $signatures
      */
     private function __construct(
         public readonly CommandResult $result,
@@ -45,7 +45,7 @@ final class SignatureListing
     }
 
     /**
-     * @param  array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}  $signature
+     * @param  array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}  $signature
      */
     public static function key(array $signature): string
     {
@@ -53,7 +53,7 @@ final class SignatureListing
     }
 
     /**
-     * @return list<array{object: string, field: ?string, byte_range: ?list<int>, contents: ?string}>
+     * @return list<array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}>
      */
     private static function signatures(array $objects): array
     {
@@ -70,6 +70,7 @@ final class SignatureListing
                 $signatures[] = [
                     'object' => $reference,
                     'field' => $fieldNames[$reference] ?? null,
+                    'type' => self::name(self::resolve($dictionary['/Type'] ?? null, $objects)),
                     'byte_range' => self::byteRange($dictionary['/ByteRange'], $objects),
                     'contents' => self::binaryString(self::resolve($dictionary['/Contents'] ?? null, $objects)),
                 ];
@@ -170,6 +171,11 @@ final class SignatureListing
         }
 
         return $byteRange;
+    }
+
+    private static function name(mixed $value): ?string
+    {
+        return is_string($value) && str_starts_with($value, '/') ? $value : null;
     }
 
     private static function binaryString(mixed $value): ?string

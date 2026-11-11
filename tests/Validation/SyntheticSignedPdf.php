@@ -17,11 +17,11 @@ final class SyntheticSignedPdf
 
     private const string BYTE_RANGE_PLACEHOLDER = '/ByteRange [0 ********** ********** **********]';
 
-    public static function create(string $directory, string $name = 'signed', bool $indefiniteLength = false, bool $wrappedContents = false, string $unsignedGapSuffix = '', bool $hybridReference = false, string $fieldName = 'Signature1'): string
+    public static function create(string $directory, string $name = 'signed', bool $indefiniteLength = false, bool $wrappedContents = false, string $unsignedGapSuffix = '', bool $hybridReference = false, string $fieldName = 'Signature1', ?string $parentFieldName = null, bool $fieldInForm = true): string
     {
         [$certificate, $privateKey] = self::generateCredentials();
 
-        $document = self::document(self::signedObjects($unsignedGapSuffix, $fieldName), $hybridReference);
+        $document = self::document(self::signedObjects($unsignedGapSuffix, $fieldName, $parentFieldName, $fieldInForm), $hybridReference);
         $contentsStart = (int) strpos($document, '/Contents <') + strlen('/Contents ');
         $contentsEnd = $contentsStart + self::CONTENTS_HEX_LENGTH + 2 + strlen($unsignedGapSuffix);
         $byteRange = sprintf('/ByteRange [0 %d %d %d]', $contentsStart, $contentsEnd, strlen($document) - $contentsEnd);
@@ -74,7 +74,7 @@ final class SyntheticSignedPdf
         return $path;
     }
 
-    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)'): string
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig'): string
     {
         $document = (string) file_get_contents($documentPath);
         if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
@@ -84,9 +84,11 @@ final class SyntheticSignedPdf
         [$certificate, $privateKey] = self::generateCredentials();
         $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? '5 0 R 7 0 R' : '7 0 R';
         $objects = [
-            1 => "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>",
+            1 => $fieldInForm
+                ? "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>"
+                : "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >> /Fields [{$fields}] >>",
             7 => "<< /Type /Annot /Subtype /Widget /FT /Sig /T {$fieldName} /Rect [0 0 0 0] /F 132 /P 3 0 R /V 8 0 R >>",
-            8 => '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
+            8 => "<< /Type {$signatureType} /Filter /Adobe.PPKLite /SubFilter ".($signatureType === '/DocTimeStamp' ? '/ETSI.RFC3161 ' : '/adbe.pkcs7.detached ').self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
         ];
 
         $update = '';
@@ -203,13 +205,19 @@ final class SyntheticSignedPdf
     /**
      * @return list<string>
      */
-    private static function signedObjects(string $unsignedGapSuffix, string $fieldName): array
+    private static function signedObjects(string $unsignedGapSuffix, string $fieldName, ?string $parentFieldName, bool $fieldInForm): array
     {
-        return [
-            ...self::pageObjects(' /AcroForm << /Fields [5 0 R] /SigFlags 3 >>', ' /Annots [5 0 R]'),
-            "<< /Type /Annot /Subtype /Widget /FT /Sig /T ({$fieldName}) /Rect [0 0 0 0] /F 132 /P 3 0 R /V 6 0 R >>",
+        $fields = $parentFieldName === null ? '[5 0 R]' : '[7 0 R]';
+        $objects = [
+            ...self::pageObjects($fieldInForm ? " /AcroForm << /Fields {$fields} /SigFlags 3 >>" : " /AcroForm << /Fields [] /SigFlags 3 >> /Fields {$fields}", ' /Annots [5 0 R]'),
+            "<< /Type /Annot /Subtype /Widget /FT /Sig /T ({$fieldName}) /Rect [0 0 0 0] /F 132 /P 3 0 R /V 6 0 R".($parentFieldName === null ? '' : ' /Parent 7 0 R').' >>',
             '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'>'.$unsignedGapSuffix.' /M (D:20261029120000Z) >>',
         ];
+        if ($parentFieldName !== null) {
+            $objects[] = "<< /FT /Sig /T ({$parentFieldName}) /Kids [5 0 R] >>";
+        }
+
+        return $objects;
     }
 
     /**

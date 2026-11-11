@@ -81,7 +81,7 @@ The size of a bundle grows with the panel and with the output of the validators.
 
 ### Maintenance
 
-The maintainers of this repository maintain the contract: they attach the bundles, review in each pull request that a report cites its bundles with their hashes, and review this decision when a bundle exceeds the limit above or when a new kind of record would be published. Attaching the bundles is a manual step; a command to build and check them may follow. The bundles of the reports published when this decision was approved, the two pilot runs named above included, are attached to release `results-20261110-1`, and each of those reports cites them.
+The maintainers of this repository maintain the contract: they attach the bundles, review in each pull request that a report cites its bundles with their hashes, and review this decision when a bundle exceeds the limit above or when a new kind of record would be published. Attaching the bundles is a manual step; a command to build and check them may follow. The bundles of the reports published when this decision was approved, the two pilot runs named above included, are attached to release `results-20261110-1`, and each of those reports cites them. The differential baseline run again after [#50](https://github.com/SignerPHP/pdf-signing-qualification/issues/50) is attached to release `results-20261111-1`; the bundles of the earlier differential stay in `results-20261110-1`, since earlier revisions of the report cite them.
 
 ## Why no separate repository
 

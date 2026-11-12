@@ -161,12 +161,22 @@ final class ExpectedRejectionsTest extends TestCase
         }
     }
 
-    public function test_versioned_configuration_declares_only_the_file_that_is_not_a_pdf(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function versionedScenarios(): iterable
+    {
+        yield 'invisible appearance' => [self::SCENARIO_ID];
+        yield 'visible appearance' => ['basic-visible-sha256'];
+    }
+
+    #[DataProvider('versionedScenarios')]
+    public function test_versioned_configuration_declares_only_the_file_that_is_not_a_pdf(string $scenarioId): void
     {
         $expectedRejections = ExpectedRejections::fromFile(self::VERSIONED_PATH, SourceConfiguration::fromFile(self::VERSIONED_INPUTS), self::SCENARIO_DIRECTORY);
         $declaredSourceIds = array_values(array_filter(
             array_map(static fn (Input $input): string => $input->id(), SourceConfiguration::fromFile(self::VERSIONED_INPUTS)),
-            static fn (string $sourceId): bool => $expectedRejections->declares($sourceId, self::SCENARIO_ID),
+            static fn (string $sourceId): bool => $expectedRejections->declares($sourceId, $scenarioId),
         ));
 
         self::assertSame(['qpdf:qpdf/qtest/qpdf/bad1.pdf'], $declaredSourceIds);

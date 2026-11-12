@@ -15,6 +15,7 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Tests\Acquisition\InMemoryFetcher;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
+use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticVisibleSignature;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 
 final class RunAttemptsCommandTest extends TestCase
@@ -388,6 +389,9 @@ final class RunAttemptsCommandTest extends TestCase
         yield 'misspelled option' => [['--implementaton=jsignpdf']];
         yield 'repeated option' => [['--implementation=jsignpdf', '--implementation=pdf-signer']];
         yield 'option without a value' => [['--implementation']];
+        yield 'repeated scenario' => [['--scenario=basic-visible-sha256', '--scenario=basic-invisible-sha256']];
+        yield 'scenario without a value' => [['--scenario']];
+        yield 'option after the run directory' => [['--scenario=basic-visible-sha256', '--implementation=jsignpdf', '--']];
     }
 
     /**
@@ -404,6 +408,38 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(2, $exitCode);
         self::assertStringContainsString('Usage: run-attempts', $errorOutput);
         self::assertFileDoesNotExist($this->directory.'/runs/run-invalid-options/attempts.json');
+    }
+
+    public function test_run_selects_its_scenario_and_adds_the_visual_analyzer_for_a_visible_appearance(): void
+    {
+        $inputPdf = (string) file_get_contents(SyntheticVisibleSignature::input($this->directory));
+        $acquisitions = $this->acquire(['visible-input.pdf' => $inputPdf], ['visible-input.pdf' => $inputPdf]);
+        $this->declareExpectedRejections([], 'basic-visible-sha256');
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-visible', $acquisitions, options: ['--implementation=jsignpdf', '--scenario=basic-visible-sha256']);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        $run = $this->readRecords('run-visible', 'run.json');
+        self::assertSame([], (new SchemaValidator)->errors($run, self::RUN_SCHEMA));
+        self::assertSame('basic-visible-sha256', $run['scenario_id']);
+        self::assertSame([...self::ANALYZER_IDS, 'pdftoppm-appearance'], array_column($run['analyzers'], 'id'));
+        self::assertSame('jsignpdf', $run['implementation']['id']);
+        $attempts = $this->readRecords('run-visible', 'attempts.json');
+        self::assertSame('basic-visible-sha256', $attempts[0]['scenario_id']);
+        self::assertSame('valid', $this->verdicts('run-visible')['local:visible-input.pdf pdftoppm-appearance']);
+        self::assertSame('not_evaluated', $this->readRecords('run-visible', 'regressions.json')['cases'][0]['condition']['status']);
+    }
+
+    public function test_run_with_an_undeclared_scenario_stops_before_signing(): void
+    {
+        $unsignedPdf = (string) file_get_contents(SyntheticSignedPdf::createUnsigned($this->directory));
+        $acquisitions = $this->acquire(['unsigned.pdf' => $unsignedPdf], ['unsigned.pdf' => $unsignedPdf]);
+
+        [$exitCode, , $errorOutput] = $this->runCommand('run-undeclared-scenario', $acquisitions, options: ['--scenario=basic-visible-sha512']);
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('The scenario basic-visible-sha512 is not declared in', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/runs/run-undeclared-scenario/attempts.json');
     }
 
     public function test_run_with_an_unknown_implementation_stops_before_signing(): void

@@ -5,6 +5,11 @@
             "source_id": "qpdf:qpdf/qtest/qpdf/bad1.pdf",
             "scenario_id": "basic-invisible-sha256",
             "reason": "Not a PDF: five bytes of text, so there is no document to sign"
+        },
+        {
+            "source_id": "qpdf:qpdf/qtest/qpdf/bad1.pdf",
+            "scenario_id": "basic-visible-sha256",
+            "reason": "Not a PDF: five bytes of text, so there is no document to sign"
         }
     ]
 }

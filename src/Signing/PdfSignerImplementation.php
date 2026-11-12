@@ -17,6 +17,8 @@ final class PdfSignerImplementation implements SigningImplementation
         'revocation_info' => false,
     ];
 
+    private const array DEFAULT_APPEARANCE_PLACEMENT = ['page' => 1, 'left' => 36, 'top' => 36, 'width' => 240, 'height' => 84];
+
     private const array COMMAND_OPTIONS = ['--input', '--output', '--cert', '--password', '--no-default-appearance', '--no-default-timestamp'];
 
     public function __construct(
@@ -42,11 +44,11 @@ final class PdfSignerImplementation implements SigningImplementation
 
     public function supports(array $signing): bool
     {
-        ksort($signing);
-        $supported = self::SUPPORTED_SIGNING;
-        ksort($supported);
+        $visible = self::SUPPORTED_SIGNING;
+        $visible['appearance'] = 'visible';
+        $visible['placement'] = self::DEFAULT_APPEARANCE_PLACEMENT;
 
-        return $signing === $supported;
+        return SupportedSigning::matches($signing, [self::SUPPORTED_SIGNING, $visible]);
     }
 
     public function runtime(): array
@@ -64,7 +66,7 @@ final class PdfSignerImplementation implements SigningImplementation
             '--output='.$request->outputPath,
             '--cert='.$request->credential->pkcs12Path,
             '--password='.$request->credential->password,
-            '--no-default-appearance',
+            ...($request->signing['appearance'] === 'visible' ? [] : ['--no-default-appearance']),
             '--no-default-timestamp',
         ];
     }

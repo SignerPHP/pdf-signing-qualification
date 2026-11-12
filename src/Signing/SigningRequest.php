@@ -7,7 +7,7 @@ namespace SignerPHP\PdfSigningQualification\Signing;
 final class SigningRequest
 {
     /**
-     * @param  array{digest_algorithm: string, signature_algorithm: string, sub_filter: string, appearance: string, timestamp: bool, revocation_info: bool}  $signing
+     * @param  array{digest_algorithm: string, signature_algorithm: string, sub_filter: string, appearance: string, placement?: array{page: int, left: int|float, top: int|float, width: int|float, height: int|float}, timestamp: bool, revocation_info: bool}  $signing
      */
     public function __construct(
         public readonly string $inputPath,

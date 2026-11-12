@@ -10,46 +10,86 @@ final class ScenarioSchemaTest extends SchemaTestCase
 {
     protected static function schemaPath(): string
     {
-        return 'v1/scenario.schema.json';
+        return 'v2/scenario.schema.json';
     }
 
     protected static function validDocument(): array
     {
         return [
             'schema' => self::schemaId(),
-            'id' => 'basic-invisible-sha256',
-            'description' => 'Invisible signature with SHA-256, no timestamp and no revocation data',
+            'id' => 'basic-visible-sha256',
+            'description' => 'Visible signature with SHA-256, no timestamp and no revocation data',
             'operation' => 'sign',
             'signing' => [
                 'digest_algorithm' => 'sha256',
                 'signature_algorithm' => 'rsa-pkcs1-v1_5',
                 'sub_filter' => 'adbe.pkcs7.detached',
-                'appearance' => 'invisible',
+                'appearance' => 'visible',
+                'placement' => ['page' => 1, 'left' => 36, 'top' => 36, 'width' => 240, 'height' => 84],
                 'timestamp' => false,
                 'revocation_info' => false,
             ],
         ];
     }
 
+    public function test_invisible_scenario_without_placement_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $scenario): array {
+            $scenario['signing']['appearance'] = 'invisible';
+            unset($scenario['signing']['placement']);
+
+            return $scenario;
+        }));
+    }
+
+    public function test_fractional_placement_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['left'] = 36.5;
+
+            return $scenario;
+        }));
+    }
+
     public static function invalidScenarios(): iterable
     {
-        yield 'identifier with spaces' => [self::mutate(function (array $scenario): array {
-            $scenario['id'] = 'basic invisible';
+        yield 'visible without placement' => [self::mutate(function (array $scenario): array {
+            unset($scenario['signing']['placement']);
 
             return $scenario;
         })];
-        yield 'missing digest algorithm' => [self::mutate(function (array $scenario): array {
-            unset($scenario['signing']['digest_algorithm']);
+        yield 'invisible with placement' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['appearance'] = 'invisible';
 
             return $scenario;
         })];
-        yield 'unknown digest algorithm' => [self::mutate(function (array $scenario): array {
-            $scenario['signing']['digest_algorithm'] = 'md5';
+        yield 'page zero' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['page'] = 0;
 
             return $scenario;
         })];
-        yield 'missing signature algorithm' => [self::mutate(function (array $scenario): array {
-            unset($scenario['signing']['signature_algorithm']);
+        yield 'fractional page' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['page'] = 1.5;
+
+            return $scenario;
+        })];
+        yield 'negative left' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['left'] = -1;
+
+            return $scenario;
+        })];
+        yield 'empty width' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['width'] = 0;
+
+            return $scenario;
+        })];
+        yield 'missing height' => [self::mutate(function (array $scenario): array {
+            unset($scenario['signing']['placement']['height']);
+
+            return $scenario;
+        })];
+        yield 'unknown placement property' => [self::mutate(function (array $scenario): array {
+            $scenario['signing']['placement']['rotation'] = 90;
 
             return $scenario;
         })];
@@ -58,8 +98,8 @@ final class ScenarioSchemaTest extends SchemaTestCase
 
             return $scenario;
         })];
-        yield 'unknown operation' => [self::mutate(function (array $scenario): array {
-            $scenario['operation'] = 'encrypt';
+        yield 'version 1 identifier' => [self::mutate(function (array $scenario): array {
+            $scenario['schema'] = self::SCHEMA_PREFIX.'v1/scenario.schema.json';
 
             return $scenario;
         })];

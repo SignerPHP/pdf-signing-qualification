@@ -17,6 +17,8 @@ final class JSignPdfImplementation implements SigningImplementation
         'revocation_info' => false,
     ];
 
+    private const array CONFIRMED_PLACEMENT = ['page' => 1, 'left' => 36, 'top' => 36, 'width' => 240, 'height' => 84];
+
     private const array JAVA_OPTIONS = [
         '-Xmx512m',
         '-XX:+UseSerialGC',
@@ -58,11 +60,11 @@ final class JSignPdfImplementation implements SigningImplementation
 
     public function supports(array $signing): bool
     {
-        ksort($signing);
-        $supported = self::SUPPORTED_SIGNING;
-        ksort($supported);
+        $visible = self::SUPPORTED_SIGNING;
+        $visible['appearance'] = 'visible';
+        $visible['placement'] = self::CONFIRMED_PLACEMENT;
 
-        return $signing === $supported;
+        return SupportedSigning::matches($signing, [self::SUPPORTED_SIGNING, $visible]);
     }
 
     public function runtime(): array
@@ -95,12 +97,32 @@ final class JSignPdfImplementation implements SigningImplementation
             ...array_map(static fn (string $option): string => '--java-option='.$option, $javaOptions),
             '--hash-algorithm=SHA256',
             '--engine='.self::ENGINE,
+            ...self::placementOptions($request->signing['placement'] ?? null),
         ];
     }
 
     public function compatibilityCheck(): ?array
     {
         return null;
+    }
+
+    /**
+     * @param  array{page: int, left: int|float, top: int|float, width: int|float, height: int|float}|null  $placement
+     * @return list<string>
+     */
+    private static function placementOptions(?array $placement): array
+    {
+        if ($placement === null) {
+            return [];
+        }
+
+        return [
+            '--page='.$placement['page'],
+            '--lower-left-x='.$placement['left'],
+            '--lower-left-y='.-($placement['top'] + $placement['height']),
+            '--upper-right-x='.($placement['left'] + $placement['width']),
+            '--upper-right-y='.-$placement['top'],
+        ];
     }
 
     private function javaVersion(): string

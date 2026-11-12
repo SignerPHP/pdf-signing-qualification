@@ -19,9 +19,9 @@ final class ValidationPanel
     /**
      * @param  Closure(): DateTimeImmutable  $clock
      */
-    public static function installed(Closure $clock): self
+    public static function installed(Closure $clock, array $scenario): self
     {
-        return new self([
+        $validators = [
             new PyHankoValidator(new ProcessRunner, $clock),
             new PdfsigValidator(new ProcessRunner, $clock),
             new OpenSslCmsValidator(new ProcessRunner, $clock),
@@ -29,7 +29,13 @@ final class ValidationPanel
             new InputPreservationValidator(new ProcessRunner, $clock),
             new PriorSignaturesValidator(new ProcessRunner, $clock),
             new SignatureCoverageValidator(new ProcessRunner, $clock),
-        ]);
+        ];
+        $placement = $scenario['signing']['placement'] ?? null;
+        if (is_array($placement)) {
+            $validators[] = new VisibleAppearanceValidator(new ProcessRunner, $clock, $placement);
+        }
+
+        return new self($validators);
     }
 
     /**

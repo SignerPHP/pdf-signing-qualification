@@ -180,6 +180,9 @@ final class MainPanelTest extends TestCase
         $rejections = ExpectedRejections::fromFile(self::EXPECTED_REJECTIONS, self::inputs(), __DIR__.'/../../config/scenarios');
 
         self::assertInstanceOf(ExpectedRejections::class, $rejections);
+        foreach (['basic-invisible-sha256', 'basic-visible-sha256'] as $scenarioId) {
+            self::assertTrue($rejections->declares('qpdf:qpdf/qtest/qpdf/enc-XI-long-password.pdf', $scenarioId), $scenarioId);
+        }
     }
 
     public function test_input_declared_in_the_pilot_sample_too_has_the_same_strata_there(): void

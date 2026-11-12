@@ -7,7 +7,11 @@ use Jeidison\JSignPDF\Sign\JSignService;
 
 require '/opt/implementations/jsignpdf-php/vendor/autoload.php';
 
-$options = getopt('', ['input:', 'output:', 'cert:', 'password:', 'java:', 'jsignpdf:', 'java-option:', 'hash-algorithm:', 'engine:']);
+$options = getopt('', ['input:', 'output:', 'cert:', 'password:', 'java:', 'jsignpdf:', 'java-option:', 'hash-algorithm:', 'engine:', 'page:', 'lower-left-x:', 'lower-left-y:', 'upper-right-x:', 'upper-right-y:']);
+
+$visibleSignature = isset($options['page'])
+    ? ['-V', '-pg' => $options['page'], '-llx' => $options['lower-left-x'], '-lly' => $options['lower-left-y'], '-urx' => $options['upper-right-x'], '-ury' => $options['upper-right-y']]
+    : [];
 
 $workDirectory = dirname($options['output']).'/';
 $parameters = (new JSignParam)
@@ -21,7 +25,7 @@ $parameters = (new JSignParam)
     ->setJavaOptions((array) $options['java-option'])
     ->setJSignPdfDownloadUrl('')
     ->setJSignPdfPath($options['jsignpdf'])
-    ->addJSignParameters(['-ha' => $options['hash-algorithm'], '-eng' => $options['engine']]);
+    ->addJSignParameters(['-ha' => $options['hash-algorithm'], '-eng' => $options['engine'], ...$visibleSignature]);
 
 try {
     $signedDocument = (new JSignService)->sign($parameters);

@@ -7,12 +7,26 @@ export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 
 panel=pilot
-case "${1:-}" in
-    --panel=*)
-        panel="${1#--panel=}"
-        shift
-        ;;
-esac
+scenario=basic-invisible-sha256
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --panel=*)
+            panel="${1#--panel=}"
+            shift
+            ;;
+        --scenario=*)
+            scenario="${1#--scenario=}"
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+if ! printf '%s' "$scenario" | grep -Eqx '[a-z0-9]+(-[a-z0-9]+)*' || [ ! -f "config/scenarios/$scenario.json" ]; then
+    echo "Unknown scenario $scenario; the scenarios are the files of config/scenarios." >&2
+    exit 2
+fi
 case "$panel" in
     pilot)
         inputs_configuration=config/inputs.json
@@ -28,7 +42,7 @@ case "$panel" in
         ;;
 esac
 if [ "$#" -gt 1 ]; then
-    echo "Usage: bin/pilot [--panel=pilot|main] [implementation]" >&2
+    echo "Usage: bin/pilot [--panel=pilot|main] [--scenario=<id>] [implementation]" >&2
     exit 2
 fi
 
@@ -52,7 +66,7 @@ if [ "$acquisition_status" -gt 1 ]; then
 fi
 
 image_id="$(docker image inspect --format '{{.Id}}' pdf-signing-qualification:local)"
-docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections"
+docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- ${1:+"--implementation=$1"} "--scenario=$scenario" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections"
 report_status=0
 docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null || report_status=$?
 

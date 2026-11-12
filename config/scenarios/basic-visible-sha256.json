@@ -1,0 +1,21 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/scenario.schema.json",
+    "id": "basic-visible-sha256",
+    "description": "One visible signature with SHA-256 and RSA PKCS#1 v1.5 in a detached PKCS#7, without timestamp or revocation information, whose field is a 240 by 84 point rectangle 36 points from the left and top edges of the first page",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "adbe.pkcs7.detached",
+        "appearance": "visible",
+        "placement": {
+            "page": 1,
+            "left": 36,
+            "top": 36,
+            "width": 240,
+            "height": 84
+        },
+        "timestamp": false,
+        "revocation_info": false
+    }
+}

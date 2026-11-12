@@ -19,8 +19,6 @@ final class AttemptRunner
 {
     public const string ATTEMPT_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/attempt.schema.json';
 
-    public const string SCENARIO_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/scenario.schema.json';
-
     public const string MEASUREMENT_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/measurement.schema.json';
 
     public const string MEASUREMENT_PROCESS = '/opt/measurement/measure-process-tree.py';
@@ -46,7 +44,7 @@ final class AttemptRunner
 
     public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath, bool $rejectionExpected = false): AttemptResult
     {
-        (new SchemaValidator)->assertValid($scenario, self::SCENARIO_SCHEMA, 'scenario');
+        Scenarios::assertValid($scenario);
         (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, 'acquisition record');
 
         $record = [

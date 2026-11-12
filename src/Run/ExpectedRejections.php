@@ -9,7 +9,7 @@ use JsonException;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
-use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Signing\Scenarios;
 
 final readonly class ExpectedRejections
 {
@@ -39,7 +39,7 @@ final readonly class ExpectedRejections
         $rejections = $configuration->rejections;
 
         $sourceIds = array_map(static fn (Input $input): string => $input->id(), $inputs);
-        $scenarioIds = self::scenarioIds($scenarioDirectory);
+        $scenarioIds = Scenarios::ids($scenarioDirectory);
         $sourceIdsByScenario = [];
         foreach ($rejections as $rejection) {
             $sourceId = $rejection->source_id;
@@ -62,24 +62,6 @@ final readonly class ExpectedRejections
     public function declares(string $sourceId, string $scenarioId): bool
     {
         return isset($this->sourceIdsByScenario[$scenarioId][$sourceId]);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function scenarioIds(string $scenarioDirectory): array
-    {
-        $scenarioIds = [];
-        foreach (glob($scenarioDirectory.'/*.json') ?: [] as $scenarioPath) {
-            $scenario = self::decode($scenarioPath);
-            $errors = (new SchemaValidator)->errors($scenario, AttemptRunner::SCENARIO_SCHEMA);
-            if ($errors !== []) {
-                throw new InvalidArgumentException("The scenario {$scenarioPath} does not follow its schema:\n".implode("\n", $errors));
-            }
-            $scenarioIds[] = (string) $scenario->id;
-        }
-
-        return $scenarioIds;
     }
 
     private static function decode(string $path): object

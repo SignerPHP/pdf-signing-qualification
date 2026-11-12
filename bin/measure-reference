@@ -9,6 +9,7 @@ use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\Implementations;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
+use SignerPHP\PdfSigningQualification\Signing\Scenarios;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
@@ -24,7 +25,6 @@ if (count($arguments) !== 2 || array_filter($arguments, static fn (string $argum
 $studyDirectory = rtrim($studyDirectory, '/');
 $referenceDirectory = "{$studyDirectory}/references/{$label}";
 $partialDirectory = "{$studyDirectory}/references/.{$label}.partial-".bin2hex(random_bytes(6));
-$scenarioPath = __DIR__.'/../config/scenarios/basic-invisible-sha256.json';
 $scratchDirectory = '/sandbox/reference-'.bin2hex(random_bytes(8));
 $encodeJson = static fn (array $document): string => json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR)."\n";
 $clock = static fn (): DateTimeImmutable => new DateTimeImmutable;
@@ -53,8 +53,8 @@ try {
     }
     $credential = TestCredential::generate($scratchDirectory.'/credential');
     $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $partialDirectory.'/outputs', new ResourceLimits, $clock);
-    $panel = ValidationPanel::installed($clock);
-    $scenario = json_decode((string) file_get_contents($scenarioPath), true, flags: JSON_THROW_ON_ERROR);
+    $scenario = Scenarios::load(__DIR__.'/../config/scenarios', Scenarios::DEFAULT_ID);
+    $panel = ValidationPanel::installed($clock, $scenario);
     $records = (new FixedCostReference($attemptRunner, $panel, $scratchDirectory.'/input', $clock))
         ->measure(basename($studyDirectory)."-{$label}-reference", $scenario, $implementation, $protocol->document['reference']);
 

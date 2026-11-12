@@ -89,13 +89,13 @@ One file is an analyzer failure: `qpdf --check` 11.3.0 crashes with signal 11 on
 - **Documents with thousands of pages.** No candidate has 100 pages or more; the only one in the listed repositories, an Isartor file with 10000 pages, is excluded with the rest of Isartor. `large` is reached by size only, from 2.3 MiB to 10.4 MiB.
 - **Timestamps and revocation information.** The pool has 5 timestamped and 3 revocation candidates, all in the panel, so a share in these strata rests on very few documents.
 - **PDF versions below 1.3.** The pool has 5, all from qpdf, all in the panel.
-- **Visible signature appearances.** Not a stratum: they belong to the visible-appearance scenario, which is not part of this panel.
+- **Visible signature appearances.** Not a stratum: the [visible-appearance scenario](visible-appearance.md) runs over this panel as drawn, so it has no input chosen for its placement, such as rotated pages or a `/MediaBox` away from the origin.
 - **Unaddressable files.** The 31 files above, until the input path of the schemas admits their names.
 - **Files qpdf cannot analyze.** `xref-compressed-in-compressed.pdf`, until the container has a qpdf that does not crash on it.
 
 ## Expected rejections
 
-[`config/main-panel/expected-rejections.json`](../config/main-panel/expected-rejections.json) declares one: `qpdf:qpdf/qtest/qpdf/enc-XI-long-password.pdf` needs a user password that the qpdf test suite passes to it, and the scenario gives the signer none. Every other failure on the panel is a result.
+[`config/main-panel/expected-rejections.json`](../config/main-panel/expected-rejections.json) declares one input, under each scenario: `qpdf:qpdf/qtest/qpdf/enc-XI-long-password.pdf` needs a user password that the qpdf test suite passes to it, and no scenario gives the signer one. Every other failure on the panel is a result.
 
 ## Sandbox limits
 

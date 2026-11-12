@@ -4,18 +4,32 @@ set -eu
 cd "$(dirname "$0")/.."
 
 usage() {
-    echo "Usage: bin/differential [--panel=pilot|main] [first-implementation second-implementation]" >&2
+    echo "Usage: bin/differential [--panel=pilot|main] [--scenario=<id>] [first-implementation second-implementation]" >&2
     echo "Without implementations it compares pdf-signer with jsignpdf." >&2
     exit 2
 }
 
 panel=pilot
-case "${1:-}" in
-    --panel=*)
-        panel="${1#--panel=}"
-        shift
-        ;;
-esac
+scenario=basic-invisible-sha256
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --panel=*)
+            panel="${1#--panel=}"
+            shift
+            ;;
+        --scenario=*)
+            scenario="${1#--scenario=}"
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+if ! printf '%s' "$scenario" | grep -Eqx '[a-z0-9]+(-[a-z0-9]+)*' || [ ! -f "config/scenarios/$scenario.json" ]; then
+    echo "Unknown scenario $scenario; the scenarios are the files of config/scenarios." >&2
+    exit 2
+fi
 case "$panel" in
     pilot)
         inputs_configuration=config/inputs.json
@@ -75,7 +89,7 @@ run_once() {
     run_directory="$differential_directory/run-$timestamp-$1-$2"
     mkdir "$run_directory"
     cp "$differential_directory/acquisitions.json" "$run_directory/acquisitions.json"
-    docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$1" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" >&2
+    docker compose run --rm -T -e QUALIFICATION_IMAGE_ID="$image_id" sandbox composer run-attempts -- "--implementation=$1" "--scenario=$scenario" "$run_directory" "$inputs_configuration" var/cache/inputs "$expected_rejections" >&2
     if ! docker compose run --rm -T sandbox composer report -- "$run_directory" > /dev/null; then
         echo "The report of $run_directory could not be written; see the messages above. The run records are complete and are still compared." >&2
     fi

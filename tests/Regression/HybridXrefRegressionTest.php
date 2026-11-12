@@ -13,6 +13,7 @@ use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\PdfSignerImplementation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
+use SignerPHP\PdfSigningQualification\Signing\Scenarios;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\HybridXrefPdf;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
@@ -133,7 +134,7 @@ final class HybridXrefRegressionTest extends TestCase
 
         self::assertSame([], (new SchemaValidator)->errors($case, self::REGRESSION_SCHEMA));
         self::assertSame('https://github.com/SignerPHP/signer-php/issues/24', $case['origin']['issue_url']);
-        self::assertSame([], (new SchemaValidator)->errors(self::scenario($case['scenario_id']), AttemptRunner::SCENARIO_SCHEMA));
+        self::assertSame([], Scenarios::errors(self::scenario($case['scenario_id'])));
     }
 
     public function test_generator_reproduces_the_exact_input_of_the_case(): void

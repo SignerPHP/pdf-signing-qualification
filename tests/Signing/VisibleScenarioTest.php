@@ -159,6 +159,29 @@ final class VisibleScenarioTest extends TestCase
         self::assertNull($result->outputPath);
     }
 
+    #[DataProvider('implementations')]
+    public function test_placement_given_with_fractional_zeros_is_the_same_placement(string $implementationId): void
+    {
+        $scenario = json_decode((string) json_encode(self::scenario(), JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($scenario);
+        $scenario['signing']['placement'] = ['page' => 1, 'left' => 36.0, 'top' => 36.0, 'width' => 240.0, 'height' => 84.0];
+        self::assertSame([], Scenarios::errors($scenario));
+
+        self::assertTrue(Implementations::select($implementationId)->supports($scenario['signing']));
+    }
+
+    public function test_jsignpdf_script_refuses_a_page_without_its_corners(): void
+    {
+        $process = proc_open([PHP_BINARY, __DIR__.'/../../docker/jsignpdf-sign.php', '--input='.self::$inputPath, '--output='.self::$directory.'/script-output.pdf', '--cert='.self::$credential->pkcs12Path, '--password='.self::$credential->password, '--java=/bin/false', '--jsignpdf=/nonexistent', '--hash-algorithm=SHA256', '--engine=openpdf', '--page=1', '--lower-left-x=36'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        $output = (string) stream_get_contents($pipes[1]).(string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        self::assertSame(2, proc_close($process), $output);
+        self::assertSame("A visible signature needs --page, --lower-left-x, --lower-left-y, --upper-right-x and --upper-right-y\n", $output);
+    }
+
     public function test_pdf_signer_keeps_its_default_appearance_only_under_the_visible_scenario(): void
     {
         $implementation = new PdfSignerImplementation;

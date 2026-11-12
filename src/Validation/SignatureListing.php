@@ -20,7 +20,11 @@ final class SignatureListing
 
     public static function read(CommandRunner $runner, string $documentPath, float $timeoutSeconds): self
     {
-        $result = $runner->run(['qpdf', ...self::ARGUMENTS, $documentPath], $timeoutSeconds);
+        return self::fromResult($runner->run(['qpdf', ...self::ARGUMENTS, $documentPath], $timeoutSeconds));
+    }
+
+    public static function fromResult(CommandResult $result): self
+    {
         if ($result->timedOut || ! in_array($result->exitCode, [0, 3], true)) {
             return new self($result, null);
         }

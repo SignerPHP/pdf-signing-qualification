@@ -12,11 +12,15 @@ final class VisibleAppearanceValidator extends ComparisonValidator
 {
     public const array DOCUMENT_ARGUMENTS = ['--json=2', '--json-key=qpdf', '--json-key=pages', '--no-warn'];
 
-    public const array RENDER_ARGUMENTS = ['-r', '72', '-gray', '-singlefile'];
+    public const array RENDER_ARGUMENTS = ['-r', '72'];
 
     private const float RECTANGLE_TOLERANCE_POINTS = 0.01;
 
     private const int PIXEL_MARGIN = 1;
+
+    private const int MAXIMUM_PAGE_PIXELS = 40_000_000;
+
+    private const int RENDERED_PIXELS_PER_CALL = 40_000_000;
 
     private const int HIDDEN_FLAGS = 2 | 32;
 
@@ -47,13 +51,15 @@ final class VisibleAppearanceValidator extends ComparisonValidator
     {
         return [
             'id' => 'pdftoppm-visible-appearance',
-            'description' => 'The signature added by the implementation has one widget, in the /Annots of the declared page, whose /Rect is the declared placement measured from the top-left corner of that page\'s /MediaBox before /Rotate, without the Hidden or NoView flag and with a normal appearance stream; rendered by pdftoppm, its page changes inside the field only and at least one pixel there, and every other page renders as in the input',
+            'description' => 'The signature added by the implementation has one widget, in the /Annots of the declared page, whose /Rect is the declared placement measured from the top-left corner of that page\'s /MediaBox before /Rotate, without the Hidden or NoView flag and with a normal appearance stream; rendered in colour by pdftoppm, its page changes inside the field only and at least one pixel there, and every other page renders as in the input; a page above the pixel limit is not rendered',
             'parameters' => [
                 'placement' => $this->placement,
                 'rectangle_tolerance_points' => self::RECTANGLE_TOLERANCE_POINTS,
                 'document_arguments' => ['qpdf', ...self::DOCUMENT_ARGUMENTS],
                 'render_arguments' => ['pdftoppm', ...self::RENDER_ARGUMENTS],
                 'pixel_margin' => self::PIXEL_MARGIN,
+                'maximum_page_pixels' => self::MAXIMUM_PAGE_PIXELS,
+                'rendering_seconds' => $this->timeoutSeconds,
             ],
         ];
     }
@@ -70,19 +76,21 @@ final class VisibleAppearanceValidator extends ComparisonValidator
 
     protected function compare(string $inputPath, string $outputPath): Judgement
     {
-        $inputListing = SignatureListing::read($this->runner, $inputPath, $this->timeoutSeconds);
-        if ($inputListing->result->timedOut) {
-            return $this->timedOut($inputListing->result);
+        $inputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $inputPath], $this->timeoutSeconds);
+        if ($inputResult->timedOut) {
+            return $this->timedOut($inputResult);
         }
+        $inputListing = SignatureListing::fromResult($inputResult);
         if ($inputListing->signatures === null) {
-            return new Judgement('inconclusive', 'qpdf could not list the signatures of the input, so the added signature cannot be told apart: qpdf '.$inputListing->result->describe(), $inputListing->result->exitCode, $inputListing->result->output);
+            return new Judgement('inconclusive', 'qpdf could not list the signatures of the input, so the added signature cannot be told apart: qpdf '.$inputResult->describe(), $inputResult->exitCode, $inputResult->output);
         }
-        $outputListing = SignatureListing::read($this->runner, $outputPath, $this->timeoutSeconds);
-        if ($outputListing->result->timedOut) {
-            return $this->timedOut($outputListing->result);
+        $outputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $outputPath], $this->timeoutSeconds);
+        if ($outputResult->timedOut) {
+            return $this->timedOut($outputResult);
         }
+        $outputListing = SignatureListing::fromResult($outputResult);
         if ($outputListing->signatures === null) {
-            return new Judgement('inconclusive', 'qpdf could not list the signatures of the output: qpdf '.$outputListing->result->describe(), $outputListing->result->exitCode, $outputListing->result->output);
+            return new Judgement('inconclusive', 'qpdf could not list the signatures of the output: qpdf '.$outputResult->describe(), $outputResult->exitCode, $outputResult->output);
         }
 
         $inputKeys = $inputListing->keys();
@@ -99,13 +107,13 @@ final class VisibleAppearanceValidator extends ComparisonValidator
         $name = $signature['field'] ?? $signature['object'];
         $details = ['signatures' => [self::signatureDetails($signature)]];
 
-        $inputDocument = $this->readDocument($inputPath);
-        if ($inputDocument instanceof Judgement) {
-            return $inputDocument;
+        $inputDocument = DocumentPages::fromJson($inputResult->output);
+        if ($inputDocument === null) {
+            return new Judgement('inconclusive', 'qpdf could not read the pages of the input', $inputResult->exitCode, $inputResult->output, $details);
         }
-        $outputDocument = $this->readDocument($outputPath);
-        if ($outputDocument instanceof Judgement) {
-            return $outputDocument;
+        $outputDocument = DocumentPages::fromJson($outputResult->output);
+        if ($outputDocument === null) {
+            return new Judgement('inconclusive', 'qpdf could not read the pages of the output', $outputResult->exitCode, $outputResult->output, $details);
         }
         if ($inputDocument->pageCount() !== $outputDocument->pageCount()) {
             return new Judgement('invalid', "The output has {$outputDocument->pageCount()} pages and the input {$inputDocument->pageCount()}", 0, '', $details);
@@ -128,6 +136,7 @@ final class VisibleAppearanceValidator extends ComparisonValidator
         }
         $widget = $widgets[0];
         $details['widget'] = $widget;
+        $details['need_appearances'] = $outputDocument->needAppearances();
 
         $mediaBox = $outputDocument->mediaBox($page);
         if ($mediaBox === null) {
@@ -156,54 +165,69 @@ final class VisibleAppearanceValidator extends ComparisonValidator
         $fieldPixels = self::pixels($expected, $mediaBox, $outputDocument->rotation($page));
         $details['field_pixels'] = $fieldPixels;
 
-        return $this->compareRenderings($inputPath, $outputPath, $outputDocument->pageCount(), $page, $fieldPixels, $name, $expected, $details);
-    }
-
-    private function readDocument(string $path): DocumentPages|Judgement
-    {
-        $result = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $path], $this->timeoutSeconds);
-        if ($result->timedOut) {
-            return $this->timedOut($result);
-        }
-        $document = in_array($result->exitCode, [0, 3], true) ? DocumentPages::fromJson($result->output) : null;
-
-        return $document ?? new Judgement('inconclusive', 'qpdf could not read the pages of '.basename($path).': qpdf '.$result->describe(), $result->exitCode, $result->output);
+        return $this->compareRenderings($inputPath, $outputPath, $inputDocument, $outputDocument, $page, $fieldPixels, $name, $expected, $details);
     }
 
     /**
      * @param  list<int>  $fieldPixels
      * @param  list<int|float>  $expected
      */
-    private function compareRenderings(string $inputPath, string $outputPath, int $pageCount, int $fieldPage, array $fieldPixels, string $name, array $expected, array $details): Judgement
+    private function compareRenderings(string $inputPath, string $outputPath, DocumentPages $inputDocument, DocumentPages $outputDocument, int $fieldPage, array $fieldPixels, string $name, array $expected, array $details): Judgement
     {
+        $pageCount = $outputDocument->pageCount();
+        $pagePixels = [];
+        for ($page = 1; $page <= $pageCount; $page++) {
+            $pixels = 0;
+            foreach (['input' => $inputDocument, 'output' => $outputDocument] as $role => $document) {
+                $mediaBox = $document->mediaBox($page);
+                if ($mediaBox === null) {
+                    return new Judgement('inconclusive', "The /MediaBox of page {$page} of the {$role} cannot be read", 0, '', $details);
+                }
+                $width = $mediaBox[2] - $mediaBox[0];
+                $height = $mediaBox[3] - $mediaBox[1];
+                if (ceil($width) * ceil($height) > self::MAXIMUM_PAGE_PIXELS) {
+                    return new Judgement('inconclusive', "Page {$page} is ".self::number($width).' by '.self::number($height).' points, and the analyzer renders no page above '.self::MAXIMUM_PAGE_PIXELS.' pixels at 72 dpi', 0, '', $details);
+                }
+                $pixels = max($pixels, (int) (ceil($width) * ceil($height)));
+            }
+            $pagePixels[$page] = $pixels;
+        }
+
         $directory = sys_get_temp_dir().'/visible-appearance-'.bin2hex(random_bytes(8));
         if (! mkdir($directory, 0700)) {
             throw new RuntimeException("Unable to create the rendering directory {$directory}");
         }
 
+        $deadline = hrtime(true) + (int) ($this->timeoutSeconds * 1e9);
         try {
             $changedInside = 0;
-            for ($page = 1; $page <= $pageCount; $page++) {
-                $inputImage = $this->render($inputPath, $page, $directory.'/input', 'input');
-                if ($inputImage instanceof Judgement) {
-                    return $inputImage;
-                }
-                $outputImage = $this->render($outputPath, $page, $directory.'/output', 'output');
-                if ($outputImage instanceof Judgement) {
-                    return $outputImage;
-                }
-                if ($inputImage->width !== $outputImage->width || $inputImage->height !== $outputImage->height) {
-                    return new Judgement('invalid', "Page {$page} renders at {$outputImage->width} by {$outputImage->height} pixels, and at {$inputImage->width} by {$inputImage->height} in the input", 0, '', $details);
+            foreach (self::chunks($pagePixels) as [$firstPage, $lastPage]) {
+                $images = [];
+                foreach (['input' => $inputPath, 'output' => $outputPath] as $role => $documentPath) {
+                    $rendered = $this->render($documentPath, $firstPage, $lastPage, "{$directory}/{$role}", $role, $deadline);
+                    if ($rendered instanceof Judgement) {
+                        return $rendered;
+                    }
+                    $images[$role] = $rendered;
                 }
 
-                $field = $page === $fieldPage ? $fieldPixels : null;
-                [$inside, $outside, $outsideBounds] = $inputImage->differences($outputImage, $field, self::PIXEL_MARGIN);
-                if ($outside > 0) {
-                    $where = $page === $fieldPage ? ' outside the field' : '';
+                for ($page = $firstPage; $page <= $lastPage; $page++) {
+                    $inputImage = $images['input'][$page];
+                    $outputImage = $images['output'][$page];
+                    if ($inputImage->width !== $outputImage->width || $inputImage->height !== $outputImage->height) {
+                        return new Judgement('invalid', "Page {$page} renders at {$outputImage->width} by {$outputImage->height} pixels, and at {$inputImage->width} by {$inputImage->height} in the input", 0, '', $details);
+                    }
 
-                    return new Judgement('invalid', "Page {$page} renders differently from the input{$where}: {$outside} pixels changed within ".self::format($outsideBounds).' in pixels', 0, '', $details + ['changed_pixels_outside' => $outside, 'changed_page' => $page]);
+                    $field = $page === $fieldPage ? $fieldPixels : null;
+                    [$inside, $outside, $outsideBounds] = $inputImage->differences($outputImage, $field, self::PIXEL_MARGIN);
+                    if ($outside > 0) {
+                        $where = $page === $fieldPage ? ' outside the field' : '';
+
+                        return new Judgement('invalid', "Page {$page} renders differently from the input{$where}: {$outside} pixels changed within ".self::format($outsideBounds).' in pixels', 0, '', $details + ['changed_pixels_outside' => $outside, 'changed_page' => $page]);
+                    }
+                    $changedInside += $inside;
                 }
-                $changedInside += $inside;
+                exec('rm -f '.escapeshellarg($directory).'/*');
             }
         } finally {
             exec('rm -rf '.escapeshellarg($directory));
@@ -211,22 +235,77 @@ final class VisibleAppearanceValidator extends ComparisonValidator
 
         $details += ['compared_pages' => $pageCount, 'changed_pixels_inside' => $changedInside, 'changed_pixels_outside' => 0];
         if ($changedInside === 0) {
-            return new Judgement('invalid', "The appearance of {$name} changes no pixel of page {$fieldPage} inside ".self::format($expected), 0, '', $details);
+            $reason = $details['need_appearances'] === true ? '; the form\'s /NeedAppearances is true, so poppler builds the appearance of the field instead of drawing its /AP' : '';
+
+            return new Judgement('invalid', "The appearance of {$name} changes no pixel of page {$fieldPage} inside ".self::format($expected).$reason, 0, '', $details);
         }
 
         return new Judgement('valid', "{$name} has a widget on page {$fieldPage} at ".self::format($expected).' whose appearance draws only inside it, and every page renders as in the input elsewhere', 0, '', $details);
     }
 
-    private function render(string $documentPath, int $page, string $prefix, string $role): Raster|Judgement
+    /**
+     * @param  array<int, int>  $pagePixels
+     * @return list<array{int, int}>
+     */
+    private static function chunks(array $pagePixels): array
     {
-        @unlink($prefix.'.pgm');
-        $result = $this->runner->run(['pdftoppm', ...self::RENDER_ARGUMENTS, '-f', (string) $page, '-l', (string) $page, $documentPath, $prefix], $this->timeoutSeconds);
+        $chunks = [];
+        $first = null;
+        $last = null;
+        $pixels = 0;
+        foreach ($pagePixels as $page => $pagePixelCount) {
+            if ($first !== null && $pixels + $pagePixelCount > self::RENDERED_PIXELS_PER_CALL) {
+                $chunks[] = [$first, (int) $last];
+                $first = null;
+                $pixels = 0;
+            }
+            $first ??= $page;
+            $last = $page;
+            $pixels += $pagePixelCount;
+        }
+        if ($first !== null) {
+            $chunks[] = [$first, (int) $last];
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * @return array<int, Raster>|Judgement
+     */
+    private function render(string $documentPath, int $firstPage, int $lastPage, string $prefix, string $role, int $deadline): array|Judgement
+    {
+        $pages = $firstPage === $lastPage ? "page {$firstPage}" : "pages {$firstPage} to {$lastPage}";
+        $remainingSeconds = ($deadline - hrtime(true)) / 1e9;
+        $result = $remainingSeconds > 0
+            ? $this->runner->run(['pdftoppm', ...self::RENDER_ARGUMENTS, '-f', (string) $firstPage, '-l', (string) $lastPage, $documentPath, $prefix], $remainingSeconds)
+            : new CommandResult(null, '', true);
         if ($result->timedOut) {
             return $this->timedOut($result);
         }
-        $raster = $result->exitCode === 0 ? Raster::fromPortableGraymap($prefix.'.pgm') : null;
+        if ($result->exitCode !== 0) {
+            return new Judgement('inconclusive', "pdftoppm could not render {$pages} of the {$role}: pdftoppm ".$result->describe(), $result->exitCode, $result->output);
+        }
 
-        return $raster ?? new Judgement('inconclusive', "pdftoppm could not render page {$page} of the {$role}: pdftoppm ".$result->describe(), $result->exitCode, $result->output);
+        $paths = [];
+        foreach (glob($prefix.'-*.ppm') ?: [] as $path) {
+            if (preg_match('/-(\d+)\.ppm$/', $path, $match) === 1) {
+                $paths[(int) $match[1]] = $path;
+            }
+        }
+        $images = [];
+        for ($page = $firstPage; $page <= $lastPage; $page++) {
+            $image = isset($paths[$page]) ? Raster::open($paths[$page]) : null;
+            if ($image === null) {
+                return new Judgement('inconclusive', "pdftoppm wrote no image of page {$page} of the {$role} that the analyzer can read", $result->exitCode, $result->output);
+            }
+            if ($image->width * $image->height > self::MAXIMUM_PAGE_PIXELS) {
+                return new Judgement('inconclusive', "Page {$page} of the {$role} renders at {$image->width} by {$image->height} pixels, and the analyzer compares no page above ".self::MAXIMUM_PAGE_PIXELS.' pixels', $result->exitCode, $result->output);
+            }
+            $images[$page] = $image;
+        }
+
+        return $images;
     }
 
     /**
@@ -287,6 +366,11 @@ final class VisibleAppearanceValidator extends ComparisonValidator
      */
     private static function format(array $values): string
     {
-        return '['.implode(' ', array_map(static fn (int|float $value): string => is_float($value) && floor($value) !== $value ? rtrim(rtrim(sprintf('%.2f', $value), '0'), '.') : (string) (int) $value, $values)).']';
+        return '['.implode(' ', array_map(self::number(...), $values)).']';
+    }
+
+    private static function number(int|float $value): string
+    {
+        return is_float($value) && floor($value) !== $value ? rtrim(rtrim(sprintf('%.2f', $value), '0'), '.') : (string) (int) $value;
     }
 }

@@ -96,6 +96,19 @@ final class DocumentPages
         return $widgets;
     }
 
+    public function needAppearances(): ?bool
+    {
+        $trailer = $this->objects['trailer']['value'] ?? null;
+        $root = is_array($trailer) ? $this->resolve($trailer['/Root'] ?? null) : null;
+        $form = is_array($root) ? $this->resolve($root['/AcroForm'] ?? null) : null;
+        if (! is_array($form) || ! array_key_exists('/NeedAppearances', $form)) {
+            return false;
+        }
+        $needAppearances = $this->resolve($form['/NeedAppearances']);
+
+        return is_bool($needAppearances) ? $needAppearances : null;
+    }
+
     public function hasWidgetOutsidePages(string $signatureObject): bool
     {
         foreach ($this->objects as $key => $object) {

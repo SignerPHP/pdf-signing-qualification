@@ -71,6 +71,7 @@ final class VisibleAppearanceValidatorTest extends TestCase
         self::assertSame(2, $details['compared_pages']);
         self::assertGreaterThan(0, $details['changed_pixels_inside']);
         self::assertSame(0, $details['changed_pixels_outside']);
+        self::assertFalse($details['need_appearances']);
     }
 
     /**
@@ -87,6 +88,8 @@ final class VisibleAppearanceValidatorTest extends TestCase
         yield 'widget in no page' => [['annotated' => false], 'The widget of Signature1 is not in the /Annots of any page'];
         yield 'another page changed' => [['changed_page' => 2], 'Page 2 renders differently from the input: 10000 pixels changed within [400 592 499 691] in pixels'];
         yield 'page changed outside the field' => [['changed_page' => 1], 'Page 1 renders differently from the input outside the field: 10000 pixels changed within [400 592 499 691] in pixels'];
+        yield 'colour changed to a gray of the same luminance' => [['recoloured' => true], 'Page 2 renders differently from the input: 10000 pixels changed within [72 192 171 291] in pixels'];
+        yield 'appearance built by the reader' => [['appearance' => 'empty', 'need_appearances' => true], 'The appearance of Signature1 changes no pixel of page 1 inside [36 672 276 756]; the form\'s /NeedAppearances is true, so poppler builds the appearance of the field instead of drawing its /AP'];
     }
 
     /**
@@ -166,7 +169,7 @@ final class VisibleAppearanceValidatorTest extends TestCase
         $observation = self::observe($outputPath, runner: $runner);
 
         self::assertSame('inconclusive', $observation['verdict']);
-        self::assertSame('pdftoppm could not render page 1 of the input: pdftoppm exited with code 99', $observation['evidence']['summary']);
+        self::assertSame('pdftoppm could not render pages 1 to 2 of the input: pdftoppm exited with code 99', $observation['evidence']['summary']);
     }
 
     public function test_rendering_that_does_not_finish_is_inconclusive(): void
@@ -186,6 +189,43 @@ final class VisibleAppearanceValidatorTest extends TestCase
 
         self::assertSame('inconclusive', $observation['verdict']);
         self::assertSame('pdftoppm-appearance did not finish within 120 seconds', $observation['evidence']['summary']);
+    }
+
+    public function test_each_document_is_read_once_by_qpdf_and_rendered_in_one_call(): void
+    {
+        $outputPath = SyntheticVisibleSignature::sign(self::$inputPath, self::$directory, 'counted');
+        $runner = new class implements CommandRunner
+        {
+            /** @var list<array{string, float}> */
+            public array $commands = [];
+
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                if (! in_array('-v', $command, true)) {
+                    $this->commands[] = [$command[0].' '.basename((string) end($command)), $timeoutSeconds];
+                }
+
+                return (new ProcessRunner)->run($command, $timeoutSeconds);
+            }
+        };
+
+        $observation = self::observe($outputPath, runner: $runner);
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame(['qpdf visible-input.pdf', 'qpdf counted.pdf', 'pdftoppm input', 'pdftoppm output'], array_column($runner->commands, 0));
+        self::assertLessThan(120.0, $runner->commands[3][1]);
+    }
+
+    public function test_page_too_large_to_render_is_inconclusive_without_rendering_it(): void
+    {
+        $entries = '/MediaBox [0 0 12000 12000]';
+        $inputPath = SyntheticVisibleSignature::input(self::$directory, 'poster-input', $entries);
+        $outputPath = SyntheticVisibleSignature::sign($inputPath, self::$directory, 'poster', ['first_page_entries' => $entries, 'rectangle' => [36, 11880, 276, 11964]]);
+
+        $observation = self::observe($outputPath, $inputPath);
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame('Page 1 is 12000 by 12000 points, and the analyzer renders no page above 40000000 pixels at 72 dpi', $observation['evidence']['summary']);
     }
 
     public function test_attempt_without_output_is_not_evaluated(): void

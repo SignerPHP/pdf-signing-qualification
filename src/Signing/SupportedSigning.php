@@ -25,6 +25,10 @@ final class SupportedSigning
     {
         ksort($value);
 
-        return array_map(static fn (mixed $entry): mixed => is_array($entry) ? self::normalize($entry) : $entry, $value);
+        return array_map(static fn (mixed $entry): mixed => match (true) {
+            is_array($entry) => self::normalize($entry),
+            is_int($entry) => (float) $entry,
+            default => $entry,
+        }, $value);
     }
 }

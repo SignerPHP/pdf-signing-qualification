@@ -12,7 +12,11 @@ final class SyntheticVisibleSignature
 
     private const string FIRST_PAGE_CONTENT = '0.6 g 0 0 612 792 re f 0 g BT /F1 24 Tf 72 400 Td (Visible appearance fixture) Tj ET';
 
-    private const string SECOND_PAGE_CONTENT = 'BT /F1 24 Tf 72 400 Td (Second page) Tj ET';
+    private const string RED = '1 0 0 rg';
+
+    private const string GRAY_OF_THE_SAME_LUMINANCE = '0.302 g';
+
+    private const string SECOND_PAGE_CONTENT = self::RED.' 72 500 100 100 re f 0 g BT /F1 24 Tf 72 400 Td (Second page) Tj ET';
 
     private const string DRAWING_APPEARANCE = '0 g 0 0 240 84 re f';
 
@@ -22,7 +26,7 @@ final class SyntheticVisibleSignature
     }
 
     /**
-     * @param  array{page?: int, rectangle?: list<int|float>, flags?: int, appearance?: 'stream'|'missing'|'empty'|'states', annotated?: bool, changed_page?: ?int, first_page_entries?: string}  $options
+     * @param  array{page?: int, rectangle?: list<int|float>, flags?: int, appearance?: 'stream'|'missing'|'empty'|'states', annotated?: bool, changed_page?: ?int, recoloured?: bool, need_appearances?: bool, first_page_entries?: string}  $options
      */
     public static function sign(string $inputPath, string $directory, string $name, array $options = []): string
     {
@@ -41,7 +45,7 @@ final class SyntheticVisibleSignature
             'missing' => '',
         };
         $objects = [
-            1 => '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [20 0 R] /SigFlags 3 >> >>',
+            1 => '<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [20 0 R] /SigFlags 3'.(($options['need_appearances'] ?? false) ? ' /NeedAppearances true' : '').' >> >>',
             20 => "<< /Type /Annot /Subtype /Widget /FT /Sig /T (Signature1) /Rect [{$rectangle}] /F {$flags} /P ".($page === 1 ? '3' : '6')." 0 R /V 21 0 R {$appearanceEntry} >>",
             21 => '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 10 20 30] /Contents <'.bin2hex($name).'> >>',
             22 => self::stream('/Type /XObject /Subtype /Form /BBox [0 0 240 84]', self::DRAWING_APPEARANCE),
@@ -54,6 +58,9 @@ final class SyntheticVisibleSignature
         if ($changedPage !== null) {
             $contentNumber = $changedPage === 1 ? 4 : 7;
             $objects[$contentNumber] = self::stream('', ($changedPage === 1 ? self::FIRST_PAGE_CONTENT : self::SECOND_PAGE_CONTENT).' 0 g 400 100 100 100 re f');
+        }
+        if ($options['recoloured'] ?? false) {
+            $objects[7] = self::stream('', str_replace(self::RED, self::GRAY_OF_THE_SAME_LUMINANCE, self::SECOND_PAGE_CONTENT));
         }
         ksort($objects);
 

@@ -178,6 +178,7 @@ final class PerformanceAnalysis
             'expected rejections' => $records->run['expected_rejections'] ?? null,
             'analyzers' => $records->run['analyzers'],
             'resource limits' => $records->run['environment']['resource_limits'] ?? null,
+            'confinement' => $records->run['environment']['confinement'] ?? null,
             'container image' => $records->run['environment']['container_image'],
             'CPU model' => $records->run['environment']['cpu_model'] ?? null,
             'inputs' => $inputs,

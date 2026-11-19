@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Signing;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptResult;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Signing\FilesystemConfinement;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\PdfSignerImplementation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
@@ -52,6 +54,8 @@ final class AttemptRunnerTest extends TestCase
         self::$directory = sys_get_temp_dir().'/attempts-'.bin2hex(random_bytes(6));
         mkdir(self::$directory);
         mkdir(self::$directory.'/credential');
+        mkdir(self::installationsDirectory());
+        mkdir(self::observationsDirectory());
         self::$credential = TestCredential::generate(self::$directory.'/credential');
         self::$unsignedPath = SyntheticSignedPdf::createUnsigned(self::$directory);
     }
@@ -74,7 +78,7 @@ final class AttemptRunnerTest extends TestCase
         exec('chmod -R u+rwx '.escapeshellarg($this->workDirectory).' 2>/dev/null; rm -rf '.escapeshellarg($this->workDirectory));
     }
 
-    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null): AttemptRunner
+    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null, ?FilesystemConfinement $confinement = null): AttemptRunner
     {
         return new AttemptRunner(
             $commandRunner ?? new ProcessRunner,
@@ -84,7 +88,21 @@ final class AttemptRunnerTest extends TestCase
             $this->outputDirectory,
             $limits ?? new ResourceLimits,
             static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-29T12:00:01Z'),
+            $confinement ?? new FilesystemConfinement(
+                readableDirectories: [...FilesystemConfinement::SYSTEM_DIRECTORIES, self::installationsDirectory()],
+                writablePaths: [...FilesystemConfinement::WRITABLE_PATHS, self::observationsDirectory()],
+            ),
         );
+    }
+
+    private static function installationsDirectory(): string
+    {
+        return self::$directory.'/installations';
+    }
+
+    private static function observationsDirectory(): string
+    {
+        return self::$directory.'/observations';
     }
 
     private static function scenario(): array
@@ -182,7 +200,7 @@ final class AttemptRunnerTest extends TestCase
 
     public function test_revision_that_does_not_list_an_option_of_the_adapter_is_incompatible(): void
     {
-        $installationDirectory = self::$directory.'/pdf-signer-without-timestamp-option';
+        $installationDirectory = self::installationsDirectory().'/pdf-signer-without-timestamp-option';
         mkdir($installationDirectory.'/bin', 0777, true);
         file_put_contents($installationDirectory.'/bin/signer-sign', "<?php\necho \"Usage: --input= --output= --cert= --password= --no-default-appearance\\n\";\n");
 
@@ -194,7 +212,7 @@ final class AttemptRunnerTest extends TestCase
 
     public function test_option_is_listed_only_under_its_own_name_and_not_inside_a_longer_one(): void
     {
-        $installationDirectory = self::$directory.'/pdf-signer-with-renamed-certificate-option';
+        $installationDirectory = self::installationsDirectory().'/pdf-signer-with-renamed-certificate-option';
         mkdir($installationDirectory.'/bin', 0777, true);
         file_put_contents($installationDirectory.'/bin/signer-sign', "<?php\necho \"Usage: --input=/in.pdf --output=/out.pdf --certificate=/c.pfx --password=secret\\n  --certification-level=2\\n  --no-default-appearance\\n  --no-default-timestamp\\n\";\n");
 
@@ -205,13 +223,65 @@ final class AttemptRunnerTest extends TestCase
 
     public function test_revision_without_the_entry_point_of_the_adapter_is_incompatible(): void
     {
-        $installationDirectory = self::$directory.'/pdf-signer-without-entry-point';
+        $installationDirectory = self::installationsDirectory().'/pdf-signer-without-entry-point';
         mkdir($installationDirectory);
 
         $reason = $this->runner()->incompatibility(new PdfSignerImplementation($installationDirectory));
 
         self::assertNotNull($reason);
         self::assertStringStartsWith('The help of pdf-signer exited with code 1: Could not open input file', $reason);
+    }
+
+    public function test_compatibility_check_cannot_reach_the_repository(): void
+    {
+        $implementation = new CommandImplementation(static fn (): array => ['false'], compatibilityCheck: ['command' => ['cat', '/app/composer.json'], 'options' => []]);
+
+        $reason = $this->runner()->incompatibility($implementation);
+
+        self::assertSame('The help of command-signer exited with code 1: cat: /app/composer.json: Permission denied', $reason);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_compatibility_check_that_does_not_finish_in_time_is_reported_as_such(): void
+    {
+        $implementation = new CommandImplementation(static fn (): array => ['false'], compatibilityCheck: ['command' => ['sleep', '30'], 'options' => []]);
+
+        $start = hrtime(true);
+        $reason = $this->runner(new ResourceLimits(timeoutSeconds: 0.5))->incompatibility($implementation);
+
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+        self::assertSame('The help of command-signer did not finish in time', $reason);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_attempts_are_refused_when_the_kernel_cannot_confine_them(): void
+    {
+        $probe = new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(1, "Landlock is not available: Operation not supported\n"));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Attempts must be confined with Landlock, but the probe exited with code 1: Landlock is not available: Operation not supported');
+
+        $this->runner(confinement: new FilesystemConfinement($probe))->run(self::RUN_ID, self::scenario(), new PdfSignerImplementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+    }
+
+    public function test_attempts_are_refused_when_landlock_does_not_control_truncation(): void
+    {
+        $probe = new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(0, "2\n"));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Attempts must be confined with Landlock ABI 3 or later, which controls truncation, but the kernel offers ABI 2');
+
+        $this->runner(confinement: new FilesystemConfinement($probe))->run(self::RUN_ID, self::scenario(), new PdfSignerImplementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+    }
+
+    public function test_confinement_is_recorded_with_the_landlock_abi_and_what_the_attempt_may_read(): void
+    {
+        $probe = new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(0, "6\n"));
+
+        self::assertSame(
+            ['mechanism' => 'landlock', 'landlock_abi' => 6, 'readable_directories' => ['/etc', '/usr', '/dev'], 'writable_paths' => ['/dev/null']],
+            (new FilesystemConfinement($probe, ['/etc', '/nonexistent', '/usr', '/dev']))->record(),
+        );
     }
 
     public function test_implementation_without_a_compatibility_check_is_not_checked(): void
@@ -262,7 +332,7 @@ final class AttemptRunnerTest extends TestCase
 
     public function test_attempt_exceeding_the_time_limit_is_timed_out_and_its_children_are_terminated(): void
     {
-        $childPidPath = self::$directory.'/child.pid';
+        $childPidPath = self::observationsDirectory().'/child.pid';
         $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'sleep 30 & echo $! > "$1"; wait', 'sh', $childPidPath]);
 
         $start = hrtime(true);
@@ -274,6 +344,7 @@ final class AttemptRunnerTest extends TestCase
         self::assertNull($result->record['execution']['exit_code']);
         self::assertSame('command-signer did not finish within 0.5 seconds', $result->record['execution']['error']['message']);
         self::assertNull($result->record['output']);
+        self::assertFileExists($childPidPath);
         self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
         $this->assertWorkDirectoryIsEmpty();
     }
@@ -318,6 +389,38 @@ final class AttemptRunnerTest extends TestCase
         self::assertMatchesRegularExpression('#^HOME='.preg_quote($this->workDirectory, '#').'/attempt-[0-9a-f]+$#m', $environment);
         self::assertMatchesRegularExpression('#^TMPDIR='.preg_quote($this->workDirectory, '#').'/attempt-[0-9a-f]+$#m', $environment);
         self::assertMatchesRegularExpression('#^PWD='.preg_quote($this->workDirectory, '#').'/attempt-[0-9a-f]+$#m', $environment);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function accessesOutsideTheAttempt(): array
+    {
+        return [
+            'reading the repository' => ['cat /app/composer.json'],
+            'writing where the run keeps its outputs' => [': > "$1/planted.pdf"'],
+            'reading another attempt' => ['cat "$2/input.pdf"'],
+            'writing into another attempt' => [': > "$2/planted.pdf"'],
+        ];
+    }
+
+    #[DataProvider('accessesOutsideTheAttempt')]
+    public function test_attempt_cannot_reach_the_repository_the_run_or_another_attempt(string $access): void
+    {
+        $siblingDirectory = $this->workDirectory.'/attempt-sibling';
+        mkdir($siblingDirectory);
+        copy(self::$unsignedPath, $siblingDirectory.'/input.pdf');
+        mkdir($this->outputDirectory);
+        $implementation = self::command(fn (): array => ['sh', '-c', "{$access} && cp input.pdf output.pdf", 'sh', $this->outputDirectory, $siblingDirectory]);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSchemaValid($result);
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertStringContainsString('Permission denied', $result->record['execution']['error']['message']);
+        self::assertNull($result->outputPath);
+        self::assertFileDoesNotExist($this->outputDirectory.'/planted.pdf');
+        self::assertFileDoesNotExist($siblingDirectory.'/planted.pdf');
     }
 
     public function test_successful_exit_without_output_is_a_failed_attempt(): void
@@ -499,7 +602,7 @@ final class AttemptRunnerTest extends TestCase
 
     public function test_child_left_holding_the_output_stream_does_not_turn_a_success_into_a_timeout(): void
     {
-        $childPidPath = self::$directory.'/lingering-child.pid';
+        $childPidPath = self::observationsDirectory().'/lingering-child.pid';
         $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'cp input.pdf output.pdf; sleep 30 & echo $! > "$1"; exit 0', 'sh', $childPidPath]);
 
         $start = hrtime(true);
@@ -507,6 +610,7 @@ final class AttemptRunnerTest extends TestCase
 
         self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
         self::assertSame('succeeded', $result->record['execution']['outcome']);
+        self::assertFileExists($childPidPath);
         self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
     }
 

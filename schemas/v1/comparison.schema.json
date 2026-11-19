@@ -144,7 +144,8 @@
                         "source_configuration",
                         "expected_rejections",
                         "container_image",
-                        "resource_limits"
+                        "resource_limits",
+                        "confinement"
                     ]
                 },
                 "analyzer_id": { "$ref": "common.schema.json#/$defs/identifier" },

@@ -8,7 +8,92 @@ import sys
 import time
 
 PR_SET_CHILD_SUBREAPER = 36
+PR_SET_NO_NEW_PRIVS = 38
 ORPHAN_REAPING_MILLISECONDS = 50
+
+LANDLOCK_CREATE_RULESET = 444
+LANDLOCK_ADD_RULE = 445
+LANDLOCK_RESTRICT_SELF = 446
+LANDLOCK_CREATE_RULESET_VERSION = 1
+LANDLOCK_RULE_PATH_BENEATH = 1
+LANDLOCK_MINIMUM_ABI = 3
+
+ACCESS_EXECUTE = 1 << 0
+ACCESS_WRITE_FILE = 1 << 1
+ACCESS_READ_FILE = 1 << 2
+ACCESS_READ_DIR = 1 << 3
+ACCESS_REFER = 1 << 13
+ACCESS_TRUNCATE = 1 << 14
+ACCESS_IOCTL_DEV = 1 << 15
+ACCESS_WITHOUT_ABI_REQUIREMENT = (1 << 13) - 1
+FILE_ACCESS = ACCESS_EXECUTE | ACCESS_WRITE_FILE | ACCESS_READ_FILE | ACCESS_TRUNCATE | ACCESS_IOCTL_DEV
+READ_ACCESS = ACCESS_EXECUTE | ACCESS_READ_FILE | ACCESS_READ_DIR
+
+SCOPE_ABSTRACT_UNIX_SOCKET = 1 << 0
+SCOPE_SIGNAL = 1 << 1
+SCOPED_ABI = 6
+NETWORK_ABI = 4
+
+
+class RulesetAttributes(ctypes.Structure):
+    _fields_ = [('handled_access_fs', ctypes.c_uint64), ('handled_access_net', ctypes.c_uint64), ('scoped', ctypes.c_uint64)]
+
+
+class PathBeneathAttributes(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [('allowed_access', ctypes.c_uint64), ('parent_fd', ctypes.c_int32)]
+
+
+def landlock_abi(library):
+    abi = library.syscall(LANDLOCK_CREATE_RULESET, None, ctypes.c_size_t(0), ctypes.c_uint32(LANDLOCK_CREATE_RULESET_VERSION))
+    if abi < 0:
+        raise OSError(ctypes.get_errno(), f'Landlock is not available: {os.strerror(ctypes.get_errno())}')
+    return abi
+
+
+def handled_access(abi):
+    access = ACCESS_WITHOUT_ABI_REQUIREMENT
+    if abi >= 2:
+        access |= ACCESS_REFER
+    if abi >= 3:
+        access |= ACCESS_TRUNCATE
+    if abi >= 5:
+        access |= ACCESS_IOCTL_DEV
+    return access
+
+
+def confine(library, readable_paths, writable_paths):
+    abi = landlock_abi(library)
+    if abi < LANDLOCK_MINIMUM_ABI:
+        raise OSError(0, f'Landlock ABI {abi} does not control truncation; at least {LANDLOCK_MINIMUM_ABI} is needed')
+    handled = handled_access(abi)
+    attributes = RulesetAttributes(handled, 0, SCOPE_ABSTRACT_UNIX_SOCKET | SCOPE_SIGNAL if abi >= SCOPED_ABI else 0)
+    attributes_size = 24 if abi >= SCOPED_ABI else 16 if abi >= NETWORK_ABI else 8
+    ruleset = library.syscall(LANDLOCK_CREATE_RULESET, ctypes.byref(attributes), ctypes.c_size_t(attributes_size), ctypes.c_uint32(0))
+    if ruleset < 0:
+        raise OSError(ctypes.get_errno(), f'Unable to create the Landlock ruleset: {os.strerror(ctypes.get_errno())}')
+    try:
+        for paths, access in ((readable_paths, READ_ACCESS & handled), (writable_paths, handled)):
+            for path in paths:
+                allow(library, ruleset, path, access)
+        if library.prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0:
+            raise OSError(ctypes.get_errno(), f'Unable to forbid new privileges: {os.strerror(ctypes.get_errno())}')
+        if library.syscall(LANDLOCK_RESTRICT_SELF, ruleset, ctypes.c_uint32(0)) != 0:
+            raise OSError(ctypes.get_errno(), f'Unable to apply the Landlock ruleset: {os.strerror(ctypes.get_errno())}')
+    finally:
+        os.close(ruleset)
+
+
+def allow(library, ruleset, path, access):
+    descriptor = os.open(path, os.O_PATH | os.O_CLOEXEC)
+    try:
+        if not os.path.isdir(f'/proc/self/fd/{descriptor}'):
+            access &= FILE_ACCESS
+        rule = PathBeneathAttributes(access, descriptor)
+        if library.syscall(LANDLOCK_ADD_RULE, ruleset, ctypes.c_int(LANDLOCK_RULE_PATH_BENEATH), ctypes.byref(rule), ctypes.c_uint32(0)) != 0:
+            raise OSError(ctypes.get_errno(), f'Unable to allow {path}: {os.strerror(ctypes.get_errno())}')
+    finally:
+        os.close(descriptor)
 
 
 def processes_to_stop(own_id, group_id):
@@ -87,15 +172,38 @@ def wait_for_child(child_id, timeout_seconds, started_at):
         os.close(child_descriptor)
 
 
-def main():
-    if len(sys.argv) < 5 or sys.argv[3] != '--':
-        sys.stderr.write('Usage: measure-process-tree.py <timeout-seconds> <measurement-path> -- <command> [argument...]\n')
-        return 2
-    timeout_seconds = float(sys.argv[1])
-    measurement_descriptor = open_measurement(sys.argv[2])
-    command = sys.argv[4:]
+def parse_arguments(arguments):
+    if len(arguments) < 2:
+        return None
+    readable_paths = []
+    writable_paths = []
+    position = 2
+    while position + 1 < len(arguments) and arguments[position] in ('--read', '--write'):
+        (readable_paths if arguments[position] == '--read' else writable_paths).append(arguments[position + 1])
+        position += 2
+    if position + 1 >= len(arguments) or arguments[position] != '--':
+        return None
+    return float(arguments[0]), arguments[1], readable_paths, writable_paths, arguments[position + 1:]
 
+
+def main():
     library = ctypes.CDLL(None, use_errno=True)
+    if sys.argv[1:] == ['--landlock-abi']:
+        try:
+            print(landlock_abi(library))
+        except OSError as error:
+            sys.stderr.write(f'{error.strerror}\n')
+            return 1
+        return 0
+
+    arguments = parse_arguments(sys.argv[1:])
+    if arguments is None:
+        sys.stderr.write('Usage: measure-process-tree.py <timeout-seconds> <measurement-path> [--read <path>]... [--write <path>]... -- <command> [argument...]\n')
+        sys.stderr.write('       measure-process-tree.py --landlock-abi\n')
+        return 2
+    timeout_seconds, measurement_path, readable_paths, writable_paths, command = arguments
+    measurement_descriptor = open_measurement(measurement_path)
+
     if library.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0:
         sys.stderr.write(f'Unable to become the subreaper of the attempt: {os.strerror(ctypes.get_errno())}\n')
         return 2
@@ -105,6 +213,12 @@ def main():
     if child_id == 0:
         for signal_number in (signal.SIGPIPE, signal.SIGXFSZ):
             signal.signal(signal_number, signal.SIG_DFL)
+        if readable_paths or writable_paths:
+            try:
+                confine(library, readable_paths, writable_paths)
+            except OSError as error:
+                sys.stderr.write(f'Unable to confine the attempt: {error.strerror}\n')
+                os._exit(126)
         try:
             os.execvp(command[0], command)
         except OSError as error:

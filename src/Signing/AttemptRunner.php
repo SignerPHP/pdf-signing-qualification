@@ -40,6 +40,7 @@ final class AttemptRunner
         private readonly string $outputDirectory,
         private readonly ResourceLimits $limits,
         private readonly Closure $clock,
+        private readonly FilesystemConfinement $confinement = new FilesystemConfinement,
     ) {}
 
     public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath, bool $rejectionExpected = false): AttemptResult
@@ -77,7 +78,7 @@ final class AttemptRunner
             $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $this->credential, $scenario['signing']);
 
             $startedAt = $this->now();
-            $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
+            $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $finishedAt = $this->now();
             $measured = self::readMeasurement($measurementHandle);
             $timedOut = $result->timedOut || ($measured['timed_out'] ?? false) === true;
@@ -144,9 +145,18 @@ final class AttemptRunner
 
         $this->assertContained();
         $attemptDirectory = $this->createAttemptDirectory();
+        $measurementPath = self::measurementPath($attemptDirectory);
+        $measurementHandle = null;
         try {
-            $result = $this->runner->run($this->sandboxed($check['command'], $attemptDirectory), $this->limits->timeoutSeconds);
+            $measurementHandle = self::createMeasurement($measurementPath);
+            $result = $this->runner->run($this->sandboxed($this->measured($check['command'], $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
+            if (! $result->timedOut && (self::readMeasurement($measurementHandle)['timed_out'] ?? false) === true) {
+                $result = new CommandResult(null, $result->output, true);
+            }
         } finally {
+            if ($measurementHandle !== null) {
+                fclose($measurementHandle);
+            }
             $this->removeDirectory($attemptDirectory);
         }
 
@@ -164,6 +174,7 @@ final class AttemptRunner
     {
         $this->networkIsolation->assertIsolated();
         $this->assertBoundedStorage();
+        $this->confinement->assertAvailable();
     }
 
     /**
@@ -184,9 +195,13 @@ final class AttemptRunner
      * @param  list<string>  $command
      * @return list<string>
      */
-    private function measured(array $command, string $measurementPath): array
+    private function measured(array $command, string $measurementPath, string $attemptDirectory): array
     {
-        return ['python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath, '--', ...$command];
+        return [
+            'python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath,
+            ...$this->confinement->arguments($attemptDirectory, $this->credential->pkcs12Path),
+            '--', ...$command,
+        ];
     }
 
     private static function measurementPath(string $attemptDirectory): string

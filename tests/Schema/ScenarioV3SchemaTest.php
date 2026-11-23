@@ -54,6 +54,15 @@ final class ScenarioV3SchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_one_revoked_signer_after_a_valid_one_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $scenario): array {
+            $scenario['signing']['signers'] = ['valid', 'revoked'];
+
+            return $scenario;
+        }));
+    }
+
     public function test_visible_scenario_with_placement_is_accepted(): void
     {
         self::assertValid(self::mutate(function (array $scenario): array {
@@ -79,6 +88,7 @@ final class ScenarioV3SchemaTest extends SchemaTestCase
         })];
         yield 'empty signers' => [$signing(fn (array $signing): array => ['signers' => []] + $signing)];
         yield 'three signers' => [$signing(fn (array $signing): array => ['signers' => ['valid', 'valid', 'valid']] + $signing)];
+        yield 'two revoked signers' => [$signing(fn (array $signing): array => ['signers' => ['revoked', 'revoked']] + $signing)];
         yield 'unknown certificate state' => [$signing(fn (array $signing): array => ['signers' => ['expired']] + $signing)];
         yield 'no document timestamp flag' => [$signing(function (array $signing): array {
             unset($signing['document_timestamp']);

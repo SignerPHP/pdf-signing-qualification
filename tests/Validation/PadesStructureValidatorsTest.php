@@ -100,6 +100,20 @@ final class PadesStructureValidatorsTest extends TestCase
         self::assertSame(QpdfObjects::command(self::$output), $runner->commands[0]);
     }
 
+    public function test_certification_and_document_timestamp_of_the_input_are_not_the_implementation_s(): void
+    {
+        $listing = json_encode(self::listing(), JSON_THROW_ON_ERROR);
+        $runner = new FakeCommandRunner(new CommandResult(0, "qpdf version 11.3.0\n"), new CommandResult(0, $listing));
+        $subject = new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output, self::$output);
+
+        $approval = (new PadesStructureValidator($runner, self::clock(), null, false))->observe($subject);
+        $certification = (new PadesStructureValidator($runner, self::clock(), 2, false))->observe($subject);
+
+        self::assertSame('valid', $approval['verdict'], $approval['evidence']['summary']);
+        self::assertSame('invalid', $certification['verdict']);
+        self::assertStringContainsString('certification signature of the input', $certification['evidence']['summary']);
+    }
+
     public function test_recovered_listing_without_a_problem_is_inconclusive(): void
     {
         $runner = new FakeCommandRunner(new CommandResult(0, "qpdf version 11.3.0\n"), new CommandResult(3, json_encode(self::listing(), JSON_THROW_ON_ERROR)));

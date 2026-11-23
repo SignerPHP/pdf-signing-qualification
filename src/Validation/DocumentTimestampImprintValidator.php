@@ -28,7 +28,7 @@ final class DocumentTimestampImprintValidator extends ToolValidator
     {
         return [
             'id' => 'document-timestamp-imprint',
-            'description' => 'Every dictionary with /SubFilter /ETSI.RFC3161 that qpdf lists in the output holds in /Contents a token containing the DER OCTET STRING of the SHA-256, SHA-384 or SHA-512 digest of the bytes its /ByteRange covers, which is where an RFC 3161 message imprint carries it; an output without a document timestamp is invalid, because the analyzer runs only for scenarios that add one',
+            'description' => 'Every dictionary with /SubFilter /ETSI.RFC3161 that qpdf lists in the output and not in the input (same /ByteRange and /Contents) holds in /Contents a token containing the DER OCTET STRING of the SHA-256, SHA-384 or SHA-512 digest of the bytes its /ByteRange covers, which is where an RFC 3161 message imprint carries it; an output without a document timestamp is invalid, because the analyzer runs only for scenarios that add one',
             'parameters' => [
                 'listing' => ['qpdf', ...QpdfObjects::ARGUMENTS],
                 'digest_algorithms' => array_keys(self::DIGESTS),
@@ -57,9 +57,20 @@ final class DocumentTimestampImprintValidator extends ToolValidator
             return new Judgement('inconclusive', 'qpdf '.$result->describe().' without a listing the analyzer can read', $result->exitCode, $result->output);
         }
 
+        $inputKeys = [];
+        if ($subject->inputPath !== null) {
+            $inputListing = SignatureListing::read($this->runner, $subject->inputPath, $this->timeoutSeconds);
+            if ($inputListing->signatures === null) {
+                return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so the document timestamps the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
+            }
+            $inputKeys = $inputListing->keys();
+        }
+
         $timestamps = [];
         foreach ($document->signatureDictionaries() as $reference => $dictionary) {
-            if (($dictionary['/SubFilter'] ?? null) !== '/ETSI.RFC3161') {
+            $contents = $document->bytes($dictionary['/Contents'] ?? null);
+            $key = SignatureListing::key(['object' => $reference, 'field' => null, 'type' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)]);
+            if (($dictionary['/SubFilter'] ?? null) !== '/ETSI.RFC3161' || isset($inputKeys[$key])) {
                 continue;
             }
             $timestamps[] = ['object' => $reference, 'imprint' => $this->imprint($outputPath, $document->byteRange($dictionary), $document->bytes($dictionary['/Contents'] ?? null))];

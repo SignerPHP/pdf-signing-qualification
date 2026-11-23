@@ -45,7 +45,7 @@ final class PadesStructureValidator extends ToolValidator
     {
         return [
             'id' => 'qpdf-pades-structure',
-            'description' => 'From qpdf\'s JSON listing of the output: the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario has no /Perms /DocMDP; every dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
+            'description' => 'From qpdf\'s JSON listing of the output, leaving out the signature dictionaries of the input (same /ByteRange and /Contents): the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario adds none to /Perms /DocMDP; every added dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
             'parameters' => [
                 'listing' => ['qpdf', ...QpdfObjects::ARGUMENTS],
                 'certification_level' => $this->certificationLevel,
@@ -76,6 +76,15 @@ final class PadesStructureValidator extends ToolValidator
             return new Judgement('inconclusive', 'qpdf '.$result->describe().' without a catalog the analyzer can read', $result->exitCode, $result->output);
         }
 
+        $inputKeys = [];
+        if ($subject->inputPath !== null) {
+            $inputListing = SignatureListing::read($this->runner, $subject->inputPath, $this->timeoutSeconds);
+            if ($inputListing->signatures === null) {
+                return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so those the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
+            }
+            $inputKeys = $inputListing->keys();
+        }
+
         $problems = [];
         foreach (['/DocMDP', '/DocTimeStamp'] as $key) {
             if (array_key_exists($key, $catalog)) {
@@ -86,12 +95,12 @@ final class PadesStructureValidator extends ToolValidator
         if (is_array($perms) && array_key_exists('/DocTimeStamp', $perms)) {
             $problems[] = '/Perms has a /DocTimeStamp entry';
         }
-        array_push($problems, ...$this->certificationProblems($document, is_array($perms) ? $perms : []));
+        array_push($problems, ...$this->certificationProblems($document, is_array($perms) ? $perms : [], $inputKeys));
 
         $fieldValues = $document->signatureFieldValues();
         $documentTimestamps = [];
         foreach ($document->signatureDictionaries() as $reference => $dictionary) {
-            if (($dictionary['/SubFilter'] ?? null) !== self::DOCUMENT_TIMESTAMP_SUB_FILTER) {
+            if (($dictionary['/SubFilter'] ?? null) !== self::DOCUMENT_TIMESTAMP_SUB_FILTER || self::isPrior($document, $dictionary, $inputKeys)) {
                 continue;
             }
             $documentTimestamps[] = $reference;
@@ -122,18 +131,36 @@ final class PadesStructureValidator extends ToolValidator
     }
 
     /**
+     * Whether the input already holds this signature dictionary, with the same /ByteRange and
+     * /Contents, as qpdf-prior-signatures compares them.
+     *
+     * @param  array<string, true>  $inputKeys
+     */
+    private static function isPrior(QpdfObjects $document, array $dictionary, array $inputKeys): bool
+    {
+        $contents = $document->bytes($dictionary['/Contents'] ?? null);
+
+        return isset($inputKeys[SignatureListing::key(['object' => '', 'field' => null, 'type' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)])]);
+    }
+
+    /**
+     * @param  array<string, true>  $inputKeys
      * @return list<string>
      */
-    private function certificationProblems(QpdfObjects $document, array $perms): array
+    private function certificationProblems(QpdfObjects $document, array $perms, array $inputKeys): array
     {
         $reference = $perms['/DocMDP'] ?? null;
+        $signature = $document->resolve($reference);
+        $prior = is_array($signature) && self::isPrior($document, $signature, $inputKeys);
         if ($this->certificationLevel === null) {
-            return $reference === null ? [] : ['the scenario has no certification signature, but /Perms has a /DocMDP entry'];
+            return $reference === null || $prior ? [] : ['the scenario has no certification signature, but /Perms /DocMDP holds a signature the implementation added'];
         }
 
-        $signature = $document->resolve($reference);
         if (! is_array($signature) || ! array_key_exists('/ByteRange', $signature)) {
             return ['the certification signature is not registered as /Perms /DocMDP'];
+        }
+        if ($prior) {
+            return ['/Perms /DocMDP still holds the certification signature of the input, not the one the scenario adds'];
         }
         $references = $document->resolve($signature['/Reference'] ?? null);
         foreach (is_array($references) ? $references : [] as $signatureReference) {

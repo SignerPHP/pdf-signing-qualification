@@ -1,6 +1,6 @@
 # PAdES, timestamp, revocation and ICP-Brasil scenarios
 
-The scenarios of version 3 qualify what the basic scenarios leave out: signature timestamps, revocation data, document timestamps, certification signatures, several signers, a signature policy, and an implementation's refusal to sign with a revoked certificate. They come from a local conformance harness of `pdf-signer` and keep its coverage inside this repository's model: one scenario per configuration, one attempt per input, and independent observations, never a combined verdict.
+The scenarios of version 3 qualify what the basic scenarios leave out: signature timestamps, revocation data, document timestamps, certification signatures, several signers, a signature policy, and an implementation's refusal to sign with a revoked certificate. They follow this repository's model: one scenario per configuration, one attempt per input, and independent observations, never a combined verdict.
 
 ## Test PKI
 
@@ -59,7 +59,7 @@ Verdicts on the 23 outputs, valid / invalid / inconclusive:
 | `icp-brasil-ad-rt` | 0 / 20 / 3 | 0 / 22 / 1 | 0 / 22 / 1 | 0 / 19 / 4 |
 | `pades-revoked-signer` | 0 / 20 / 3 | 0 / 22 / 1 | – | – |
 
-What the analyzers report on this revision, each a defect already known from the local harness:
+What the analyzers report on this revision:
 
 - **`eu-dss`**: every added signature is detected as `PDF-NOT-ETSI`, not as a PAdES baseline signature, whatever the level. On `hybrid-xref.pdf`, `good17.pdf` and `good18.pdf` DSS finds no added signature at all, as the `hybrid-xref` regression case predicts. The 3 inconclusive outputs are an encrypted document DSS cannot open, a file with bytes before its header, which DSS does not recognize, and one whose input qpdf cannot list.
 - **`qpdf-pades-structure`**: a timestamp scenario (T, LT, LTA) writes a `/DocTimeStamp` entry into the catalog and a document timestamp with `/Type /Sig` that no field of the form holds, even at T and LT, which call for no document timestamp. A certification signature is written as a catalog `/DocMDP` entry instead of `/Perms /DocMDP`; on the 3 inputs already certified, `/Perms /DocMDP` keeps the input's.

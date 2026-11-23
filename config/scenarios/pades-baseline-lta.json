@@ -1,0 +1,18 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "id": "pades-baseline-lta",
+    "description": "One invisible PAdES baseline LTA signature by a certificate of the test PKI: baseline LT followed by a document timestamp",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "ETSI.CAdES.detached",
+        "appearance": "invisible",
+        "timestamp": true,
+        "revocation_info": true,
+        "document_timestamp": true,
+        "signers": [
+            "valid"
+        ]
+    }
+}

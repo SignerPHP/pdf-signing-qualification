@@ -34,6 +34,18 @@ final class TestCredential
         return $credential;
     }
 
+    /**
+     * A credential issued by the run's test PKI, which removes it with its directory.
+     */
+    public static function existing(string $pkcs12Path, string $password): self
+    {
+        if (! is_file($pkcs12Path)) {
+            throw new RuntimeException("The test signing credential {$pkcs12Path} does not exist");
+        }
+
+        return new self($pkcs12Path, $password);
+    }
+
     public function remove(): void
     {
         if (is_file($this->pkcs12Path) && ! unlink($this->pkcs12Path)) {

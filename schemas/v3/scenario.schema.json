@@ -1,0 +1,78 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "title": "Scenario, version 3",
+    "description": "An explicit operation configuration signed with certificates of the run's test PKI. Version 3 adds the signers and their certificates, the document timestamp, the certification level, the signature policy and a rejection expected from the scenario itself. Non-equivalent configurations are distinct scenarios; nothing in a scenario may be changed silently at run time.",
+    "type": "object",
+    "required": ["schema", "id", "description", "operation", "signing"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json" },
+        "id": { "$ref": "../v1/common.schema.json#/$defs/scenarioId" },
+        "description": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+        "operation": { "enum": ["sign"] },
+        "expected_rejection": {
+            "description": "Every implementation is expected to refuse to sign under this scenario, whatever the input, for the stated reason",
+            "type": "object",
+            "required": ["reason"],
+            "additionalProperties": false,
+            "properties": {
+                "reason": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+            }
+        },
+        "signing": {
+            "type": "object",
+            "required": ["digest_algorithm", "signature_algorithm", "sub_filter", "appearance", "timestamp", "revocation_info", "document_timestamp", "signers"],
+            "additionalProperties": false,
+            "properties": {
+                "digest_algorithm": { "enum": ["sha256", "sha384", "sha512"] },
+                "signature_algorithm": { "enum": ["rsa-pkcs1-v1_5", "rsa-pss", "ecdsa"] },
+                "sub_filter": { "enum": ["adbe.pkcs7.detached", "ETSI.CAdES.detached"] },
+                "appearance": { "enum": ["invisible", "visible"] },
+                "placement": { "$ref": "../v2/scenario.schema.json#/properties/signing/properties/placement" },
+                "timestamp": {
+                    "description": "Each signature carries a signature timestamp from the test PKI's time-stamping authority",
+                    "type": "boolean"
+                },
+                "revocation_info": {
+                    "description": "The document carries the certificates and revocation data that validate each signature (a document security store)",
+                    "type": "boolean"
+                },
+                "document_timestamp": {
+                    "description": "A document timestamp (/DocTimeStamp, ETSI.RFC3161) is added after the last signature",
+                    "type": "boolean"
+                },
+                "signers": {
+                    "description": "The signatures applied one after the other, each an incremental update of the previous output, by the certificate of the test PKI in the stated state: `valid`, or `revoked` before anything is signed",
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "items": { "enum": ["valid", "revoked"] }
+                },
+                "certification_level": {
+                    "description": "The first signature is a certification signature with this DocMDP permission level (ISO 32000-1, 12.8.2.2); absent, every signature is an approval signature",
+                    "enum": [1, 2, 3]
+                },
+                "signature_policy": {
+                    "description": "The signature policy each signature commits to: `icp-brasil-ad-rt` is the ICP-Brasil PAdES policy AD-RT (arc 2.16.76.1.7.1.12.1)",
+                    "enum": ["icp-brasil-ad-rt"]
+                }
+            },
+            "allOf": [
+                {
+                    "if": { "properties": { "appearance": { "const": "visible" } } },
+                    "then": { "required": ["placement"] },
+                    "else": { "not": { "required": ["placement"] } }
+                },
+                {
+                    "if": { "properties": { "revocation_info": { "const": true } } },
+                    "then": { "properties": { "timestamp": { "const": true } } }
+                },
+                {
+                    "if": { "properties": { "document_timestamp": { "const": true } } },
+                    "then": { "properties": { "revocation_info": { "const": true } } }
+                }
+            ]
+        }
+    }
+}

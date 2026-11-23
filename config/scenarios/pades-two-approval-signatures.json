@@ -1,0 +1,19 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "id": "pades-two-approval-signatures",
+    "description": "Two invisible PAdES baseline B approval signatures by two certificates of the test PKI, the second an incremental update of the first output, which must stay valid",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "ETSI.CAdES.detached",
+        "appearance": "invisible",
+        "timestamp": false,
+        "revocation_info": false,
+        "document_timestamp": false,
+        "signers": [
+            "valid",
+            "valid"
+        ]
+    }
+}

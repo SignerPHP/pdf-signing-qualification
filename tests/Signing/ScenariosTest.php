@@ -43,7 +43,19 @@ final class ScenariosTest extends TestCase
     {
         $ids = Scenarios::ids(self::SCENARIO_DIRECTORY);
 
-        self::assertSame(['basic-invisible-sha256', 'basic-visible-sha256'], $ids);
+        self::assertSame([
+            'basic-invisible-sha256',
+            'basic-visible-sha256',
+            'icp-brasil-ad-rt',
+            'pades-baseline-b',
+            'pades-baseline-lt',
+            'pades-baseline-lta',
+            'pades-baseline-t',
+            'pades-certification-docmdp-2',
+            'pades-certification-then-approval',
+            'pades-revoked-signer',
+            'pades-two-approval-signatures',
+        ], $ids);
         foreach ($ids as $id) {
             self::assertSame([], Scenarios::errors(self::versioned($id)), $id);
         }
@@ -69,7 +81,7 @@ final class ScenariosTest extends TestCase
     public function test_scenario_naming_an_unknown_schema_is_refused(): void
     {
         $scenario = self::versioned('basic-invisible-sha256');
-        $scenario['schema'] = SchemaValidator::SCHEMA_PREFIX.'v3/scenario.schema.json';
+        $scenario['schema'] = SchemaValidator::SCHEMA_PREFIX.'v9/scenario.schema.json';
 
         self::assertNotSame([], Scenarios::errors($scenario));
     }

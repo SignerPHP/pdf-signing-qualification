@@ -10,6 +10,7 @@ use DateTimeZone;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Artifact;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
@@ -40,6 +41,7 @@ final class AttemptRunner
         private readonly string $outputDirectory,
         private readonly ResourceLimits $limits,
         private readonly Closure $clock,
+        private readonly ?TestPki $pki = null,
     ) {}
 
     public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath, bool $rejectionExpected = false): AttemptResult
@@ -74,7 +76,8 @@ final class AttemptRunner
         $stagedOutputPath = null;
         try {
             $measurementHandle = self::createMeasurement($measurementPath);
-            $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $this->credential, $scenario['signing']);
+            [$credential, $additionalCredentials] = $this->credentials($scenario['signing']);
+            $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $credential, $scenario['signing'], $additionalCredentials, $this->pki?->timestampUrl());
 
             $startedAt = $this->now();
             $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
@@ -135,9 +138,9 @@ final class AttemptRunner
         ], $outputPath, $measurement);
     }
 
-    public function incompatibility(SigningImplementation $implementation): ?string
+    public function incompatibility(SigningImplementation $implementation, ?array $signing = null): ?string
     {
-        $check = $implementation->compatibilityCheck();
+        $check = $implementation->compatibilityCheck($signing);
         if ($check === null) {
             return null;
         }
@@ -271,9 +274,30 @@ final class AttemptRunner
 
     private function failure(SigningImplementation $implementation, CommandResult $result): string
     {
-        $output = trim(mb_scrub(substr(str_replace($this->credential->password, '[redacted]', $result->output), -self::ERROR_OUTPUT_BYTES), 'UTF-8'));
+        $passwords = array_values(array_filter([$this->credential->password, $this->pki?->password()], static fn (?string $password): bool => $password !== null && $password !== ''));
+        $output = trim(mb_scrub(substr(str_replace($passwords, '[redacted]', $result->output), -self::ERROR_OUTPUT_BYTES), 'UTF-8'));
 
         return "{$implementation->id()} {$result->describe()}".($output === '' ? '' : ": {$output}");
+    }
+
+    /**
+     * A scenario of version 3 signs with the certificates of the run's test PKI, one per signer;
+     * every other scenario with the run's self-signed credential.
+     *
+     * @return array{TestCredential, list<TestCredential>}
+     */
+    private function credentials(array $signing): array
+    {
+        $signers = $signing['signers'] ?? null;
+        if (! is_array($signers)) {
+            return [$this->credential, []];
+        }
+        if ($this->pki === null) {
+            throw new RuntimeException('The scenario signs with certificates of the test PKI, which the run did not start');
+        }
+        $credentials = $this->pki->credentials(array_values(array_map(strval(...), $signers)));
+
+        return [$credentials[0], array_slice($credentials, 1)];
     }
 
     private function createAttemptDirectory(): string

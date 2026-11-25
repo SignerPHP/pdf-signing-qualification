@@ -115,6 +115,15 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
+    public function test_confinement_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
+
+            return $run;
+        }));
+    }
+
     public static function invalidRuns(): iterable
     {
         yield 'run id with a space' => [self::mutate(function (array $run): array {
@@ -139,6 +148,21 @@ final class RunSchemaTest extends SchemaTestCase
         })];
         yield 'resource limits without the address space' => [self::mutate(function (array $run): array {
             $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1];
+
+            return $run;
+        })];
+        yield 'confinement without its Landlock ABI' => [self::mutate(function (array $run): array {
+            $run['environment']['confinement'] = ['mechanism' => 'landlock', 'readable_directories' => [], 'writable_paths' => []];
+
+            return $run;
+        })];
+        yield 'confinement on a Landlock ABI that does not control truncation' => [self::mutate(function (array $run): array {
+            $run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 2, 'readable_directories' => [], 'writable_paths' => []];
+
+            return $run;
+        })];
+        yield 'confinement with a relative path' => [self::mutate(function (array $run): array {
+            $run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['usr'], 'writable_paths' => []];
 
             return $run;
         })];

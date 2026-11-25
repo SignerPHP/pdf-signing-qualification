@@ -302,6 +302,7 @@ final class RunComparison
         $compare('expected_rejections', $reference->run['expected_rejections'] ?? null, $candidate->run['expected_rejections'] ?? null);
         $compare('container_image', $reference->run['environment']['container_image'], $candidate->run['environment']['container_image']);
         $compare('resource_limits', $reference->run['environment']['resource_limits'] ?? null, $candidate->run['environment']['resource_limits'] ?? null);
+        $compare('confinement', $reference->run['environment']['confinement'] ?? null, $candidate->run['environment']['confinement'] ?? null);
 
         return $differences;
     }

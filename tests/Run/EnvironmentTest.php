@@ -6,7 +6,10 @@ namespace SignerPHP\PdfSigningQualification\Tests\Run;
 
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Run\Environment;
+use SignerPHP\PdfSigningQualification\Signing\FilesystemConfinement;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
+use SignerPHP\PdfSigningQualification\Tests\Validation\FakeCommandRunner;
+use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 
 final class EnvironmentTest extends TestCase
 {
@@ -23,6 +26,17 @@ final class EnvironmentTest extends TestCase
         $environment = Environment::describe(false, new ResourceLimits(timeoutSeconds: 30.0, memoryBytes: 2048));
 
         self::assertSame(['timeout_seconds' => 30.0, 'address_space_bytes' => 2048, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256], $environment['resource_limits']);
+    }
+
+    public function test_confinement_of_the_attempts_is_recorded_when_the_run_confines_them(): void
+    {
+        $confinement = new FilesystemConfinement(new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(0, "11\n")), ['/etc', '/usr']);
+
+        self::assertSame(
+            ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']],
+            Environment::describe(false, new ResourceLimits, confinement: $confinement)['confinement'],
+        );
+        self::assertArrayNotHasKey('confinement', Environment::describe(false, new ResourceLimits));
     }
 
     public function test_environment_does_not_assume_a_runtime_that_the_implementation_may_not_use(): void

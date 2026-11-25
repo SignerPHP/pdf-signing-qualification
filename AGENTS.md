@@ -113,6 +113,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 ## Boundaries
 
 - Never commit upstream or user-reported PDFs, private keys or passwords. Follow the fixture policy in [CONTRIBUTING.md](CONTRIBUTING.md).
+- Never disclose a vulnerability in a public issue, pull request, commit, document or result bundle. Follow [SECURITY.md](SECURITY.md).
 - Never replace an unavailable or hash-mismatched input silently. Record it as unavailable.
 - Never weaken a verdict, a validator or a test to make a run or a check pass. A disagreement between validators is a result to report, not to resolve by vote.
 - Never record an unavailable measurement as zero.

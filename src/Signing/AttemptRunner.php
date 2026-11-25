@@ -81,6 +81,9 @@ final class AttemptRunner
             $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $finishedAt = $this->now();
             $measured = self::readMeasurement($measurementHandle);
+            if ($measured !== null && $measured['confinement_error'] !== null) {
+                throw new RuntimeException("Unable to confine the attempt of {$implementation->id()} on {$acquisition['source_id']}: {$measured['confinement_error']}");
+            }
             $timedOut = $result->timedOut || ($measured['timed_out'] ?? false) === true;
 
             [$outcome, $error] = match (true) {
@@ -150,7 +153,11 @@ final class AttemptRunner
         try {
             $measurementHandle = self::createMeasurement($measurementPath);
             $result = $this->runner->run($this->sandboxed($this->measured($check['command'], $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
-            if (! $result->timedOut && (self::readMeasurement($measurementHandle)['timed_out'] ?? false) === true) {
+            $measured = self::readMeasurement($measurementHandle);
+            if ($measured !== null && $measured['confinement_error'] !== null) {
+                throw new RuntimeException("Unable to confine the compatibility check of {$implementation->id()}: {$measured['confinement_error']}");
+            }
+            if (! $result->timedOut && ($measured['timed_out'] ?? false) === true) {
                 $result = new CommandResult(null, $result->output, true);
             }
         } finally {
@@ -224,7 +231,7 @@ final class AttemptRunner
 
     /**
      * @param  resource  $measurementHandle
-     * @return array{timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
+     * @return array{confinement_error: ?string, timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
      */
     private static function readMeasurement($measurementHandle): ?array
     {
@@ -233,7 +240,7 @@ final class AttemptRunner
             return null;
         }
         $measured = json_decode($contents, true);
-        if (! is_array($measured) || ! is_bool($measured['timed_out'] ?? null) || ! is_int($measured['peak_resident_kibibytes'] ?? null) || $measured['peak_resident_kibibytes'] < 0) {
+        if (! is_array($measured) || ! array_key_exists('confinement_error', $measured) || ($measured['confinement_error'] !== null && ! is_string($measured['confinement_error'])) || ! is_bool($measured['timed_out'] ?? null) || ! is_int($measured['peak_resident_kibibytes'] ?? null) || $measured['peak_resident_kibibytes'] < 0) {
             return null;
         }
         foreach (['wall_time_seconds', 'cpu_user_seconds', 'cpu_system_seconds'] as $name) {
@@ -243,6 +250,7 @@ final class AttemptRunner
         }
 
         return [
+            'confinement_error' => $measured['confinement_error'],
             'timed_out' => $measured['timed_out'],
             'wall_time_seconds' => (float) $measured['wall_time_seconds'],
             'cpu_user_seconds' => (float) $measured['cpu_user_seconds'],
@@ -252,7 +260,7 @@ final class AttemptRunner
     }
 
     /**
-     * @param  array{timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null  $measured
+     * @param  array{confinement_error: ?string, timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null  $measured
      */
     private static function metrics(?array $measured, string $ending): array
     {

@@ -85,7 +85,10 @@ def confine(library, readable_paths, writable_paths):
 
 
 def allow(library, ruleset, path, access):
-    descriptor = os.open(path, os.O_PATH | os.O_CLOEXEC)
+    try:
+        descriptor = os.open(path, os.O_PATH | os.O_CLOEXEC)
+    except OSError as error:
+        raise OSError(error.errno, f'Unable to open {path}: {error.strerror}') from error
     try:
         if not os.path.isdir(f'/proc/self/fd/{descriptor}'):
             access &= FILE_ACCESS
@@ -152,6 +155,17 @@ def write_measurement(measurement_descriptor, measurement):
         os.close(measurement_descriptor)
 
 
+def read_confinement_error(error_descriptor):
+    message = b''
+    while True:
+        chunk = os.read(error_descriptor, 4096)
+        if not chunk:
+            break
+        message += chunk
+    os.close(error_descriptor)
+    return message.decode('utf-8', errors='replace') or None
+
+
 def wait_for_child(child_id, timeout_seconds, started_at):
     child_descriptor = os.pidfd_open(child_id)
     poller = select.poll()
@@ -208,23 +222,27 @@ def main():
         sys.stderr.write(f'Unable to become the subreaper of the attempt: {os.strerror(ctypes.get_errno())}\n')
         return 2
 
+    error_reader, error_writer = os.pipe2(os.O_CLOEXEC)
     started_at = time.monotonic()
     child_id = os.fork()
     if child_id == 0:
         for signal_number in (signal.SIGPIPE, signal.SIGXFSZ):
             signal.signal(signal_number, signal.SIG_DFL)
-        if readable_paths or writable_paths:
-            try:
-                confine(library, readable_paths, writable_paths)
-            except OSError as error:
-                sys.stderr.write(f'Unable to confine the attempt: {error.strerror}\n')
-                os._exit(126)
+        os.closerange(3, error_writer)
+        os.closerange(error_writer + 1, os.sysconf('SC_OPEN_MAX'))
+        try:
+            confine(library, readable_paths, writable_paths)
+        except OSError as error:
+            sys.stderr.write(f'Unable to confine the attempt: {error.strerror}\n')
+            os.write(error_writer, error.strerror.encode('utf-8'))
+            os._exit(126)
         try:
             os.execvp(command[0], command)
         except OSError as error:
             sys.stderr.write(f'Unable to run {command[0]}: {error.strerror}\n')
             os._exit(127)
 
+    os.close(error_writer)
     child_status = wait_for_child(child_id, timeout_seconds, started_at)
     finished_at = time.monotonic()
     timed_out = child_status is None
@@ -232,6 +250,7 @@ def main():
     stop_and_reap_remaining()
     usage = resource.getrusage(resource.RUSAGE_CHILDREN)
     write_measurement(measurement_descriptor, {
+        'confinement_error': read_confinement_error(error_reader),
         'timed_out': timed_out,
         'wall_time_seconds': finished_at - started_at,
         'cpu_user_seconds': usage.ru_utime,

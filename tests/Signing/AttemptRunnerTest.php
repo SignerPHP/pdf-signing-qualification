@@ -78,12 +78,12 @@ final class AttemptRunnerTest extends TestCase
         exec('chmod -R u+rwx '.escapeshellarg($this->workDirectory).' 2>/dev/null; rm -rf '.escapeshellarg($this->workDirectory));
     }
 
-    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null, ?FilesystemConfinement $confinement = null): AttemptRunner
+    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null, ?FilesystemConfinement $confinement = null, ?TestCredential $credential = null): AttemptRunner
     {
         return new AttemptRunner(
             $commandRunner ?? new ProcessRunner,
             $networkIsolation ?? new NetworkIsolation,
-            self::$credential,
+            $credential ?? self::$credential,
             $this->workDirectory,
             $this->outputDirectory,
             $limits ?? new ResourceLimits,
@@ -284,6 +284,41 @@ final class AttemptRunnerTest extends TestCase
         );
     }
 
+    private static function removedCredential(): TestCredential
+    {
+        $credential = TestCredential::generate(self::$directory.'/credential');
+        $credential->remove();
+
+        return $credential;
+    }
+
+    public function test_attempt_that_cannot_be_confined_stops_the_run_instead_of_failing(): void
+    {
+        $credential = self::removedCredential();
+
+        try {
+            $this->runner(credential: $credential)->run(self::RUN_ID, self::scenario(), self::command(static fn (SigningRequest $request): array => ['cp', 'input.pdf', 'output.pdf']), self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+            self::fail('The attempt ran without its confinement');
+        } catch (RuntimeException $exception) {
+            self::assertSame("Unable to confine the attempt of command-signer on synthetic:unsigned.pdf: Unable to open {$credential->pkcs12Path}: No such file or directory", $exception->getMessage());
+        }
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_compatibility_check_that_cannot_be_confined_stops_the_run_instead_of_marking_the_revision_incompatible(): void
+    {
+        $credential = self::removedCredential();
+        $implementation = new CommandImplementation(static fn (): array => ['false'], compatibilityCheck: ['command' => ['true'], 'options' => []]);
+
+        try {
+            $this->runner(credential: $credential)->incompatibility($implementation);
+            self::fail('The compatibility check ran without its confinement');
+        } catch (RuntimeException $exception) {
+            self::assertSame("Unable to confine the compatibility check of command-signer: Unable to open {$credential->pkcs12Path}: No such file or directory", $exception->getMessage());
+        }
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
     public function test_implementation_without_a_compatibility_check_is_not_checked(): void
     {
         $commandRunner = new FakeCommandRunner(new CommandResult(0, ''), new CommandResult(0, ''));
@@ -421,6 +456,27 @@ final class AttemptRunnerTest extends TestCase
         self::assertNull($result->outputPath);
         self::assertFileDoesNotExist($this->outputDirectory.'/planted.pdf');
         self::assertFileDoesNotExist($siblingDirectory.'/planted.pdf');
+    }
+
+    public function test_attempt_inherits_no_descriptor_but_its_standard_streams(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'for descriptor in 3 4 5 6 7 8 9; do if (: >&"$descriptor") 2>/dev/null; then echo "$descriptor"; fi; done > output.pdf']);
+
+        $result = $this->runner()->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome']);
+        self::assertSame('', file_get_contents((string) $result->outputPath));
+    }
+
+    public function test_measuring_process_confines_a_command_given_no_path(): void
+    {
+        $measurementPath = $this->workDirectory.'/measurement.json';
+        touch($measurementPath);
+
+        $result = (new ProcessRunner)->run(['setsid', 'python3', '-I', AttemptRunner::MEASUREMENT_PROCESS, '5', $measurementPath, '--', '/bin/cat', '/app/composer.json'], 10.0);
+
+        self::assertNotSame(0, $result->exitCode);
+        self::assertStringNotContainsString('signerphp/pdf-signing-qualification', $result->output);
     }
 
     public function test_successful_exit_without_output_is_a_failed_attempt(): void

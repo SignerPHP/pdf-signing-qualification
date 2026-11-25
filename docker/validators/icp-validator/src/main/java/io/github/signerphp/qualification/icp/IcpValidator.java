@@ -18,18 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * Checks the signature of every signature field of one PDF, other than document timestamps,
- * against the ICP-Brasil signature policies with Demoiselle Signer (SERPRO). PDFBox only locates
- * each field, its signature's /Contents and the bytes its /ByteRange covers. Prints the report as
- * one line of JSON, with every non-ASCII character escaped, after {@value #REPORT_PREFIX}, so that
- * neither the platform encoding nor Demoiselle's log lines on the same stream can change it.
- *
- * <pre>
- *   java -jar icp-validator.jar --version
- *   java -jar icp-validator.jar &lt;document.pdf&gt;
- * </pre>
- */
 public final class IcpValidator {
 
     public static final String REPORT_PREFIX = "qualification-report: ";

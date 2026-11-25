@@ -10,12 +10,6 @@ use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 
-/**
- * The test PKI of one run: generated in the run's scratch directory by /opt/test-pki/generate.sh
- * and served on the loopback interface by /opt/test-pki/server.php, so the sandbox keeps no
- * network interface other than loopback. Its keys are generated at run time and removed with
- * the scratch directory; nothing of it is a real certificate.
- */
 final class TestPki
 {
     public const string DIRECTORY = '/opt/test-pki';
@@ -44,7 +38,9 @@ final class TestPki
 
         $result = $runner->run(['env', "PKI_PASSWORD={$password}", $scripts.'/generate.sh', $directory, $baseUrl], self::GENERATION_TIMEOUT_SECONDS);
         if ($result->timedOut || $result->exitCode !== 0 || ! is_file($directory.'/.done')) {
-            throw new RuntimeException("Unable to generate the test PKI in {$directory}: {$result->describe()}: {$result->output}");
+            $log = is_file($directory.'/generate.log') ? (string) file_get_contents($directory.'/generate.log') : '';
+
+            throw new RuntimeException("Unable to generate the test PKI in {$directory}: generate.sh {$result->describe()}: ".trim($result->output."\n".$log));
         }
 
         $server = proc_open(
@@ -52,7 +48,7 @@ final class TestPki
             [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
             $pipes,
             null,
-            ['PKI_DIR' => $directory, 'PHP_CLI_SERVER_WORKERS' => '4', 'PATH' => (string) getenv('PATH')],
+            ['PKI_DIRECTORY' => $directory, 'PHP_CLI_SERVER_WORKERS' => '4', 'PATH' => (string) getenv('PATH')],
         );
         if (! is_resource($server)) {
             throw new RuntimeException('Unable to start the test PKI server');
@@ -96,9 +92,6 @@ final class TestPki
     }
 
     /**
-     * The credentials of the signers in order: the first and second `valid` signers get two
-     * distinct certificates, a `revoked` signer the certificate revoked before anything is signed.
-     *
      * @param  list<string>  $signers
      * @return list<TestCredential>
      */

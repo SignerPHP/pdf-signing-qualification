@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Validation;
 
-/**
- * Whether each document timestamp covers its own /ByteRange: the message imprint of the
- * RFC 3161 token in its /Contents must be the digest of the bytes the range covers
- * (ISO 32000-2, 12.8.5). The imprint is found as the DER OCTET STRING of that digest inside
- * the token, for SHA-256, SHA-384 and SHA-512.
- */
 final class DocumentTimestampImprintValidator extends ToolValidator
 {
     private const array DIGESTS = ['sha256' => "\x04\x20", 'sha384' => "\x04\x30", 'sha512' => "\x04\x40"];
@@ -60,8 +54,8 @@ final class DocumentTimestampImprintValidator extends ToolValidator
         $inputKeys = [];
         if ($subject->inputPath !== null) {
             $inputListing = SignatureListing::read($this->runner, $subject->inputPath, $this->timeoutSeconds);
-            if ($inputListing->signatures === null) {
-                return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so the document timestamps the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
+            if ($inputListing->signatures === null || ! $inputListing->isComplete()) {
+                return new Judgement('inconclusive', 'qpdf cannot list every signature of the input, so the document timestamps the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
             }
             $inputKeys = $inputListing->keys();
         }
@@ -69,7 +63,7 @@ final class DocumentTimestampImprintValidator extends ToolValidator
         $timestamps = [];
         foreach ($document->signatureDictionaries() as $reference => $dictionary) {
             $contents = $document->bytes($dictionary['/Contents'] ?? null);
-            $key = SignatureListing::key(['object' => $reference, 'field' => null, 'type' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)]);
+            $key = SignatureListing::key(['object' => $reference, 'field' => null, 'type' => null, 'sub_filter' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)]);
             if (($dictionary['/SubFilter'] ?? null) !== '/ETSI.RFC3161' || isset($inputKeys[$key])) {
                 continue;
             }

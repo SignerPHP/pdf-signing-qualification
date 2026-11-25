@@ -69,4 +69,8 @@ What the analyzers report on this revision:
 
 These defects are addressed by open pull requests to `pdf-signer` and `pdf-core`; once they are merged and pinned, `bin/replay` between the two revisions under these scenarios shows what they fix.
 
-The analyzers of the basic scenarios also run here. `openssl-cms` judges every output with a document timestamp `invalid`, which may come from the timestamp tokens of this revision or from how that analyzer verifies an RFC 3161 token, whose content is encapsulated rather than detached; this disagreement is left open until a revision with correct document timestamps is run.
+The analyzers of the basic scenarios also run here. In these runs `openssl-cms` judged every output with a document timestamp `invalid` because it verified the RFC 3161 token over the bytes of its range, while the token signs its encapsulated TSTInfo, so even a correct document timestamp failed. It now verifies such a token as encapsulated CMS and leaves the link to the covered bytes to `document-timestamp-imprint`; the positive control below shows both `valid` on a correct document timestamp.
+
+## Positive control
+
+`tests/Validation/PadesPositiveControlTest.php` signs the synthetic minimal document with pyHanko, which is already in the image, and certificate `signer-a` of a test PKI: at PAdES baseline B, at LTA with validation information and a document timestamp, and as a certification signature. It checks that `eu-dss`, `qpdf-pades-structure`, `document-timestamp-imprint` and `openssl-cms` accept these outputs, and that a baseline B output judged under an LTA scenario is `invalid`. So a validator upgrade that stops accepting a correct output fails the tests, even though no implementation in the pilot produces one yet.

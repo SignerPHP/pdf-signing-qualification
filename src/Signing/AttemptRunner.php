@@ -281,9 +281,6 @@ final class AttemptRunner
     }
 
     /**
-     * A scenario of version 3 signs with the certificates of the run's test PKI, one per signer;
-     * every other scenario with the run's self-signed credential.
-     *
      * @return array{TestCredential, list<TestCredential>}
      */
     private function credentials(array $signing): array

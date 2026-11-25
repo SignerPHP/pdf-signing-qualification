@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Validation;
 
-/**
- * The objects of one document as `qpdf --json=2 --json-key=qpdf` lists them, with references
- * resolved, for the analyzers that check the PAdES structure of an output.
- */
 final class QpdfObjects
 {
     public const array ARGUMENTS = ['--json=2', '--json-key=qpdf', '--no-warn'];
@@ -66,8 +62,6 @@ final class QpdfObjects
     }
 
     /**
-     * Every indirect dictionary with a /ByteRange, by its reference.
-     *
      * @return array<string, array>
      */
     public function signatureDictionaries(): array
@@ -87,8 +81,6 @@ final class QpdfObjects
     }
 
     /**
-     * The references held as /V by the signature fields of /AcroForm /Fields, kids included.
-     *
      * @return array<string, true>
      */
     public function signatureFieldValues(): array

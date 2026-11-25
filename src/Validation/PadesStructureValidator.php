@@ -7,13 +7,6 @@ namespace SignerPHP\PdfSigningQualification\Validation;
 use Closure;
 use DateTimeImmutable;
 
-/**
- * Where a PAdES output registers its certification signature and its document timestamps,
- * rules that the cryptographic validators tolerate: a certification signature is the /DocMDP
- * entry of the catalog's /Perms (ISO 32000-1, 12.8.4) with the scenario's permission level, and a
- * document timestamp has /Type /DocTimeStamp and is the value of a signature field of the form
- * (ISO 32000-2, 12.8.5).
- */
 final class PadesStructureValidator extends ToolValidator
 {
     private const string DOCUMENT_TIMESTAMP_SUB_FILTER = '/ETSI.RFC3161';
@@ -79,8 +72,8 @@ final class PadesStructureValidator extends ToolValidator
         $inputKeys = [];
         if ($subject->inputPath !== null) {
             $inputListing = SignatureListing::read($this->runner, $subject->inputPath, $this->timeoutSeconds);
-            if ($inputListing->signatures === null) {
-                return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so those the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
+            if ($inputListing->signatures === null || ! $inputListing->isComplete()) {
+                return new Judgement('inconclusive', 'qpdf cannot list every signature of the input, so those the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
             }
             $inputKeys = $inputListing->keys();
         }
@@ -131,16 +124,13 @@ final class PadesStructureValidator extends ToolValidator
     }
 
     /**
-     * Whether the input already holds this signature dictionary, with the same /ByteRange and
-     * /Contents, as qpdf-prior-signatures compares them.
-     *
      * @param  array<string, true>  $inputKeys
      */
     private static function isPrior(QpdfObjects $document, array $dictionary, array $inputKeys): bool
     {
         $contents = $document->bytes($dictionary['/Contents'] ?? null);
 
-        return isset($inputKeys[SignatureListing::key(['object' => '', 'field' => null, 'type' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)])]);
+        return isset($inputKeys[SignatureListing::key(['object' => '', 'field' => null, 'type' => null, 'sub_filter' => null, 'byte_range' => $document->byteRange($dictionary), 'contents' => $contents === null ? null : bin2hex($contents)])]);
     }
 
     /**

@@ -23,12 +23,6 @@ final class PdfSignerImplementation implements SigningImplementation
 
     private const array PADES_OPTIONS = ['--pades-baseline-b', '--pades-baseline-t', '--pades-baseline-lt', '--pades-baseline-lta', '--timestamp-url', '--certification-level', '--policy', '--policy-tsa-url'];
 
-    /**
-     * The signing of a test-PKI scenario (scenario schema version 3) that the command line
-     * gives: SHA-256 with RSA PKCS#1 v1.5 in ETSI.CAdES.detached, one PAdES baseline level
-     * selected by the timestamp, revocation data and document timestamp, by one or two signers.
-     * The ICP-Brasil policy preset `br-iti` gives AD-RT on PAdES-LTA with DocMDP 2 only.
-     */
     private const array PADES_SIGNING = [
         'digest_algorithm' => 'sha256',
         'signature_algorithm' => 'rsa-pkcs1-v1_5',
@@ -153,7 +147,6 @@ final class PdfSignerImplementation implements SigningImplementation
         ];
         $timestampUrl = $request->timestampUrl ?? throw new RuntimeException('A test-PKI scenario needs the timestamp URL of the test PKI');
         if (($signing['signature_policy'] ?? null) === 'icp-brasil-ad-rt') {
-            // The preset sets its own timestamp, which --no-default-timestamp would remove.
             return [...$command, '--policy=br-iti', '--policy-tsa-url='.$timestampUrl];
         }
 

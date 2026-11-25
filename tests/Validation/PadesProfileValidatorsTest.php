@@ -118,6 +118,22 @@ final class PadesProfileValidatorsTest extends TestCase
         self::assertSame(['S-0'], array_column($observation['evidence']['details']['prior_signatures'], 'id'));
     }
 
+    public function test_policy_does_not_change_with_the_root_of_the_run(): void
+    {
+        $runner = new FakeCommandRunner(new CommandResult(0, "dss-validator 6.2\n"), new CommandResult(0, ''));
+        $first = self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT));
+        $second = self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/other/root.der', ['sha256' => str_repeat('a', 64), 'byte_size' => 900]));
+
+        self::assertSame($first['policy'], $second['policy']);
+    }
+
+    public function test_trusted_root_is_recorded_in_the_details(): void
+    {
+        $runner = new FakeCommandRunner(new CommandResult(0, "dss-validator 6.2\n"), new CommandResult(0, AddedSignatures::REPORT_PREFIX.json_encode(['signatures' => [], 'timestamps' => []], JSON_THROW_ON_ERROR)));
+
+        self::assertSame(self::ARTIFACT, self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT))['evidence']['details']['trusted_root']);
+    }
+
     public function test_dss_without_a_readable_report_is_inconclusive(): void
     {
         $runner = new FakeCommandRunner(new CommandResult(0, "dss-validator 6.2\n"), new CommandResult(1, 'Exception in thread "main"'));

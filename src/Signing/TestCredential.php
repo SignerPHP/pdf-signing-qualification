@@ -34,9 +34,6 @@ final class TestCredential
         return $credential;
     }
 
-    /**
-     * A credential issued by the run's test PKI, which removes it with its directory.
-     */
     public static function existing(string $pkcs12Path, string $password): self
     {
         if (! is_file($pkcs12Path)) {

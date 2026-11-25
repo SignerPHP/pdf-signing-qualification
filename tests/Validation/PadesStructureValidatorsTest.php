@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\DocumentTimestampImprintValidator;
 use SignerPHP\PdfSigningQualification\Validation\PadesStructureValidator;
 use SignerPHP\PdfSigningQualification\Validation\QpdfObjects;
@@ -112,6 +113,28 @@ final class PadesStructureValidatorsTest extends TestCase
         self::assertSame('valid', $approval['verdict'], $approval['evidence']['summary']);
         self::assertSame('invalid', $certification['verdict']);
         self::assertStringContainsString('certification signature of the input', $certification['evidence']['summary']);
+    }
+
+    public function test_input_that_qpdf_has_to_recover_is_inconclusive(): void
+    {
+        $listing = json_encode(self::listing(), JSON_THROW_ON_ERROR);
+        $runner = new class($listing) implements CommandRunner
+        {
+            public function __construct(private readonly string $listing) {}
+
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return match (true) {
+                    in_array('--version', $command, true) => new CommandResult(0, "qpdf version 11.3.0\n"),
+                    end($command) === '/input.pdf' => new CommandResult(3, $this->listing),
+                    default => new CommandResult(0, $this->listing),
+                };
+            }
+        };
+        $subject = new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output, '/input.pdf');
+
+        self::assertSame('inconclusive', (new PadesStructureValidator($runner, self::clock(), 2, true))->observe($subject)['verdict']);
+        self::assertSame('inconclusive', (new DocumentTimestampImprintValidator($runner, self::clock()))->observe($subject)['verdict']);
     }
 
     public function test_recovered_listing_without_a_problem_is_inconclusive(): void

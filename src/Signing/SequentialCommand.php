@@ -6,11 +6,6 @@ namespace SignerPHP\PdfSigningQualification\Signing;
 
 use InvalidArgumentException;
 
-/**
- * One command that runs several commands one after the other and stops at the first that
- * fails, with its exit code, so that an attempt with several signatures is still one process
- * tree for the runner, its limits and its measurement.
- */
 final class SequentialCommand
 {
     /**

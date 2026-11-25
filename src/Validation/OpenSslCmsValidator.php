@@ -16,6 +16,8 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
     private const array ARGUMENTS = ['cms', '-verify', '-binary', '-inform', 'DER', '-noverify', '-out', '/dev/null'];
 
+    private const string DOCUMENT_TIMESTAMP_SUB_FILTER = '/ETSI.RFC3161';
+
     private const string PDF_WHITESPACE = "\x00\t\n\x0C\r ";
 
     public function analyzerId(): string
@@ -32,11 +34,12 @@ final class OpenSslCmsValidator extends CommandLineValidator
     {
         return [
             'id' => 'openssl-cms-byte-range-without-chain',
-            'description' => 'Every dictionary with a /ByteRange, as listed by qpdf, delimits the signed bytes and the hexadecimal CMS in its gap; the CMS must decode and is verified over the signed bytes without certificate chain verification',
+            'description' => 'Every dictionary with a /ByteRange, as listed by qpdf, delimits the signed bytes and the hexadecimal CMS in its gap; the CMS must decode and is verified over the signed bytes without certificate chain verification, except that the RFC 3161 token of a document timestamp (/SubFilter /ETSI.RFC3161) signs its encapsulated TSTInfo, so it is verified as encapsulated CMS and its link to the signed bytes is left to the message imprint',
             'parameters' => [
                 'locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS],
                 'decode_arguments' => self::DECODE_ARGUMENTS,
                 'arguments' => self::ARGUMENTS,
+                'encapsulated_sub_filters' => [self::DOCUMENT_TIMESTAMP_SUB_FILTER],
             ],
         ];
     }
@@ -66,8 +69,7 @@ final class OpenSslCmsValidator extends CommandLineValidator
             return new Judgement('inconclusive', 'qpdf could not list the signature dictionaries: qpdf '.$listing->result->describe(), $listing->result->exitCode, $listing->result->output);
         }
 
-        $byteRanges = array_column($listing->signatures, 'byte_range');
-        if ($byteRanges === []) {
+        if ($listing->signatures === []) {
             $documentWasRead = $listing->isComplete();
 
             return Judgement::noSignature($documentWasRead ? 'No dictionary with a /ByteRange was found' : 'No dictionary with a /ByteRange was found in a file qpdf had to recover', $listing->result->exitCode, '', documentWasRead: $documentWasRead);
@@ -75,10 +77,11 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
         $signatures = [];
         $rawOutput = '';
-        foreach ($byteRanges as $number => $byteRange) {
+        foreach ($listing->signatures as $number => $listed) {
+            $byteRange = $listed['byte_range'];
             $signature = ['byte_range' => $byteRange] + ($byteRange === null
                 ? ['outcome' => 'invalid', 'problem' => 'the /ByteRange is not an array of four integers', 'exit_code' => null, 'output' => '']
-                : $this->verify($document, $byteRange));
+                : $this->verify($document, $byteRange, $listed['sub_filter'] === self::DOCUMENT_TIMESTAMP_SUB_FILTER));
             $signatures[] = $signature;
             $rawOutput .= 'Signature #'.($number + 1).' ['.implode(' ', $byteRange ?? ['malformed'])."]:\n".$signature['output'];
         }
@@ -106,7 +109,7 @@ final class OpenSslCmsValidator extends CommandLineValidator
      * @param  list<int>  $byteRange
      * @return array{outcome: string, problem?: string, exit_code: ?int, output: string}
      */
-    private function verify(string $document, array $byteRange): array
+    private function verify(string $document, array $byteRange, bool $encapsulated): array
     {
         [$firstOffset, $firstLength, $secondOffset, $secondLength] = $byteRange;
         if ($firstOffset !== 0 || $firstLength >= $secondOffset || $secondOffset + $secondLength > strlen($document)) {
@@ -124,7 +127,7 @@ final class OpenSslCmsValidator extends CommandLineValidator
             $hex .= '0';
         }
 
-        [$decoded, $result] = $this->decodeAndVerify((string) hex2bin($hex), substr($document, 0, $firstLength).substr($document, $secondOffset, $secondLength));
+        [$decoded, $result] = $this->decodeAndVerify((string) hex2bin($hex), $encapsulated ? null : substr($document, 0, $firstLength).substr($document, $secondOffset, $secondLength));
 
         if ($result === null) {
             if ($decoded->timedOut) {
@@ -152,7 +155,7 @@ final class OpenSslCmsValidator extends CommandLineValidator
     /**
      * @return array{CommandResult, ?CommandResult}
      */
-    private function decodeAndVerify(string $cms, string $signedContent): array
+    private function decodeAndVerify(string $cms, ?string $signedContent): array
     {
         $workDirectory = self::temporaryDirectory();
         $cmsPath = $workDirectory.'/signature.der';
@@ -160,14 +163,18 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
         try {
             self::writeFile($cmsPath, $cms);
-            self::writeFile($contentPath, $signedContent);
+            if ($signedContent !== null) {
+                self::writeFile($contentPath, $signedContent);
+            }
 
             $decoded = $this->runner->run(['openssl', ...self::DECODE_ARGUMENTS, '-in', $cmsPath], $this->timeoutSeconds);
             if ($decoded->exitCode !== 0) {
                 return [$decoded, null];
             }
 
-            return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, '-content', $contentPath], $this->timeoutSeconds)];
+            $content = $signedContent === null ? [] : ['-content', $contentPath];
+
+            return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, ...$content], $this->timeoutSeconds)];
         } finally {
             @unlink($cmsPath);
             @unlink($contentPath);

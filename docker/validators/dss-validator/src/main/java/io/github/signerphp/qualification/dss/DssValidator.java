@@ -28,18 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-/**
- * Validates one PDF with the EU DSS library (ETSI EN 319 102-1) under DSS's default validation
- * policy, trusting only the given root certificate. Missing certificates and revocation data are
- * fetched through the URLs the certificates carry. Prints the report as one line of JSON, with
- * every non-ASCII character escaped, after {@value #REPORT_PREFIX}, so that neither the platform
- * encoding nor a library's log lines on the same stream can change it.
- *
- * <pre>
- *   java -jar dss-validator.jar --version
- *   java -jar dss-validator.jar &lt;trusted-root-certificate&gt; &lt;document.pdf&gt;
- * </pre>
- */
 public final class DssValidator {
 
     public static final String REPORT_PREFIX = "qualification-report: ";

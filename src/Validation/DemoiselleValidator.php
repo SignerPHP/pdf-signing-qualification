@@ -7,22 +7,14 @@ namespace SignerPHP\PdfSigningQualification\Validation;
 use Closure;
 use DateTimeImmutable;
 
-/**
- * Demoiselle Signer (SERPRO) checking each signature against the ICP-Brasil signature policies.
- * The test PKI does not chain to the ICP-Brasil root, so Demoiselle always reports the signer's
- * chain as untrusted; that one message is tolerated and named in the policy. Everything else it
- * reports counts: the policy identifier, the mandatory signed attributes and the signature itself.
- */
 final class DemoiselleValidator extends ToolValidator
 {
     public const string JAR = '/opt/validators/icp-validator.jar';
 
     public const array JAVA_OPTIONS = ['-Xmx1g', '-XX:+UseSerialGC', '-XX:-UsePerfData'];
 
-    /** The ICP-Brasil PAdES AD-RT arc; the version is the last arc. */
     public const string AD_RT_ARC = '2.16.76.1.7.1.12.1.';
 
-    /** Demoiselle's message for a chain that does not reach a trusted ICP-Brasil root. */
     public const string UNTRUSTED_CHAIN_PATTERN = '/não pertence a nenhuma cadeia confiável/u';
 
     /**

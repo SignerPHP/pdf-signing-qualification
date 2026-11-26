@@ -18,6 +18,10 @@ final class ProcessRunner implements CommandRunner
 
     private const string PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
+    public function __construct(
+        private readonly string $measurementProcess = AttemptRunner::MEASUREMENT_PROCESS,
+    ) {}
+
     public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
     {
         if ($access !== null) {
@@ -106,15 +110,21 @@ final class ProcessRunner implements CommandRunner
             $result = $this->run([
                 'setsid',
                 'env', '-i', 'PATH='.self::PATH, "HOME={$workDirectory}", "TMPDIR={$workDirectory}",
-                'python3', '-I', AttemptRunner::MEASUREMENT_PROCESS, (string) $timeoutSeconds, $measurementPath,
+                'python3', '-I', $this->measurementProcess, (string) $timeoutSeconds, $measurementPath,
                 ...(new FilesystemConfinement($this))->arguments($workDirectory, $access->readablePaths, $access->writablePaths),
                 '--', ...$command,
             ], $timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $measured = json_decode((string) stream_get_contents($measurementHandle, offset: 0), true);
-            if (is_array($measured) && is_string($measured['confinement_error'] ?? null)) {
+            if (! is_array($measured)) {
+                if ($result->timedOut) {
+                    return $result;
+                }
+                throw new RuntimeException("The measuring process of {$command[0]} {$result->describe()} and wrote no measurement, so it is unknown whether the command ran confined");
+            }
+            if (is_string($measured['confinement_error'] ?? null)) {
                 throw new RuntimeException("Unable to confine {$command[0]}: {$measured['confinement_error']}");
             }
-            if (is_array($measured) && ($measured['timed_out'] ?? false) === true) {
+            if (($measured['timed_out'] ?? false) === true) {
                 return new CommandResult(null, $result->output, true);
             }
 

@@ -6,9 +6,12 @@ namespace SignerPHP\PdfSigningQualification\Tests\Validation;
 
 use Closure;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Artifact;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
+use SignerPHP\PdfSigningQualification\Regression\HybridXrefCondition;
 use SignerPHP\PdfSigningQualification\Signing\Scenarios;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
 use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
@@ -17,6 +20,7 @@ use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\Judgement;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
+use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
@@ -109,6 +113,27 @@ final class ValidatorConfinementTest extends TestCase
         self::assertStringContainsString('started', $result->output);
     }
 
+    public function test_measuring_process_that_ends_without_a_measurement_stops_the_run_instead_of_giving_a_verdict(): void
+    {
+        $measurementProcess = $this->directory.'/failing-measurement.py';
+        file_put_contents($measurementProcess, "import sys\nsys.exit(2)\n");
+        $runner = new class(new ProcessRunner($measurementProcess)) implements CommandRunner
+        {
+            public function __construct(private readonly ProcessRunner $failingRunner) {}
+
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
+            {
+                return in_array('--version', $command, true) ? (new ProcessRunner)->run($command, $timeoutSeconds, $access) : $this->failingRunner->run($command, $timeoutSeconds, $access);
+            }
+        };
+        $validator = new QpdfCheckValidator($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-26T12:00:00Z'));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('wrote no measurement');
+
+        $validator->baseline(new BaselineSubject('run-20261126T120000Z', 'synthetic:signed.pdf', Artifact::describe($this->documentPath), $this->documentPath));
+    }
+
     public function test_validator_command_that_cannot_be_confined_stops_the_run(): void
     {
         $this->expectException(RuntimeException::class);
@@ -117,31 +142,63 @@ final class ValidatorConfinementTest extends TestCase
         (new ProcessRunner)->run(['sh', '-c', 'echo judged'], 10.0, new CommandAccess([$this->directory.'/missing.pdf']));
     }
 
-    public function test_every_command_of_every_installed_validator_is_confined(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function scenariosWithEveryValidator(): array
     {
-        $runner = new class implements CommandRunner
-        {
-            /** @var list<array{list<string>, ?CommandAccess}> */
-            public array $commands = [];
+        return [
+            'visible signature' => ['basic-visible-sha256'],
+            'ICP-Brasil AD-RT signed with the test PKI' => ['icp-brasil-ad-rt'],
+        ];
+    }
 
-            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
-            {
-                $this->commands[] = [$command, $access];
+    #[DataProvider('scenariosWithEveryValidator')]
+    public function test_every_command_of_every_installed_validator_is_confined(string $scenarioId): void
+    {
+        $runner = new RecordingCommandRunner;
+        $pki = TestPki::start(new ProcessRunner, $this->directory.'/pki');
+        try {
+            $panel = ValidationPanel::installed(static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-26T12:00:00Z'), Scenarios::load(self::SCENARIO_DIRECTORY, $scenarioId), $pki, $runner);
 
-                return (new ProcessRunner)->run($command, $timeoutSeconds, $access);
-            }
-        };
-        $panel = ValidationPanel::installed(static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-26T12:00:00Z'), Scenarios::load(self::SCENARIO_DIRECTORY, 'basic-visible-sha256'), runner: $runner);
+            $panel->analyzers();
+            $panel->baseline(new BaselineSubject('run-20261126T120000Z', 'synthetic:signed.pdf', Artifact::describe($this->documentPath), $this->documentPath));
+            $panel->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($this->documentPath), $this->documentPath, $this->documentPath));
+        } finally {
+            $pki->stop();
+        }
 
-        $panel->analyzers();
-        $panel->baseline(new BaselineSubject('run-20261126T120000Z', 'synthetic:signed.pdf', Artifact::describe($this->documentPath), $this->documentPath));
-        $panel->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($this->documentPath), $this->documentPath, $this->documentPath));
+        $expectedAnalyzers = $scenarioId === 'icp-brasil-ad-rt' ? ['eu-dss', 'qpdf-pades-structure', 'document-timestamp-imprint', 'demoiselle-signer'] : ['pdftoppm-appearance'];
+        self::assertSame([], array_diff($expectedAnalyzers, array_column($panel->analyzers(), 'id')));
+        $this->assertEveryCommandIsConfined($runner->commands, [$this->documentPath, $pki->rootCertificatePath()]);
+    }
 
-        self::assertNotSame([], $runner->commands);
-        foreach ($runner->commands as [$command, $access]) {
-            self::assertNotNull($access, implode(' ', $command).' ran without confinement');
+    public function test_regression_condition_check_is_confined(): void
+    {
+        $runner = new RecordingCommandRunner;
+
+        (new HybridXrefCondition($runner))->evaluate($this->documentPath, $this->documentPath);
+
+        self::assertCount(1, $runner->commands);
+        $this->assertEveryCommandIsConfined($runner->commands, [$this->documentPath]);
+    }
+
+    /**
+     * @param  list<array{list<string>, ?CommandAccess}>  $commands
+     * @param  list<string>  $documentPaths
+     */
+    private function assertEveryCommandIsConfined(array $commands, array $documentPaths): void
+    {
+        $temporaryDirectory = preg_quote(sys_get_temp_dir(), '#');
+        self::assertNotSame([], $commands);
+        foreach ($commands as [$command, $access]) {
+            $description = implode(' ', $command);
+            self::assertNotNull($access, "{$description} ran without confinement");
             foreach ($access->readablePaths as $path) {
-                self::assertTrue($path === $this->documentPath || preg_match('#^'.preg_quote(sys_get_temp_dir(), '#').'/openssl-cms-[^/]+/[^/]+$#', $path) === 1, implode(' ', $command)." reads {$path}, beyond the documents it judges");
+                self::assertTrue(in_array($path, $documentPaths, true) || preg_match("#^{$temporaryDirectory}/openssl-cms-[^/]+/[^/]+$#", $path) === 1, "{$description} reads {$path}, beyond the documents it judges");
+            }
+            foreach ($access->writablePaths as $path) {
+                self::assertMatchesRegularExpression("#^{$temporaryDirectory}/(openssl-cms-|visible-appearance-)[^/]+$#", $path, "{$description} writes to {$path}, beyond a directory of its own");
             }
         }
     }

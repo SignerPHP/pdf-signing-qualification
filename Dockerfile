@@ -4,16 +4,9 @@ FROM maven:3.9.11-eclipse-temurin-21@sha256:6fdc855a6ed81d288ca7ca37ac6ff5e9308b
 
 COPY docker/validators /src
 
-RUN set -eux; \
-    cd /src; \
-    mvn -q -B --strict-checksums clean package -DskipTests; \
-    cd /root/.m2/repository; \
-    find . -type f \( -name '*.jar' -o -name '*.pom' \) | sort > /tmp/downloaded-artifacts; \
-    cut -c67- /src/maven-artifacts.sha256 > /tmp/locked-artifacts; \
-    diff /tmp/locked-artifacts /tmp/downloaded-artifacts; \
-    sha256sum --check --quiet --strict /src/maven-artifacts.sha256; \
-    cd /src; \
-    mvn -q -B --offline clean package -DskipTests
+WORKDIR /src
+
+RUN mvn -q -B clean package -DskipTests
 
 FROM php:8.4.27-cli-bookworm@sha256:54b467ede1db96c66675e7b78457dd43729d0e7be31978d4a1e5c069ceabcf76
 

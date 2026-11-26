@@ -53,7 +53,7 @@ final class ComparisonSummaryTest extends TestCase
             | `implementation` |  | `pdf-signer` at commit `{$a}` | `pdf-signer` at commit `{$b}` |
             | `analyzer` | `pdfsig` | 22.12.0 | 24.02.0 |
             | `source_configuration` |  | SHA-256 `{$d}`, 13321 bytes | SHA-256 `{$f}`, 13321 bytes |
-            | `resource_limits` |  | `{"timeout_seconds":120,"address_space_bytes":1073741824,"file_size_bytes":268435456,"storage_bytes":536870912,"open_files":256}` | `{"timeout_seconds":60,"address_space_bytes":1073741824,"file_size_bytes":268435456,"storage_bytes":536870912,"open_files":256}` |
+            | `resource_limits` |  | `{"timeout_seconds":120,"cpu_time_seconds":120,"address_space_bytes":1073741824,"file_size_bytes":268435456,"storage_bytes":536870912,"open_files":256,"processes":128}` | `{"timeout_seconds":60,"cpu_time_seconds":120,"address_space_bytes":1073741824,"file_size_bytes":268435456,"storage_bytes":536870912,"open_files":256,"processes":128}` |
 
             ## Totals
 

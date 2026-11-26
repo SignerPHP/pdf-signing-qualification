@@ -81,7 +81,7 @@ final class AttemptRunner
             $request = new SigningRequest($this->copyInput($inputPath, $attemptDirectory, $acquisition), $attemptDirectory.'/output.pdf', $credential, $scenario['signing'], $additionalCredentials, $this->pki?->timestampUrl());
 
             $startedAt = $this->now();
-            $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
+            $result = $this->runner->run($this->sandboxed($this->measured($implementation->command($request), $measurementPath, $attemptDirectory, self::credentialPaths($request)), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $finishedAt = $this->now();
             $measured = self::readMeasurement($measurementHandle);
             if ($measured !== null && $measured['confinement_error'] !== null) {
@@ -155,7 +155,7 @@ final class AttemptRunner
         $measurementHandle = null;
         try {
             $measurementHandle = self::createMeasurement($measurementPath);
-            $result = $this->runner->run($this->sandboxed($this->measured($check['command'], $measurementPath, $attemptDirectory), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
+            $result = $this->runner->run($this->sandboxed($this->measured($check['command'], $measurementPath, $attemptDirectory, [$this->credential->pkcs12Path]), $attemptDirectory), $this->limits->timeoutSeconds + self::MEASUREMENT_GRACE_SECONDS);
             $measured = self::readMeasurement($measurementHandle);
             if ($measured !== null && $measured['confinement_error'] !== null) {
                 throw new RuntimeException("Unable to confine the compatibility check of {$implementation->id()}: {$measured['confinement_error']}");
@@ -203,13 +203,14 @@ final class AttemptRunner
 
     /**
      * @param  list<string>  $command
+     * @param  list<string>  $credentialPaths
      * @return list<string>
      */
-    private function measured(array $command, string $measurementPath, string $attemptDirectory): array
+    private function measured(array $command, string $measurementPath, string $attemptDirectory, array $credentialPaths): array
     {
         return [
             'python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath,
-            ...$this->confinement->arguments($attemptDirectory, $this->credential->pkcs12Path),
+            ...$this->confinement->arguments($attemptDirectory, $credentialPaths),
             '--', ...$command,
         ];
     }
@@ -318,6 +319,14 @@ final class AttemptRunner
         $credentials = $this->pki->credentials(array_values(array_map(strval(...), $signers)));
 
         return [$credentials[0], array_slice($credentials, 1)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function credentialPaths(SigningRequest $request): array
+    {
+        return array_map(static fn (TestCredential $credential): string => $credential->pkcs12Path, [$request->credential, ...$request->additionalCredentials]);
     }
 
     private function createAttemptDirectory(): string

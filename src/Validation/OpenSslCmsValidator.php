@@ -16,6 +16,8 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
     private const array ARGUMENTS = ['cms', '-verify', '-binary', '-inform', 'DER', '-noverify', '-out', '/dev/null'];
 
+    private const array ENCAPSULATED_ARGUMENTS = ['cms', '-verify', '-binary', '-inform', 'DER', '-noverify', '-out'];
+
     private const string DOCUMENT_TIMESTAMP_SUB_FILTER = '/ETSI.RFC3161';
 
     private const string PDF_WHITESPACE = "\x00\t\n\x0C\r ";
@@ -34,12 +36,14 @@ final class OpenSslCmsValidator extends CommandLineValidator
     {
         return [
             'id' => 'openssl-cms-byte-range-without-chain',
-            'description' => 'Every dictionary with a /ByteRange, as listed by qpdf, delimits the signed bytes and the hexadecimal CMS in its gap; the CMS must decode and is verified over the signed bytes without certificate chain verification, except that the RFC 3161 token of a document timestamp (/SubFilter /ETSI.RFC3161) signs its encapsulated TSTInfo, so it is verified as encapsulated CMS and its link to the signed bytes is left to the message imprint',
+            'description' => 'Every dictionary with a /ByteRange, as listed by qpdf, delimits the signed bytes and the hexadecimal CMS in its gap; the CMS must decode and is verified over the signed bytes without certificate chain verification, except that the RFC 3161 token of a document timestamp (/SubFilter /ETSI.RFC3161) signs its encapsulated TSTInfo, so it is verified as encapsulated CMS and the TSTInfo it yields must carry, as its message imprint, the SHA-256, SHA-384 or SHA-512 digest of the signed bytes',
             'parameters' => [
                 'locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS],
                 'decode_arguments' => self::DECODE_ARGUMENTS,
                 'arguments' => self::ARGUMENTS,
                 'encapsulated_sub_filters' => [self::DOCUMENT_TIMESTAMP_SUB_FILTER],
+                'encapsulated_arguments' => self::ENCAPSULATED_ARGUMENTS,
+                'message_imprint_digests' => array_keys(DocumentTimestampImprintValidator::DIGESTS),
             ],
         ];
     }
@@ -127,7 +131,8 @@ final class OpenSslCmsValidator extends CommandLineValidator
             $hex .= '0';
         }
 
-        [$decoded, $result] = $this->decodeAndVerify((string) hex2bin($hex), $encapsulated ? null : substr($document, 0, $firstLength).substr($document, $secondOffset, $secondLength));
+        $signedBytes = substr($document, 0, $firstLength).substr($document, $secondOffset, $secondLength);
+        [$decoded, $result, $encapsulatedContent] = $this->decodeAndVerify((string) hex2bin($hex), $encapsulated ? null : $signedBytes);
 
         if ($result === null) {
             if ($decoded->timedOut) {
@@ -148,18 +153,33 @@ final class OpenSslCmsValidator extends CommandLineValidator
         if ($result->exitCode !== 0) {
             return ['outcome' => 'inconclusive', 'exit_code' => $result->exitCode, 'output' => $result->output];
         }
+        if ($encapsulated && ! self::carriesImprint((string) $encapsulatedContent, $signedBytes)) {
+            return ['outcome' => 'invalid', 'problem' => 'the message imprint of the document timestamp is not the digest of the bytes its range covers', 'exit_code' => 0, 'output' => $result->output];
+        }
 
         return ['outcome' => 'valid', 'exit_code' => 0, 'output' => $result->output];
     }
 
+    private static function carriesImprint(string $timestampInformation, string $signedBytes): bool
+    {
+        foreach (DocumentTimestampImprintValidator::DIGESTS as $algorithm => $prefix) {
+            if (str_contains($timestampInformation, $prefix.hash($algorithm, $signedBytes, true))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
-     * @return array{CommandResult, ?CommandResult}
+     * @return array{CommandResult, ?CommandResult, ?string}
      */
     private function decodeAndVerify(string $cms, ?string $signedContent): array
     {
         $workDirectory = self::temporaryDirectory();
         $cmsPath = $workDirectory.'/signature.der';
         $contentPath = $workDirectory.'/signed-content.bin';
+        $encapsulatedPath = $workDirectory.'/encapsulated-content.der';
 
         try {
             self::writeFile($cmsPath, $cms);
@@ -169,15 +189,20 @@ final class OpenSslCmsValidator extends CommandLineValidator
 
             $decoded = $this->runner->run(['openssl', ...self::DECODE_ARGUMENTS, '-in', $cmsPath], $this->timeoutSeconds);
             if ($decoded->exitCode !== 0) {
-                return [$decoded, null];
+                return [$decoded, null, null];
             }
 
-            $content = $signedContent === null ? [] : ['-content', $contentPath];
+            if ($signedContent !== null) {
+                return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, '-content', $contentPath], $this->timeoutSeconds), null];
+            }
+            $verified = $this->runner->run(['openssl', ...self::ENCAPSULATED_ARGUMENTS, $encapsulatedPath, '-in', $cmsPath], $this->timeoutSeconds);
+            $encapsulatedContent = is_file($encapsulatedPath) ? file_get_contents($encapsulatedPath) : false;
 
-            return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, ...$content], $this->timeoutSeconds)];
+            return [$decoded, $verified, $encapsulatedContent === false ? null : $encapsulatedContent];
         } finally {
             @unlink($cmsPath);
             @unlink($contentPath);
+            @unlink($encapsulatedPath);
             @rmdir($workDirectory);
         }
     }

@@ -6,7 +6,7 @@ namespace SignerPHP\PdfSigningQualification\Validation;
 
 final class DocumentTimestampImprintValidator extends ToolValidator
 {
-    private const array DIGESTS = ['sha256' => "\x04\x20", 'sha384' => "\x04\x30", 'sha512' => "\x04\x40"];
+    public const array DIGESTS = ['sha256' => "\x04\x20", 'sha384' => "\x04\x30", 'sha512' => "\x04\x40"];
 
     public function analyzerId(): string
     {

@@ -72,12 +72,34 @@ final class PadesPositiveControlTest extends TestCase
 
     public function test_baseline_lta_signature_and_its_document_timestamp_are_valid(): void
     {
-        $output = self::signed('baseline-lta', ['--use-pades', '--timestamp-url', self::$pki->timestampUrl(), '--with-validation-info', '--use-pades-lta', '--trust', self::$directory.'/root.pem']);
+        $output = self::baselineLta();
 
         self::assertVerdict('valid', self::dss(self::BASELINE_LTA), $output);
         self::assertVerdict('valid', new PadesStructureValidator(new ProcessRunner, self::clock(), null, true), $output);
         self::assertVerdict('valid', new DocumentTimestampImprintValidator(new ProcessRunner, self::clock()), $output);
         self::assertVerdict('valid', new OpenSslCmsValidator(new ProcessRunner, self::clock()), $output);
+    }
+
+    public function test_document_timestamp_whose_range_was_changed_is_invalid(): void
+    {
+        $bytes = (string) file_get_contents(self::baselineLta());
+        preg_match_all('/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/', $bytes, $ranges, PREG_SET_ORDER);
+        usort($ranges, static fn (array $first, array $second): int => (int) $first[3] <=> (int) $second[3]);
+        $approvalEnd = (int) $ranges[0][3] + (int) $ranges[0][4];
+        $timestampGapStart = (int) end($ranges)[2];
+        self::assertSame(1, preg_match('/stream\r?\n/', $bytes, $stream, PREG_OFFSET_CAPTURE, $approvalEnd));
+        $changedOffset = $stream[0][1] + strlen($stream[0][0]);
+        self::assertLessThan($timestampGapStart, $changedOffset);
+        $bytes[$changedOffset] = chr(ord($bytes[$changedOffset]) ^ 1);
+        $tampered = self::$directory.'/baseline-lta-changed.pdf';
+        file_put_contents($tampered, $bytes);
+
+        $observation = (new OpenSslCmsValidator(new ProcessRunner, self::clock()))->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe(self::$input), $tampered, self::$input));
+
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame(['valid', 'invalid'], array_column($observation['evidence']['details']['signatures'], 'outcome'));
+        self::assertStringContainsString('message imprint', $observation['evidence']['summary']);
+        self::assertVerdict('invalid', new DocumentTimestampImprintValidator(new ProcessRunner, self::clock()), $tampered);
     }
 
     public function test_certification_signature_is_registered_in_perms(): void
@@ -94,6 +116,11 @@ final class PadesPositiveControlTest extends TestCase
 
         self::assertVerdict('invalid', self::dss(self::BASELINE_LTA), $output);
         self::assertVerdict('invalid', new PadesStructureValidator(new ProcessRunner, self::clock(), null, true), $output);
+    }
+
+    private static function baselineLta(): string
+    {
+        return self::signed('baseline-lta', ['--use-pades', '--timestamp-url', self::$pki->timestampUrl(), '--with-validation-info', '--use-pades-lta', '--trust', self::$directory.'/root.pem']);
     }
 
     /**

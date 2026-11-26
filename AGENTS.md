@@ -23,7 +23,7 @@ The scenarios of version 3 sign with certificates of a test PKI generated for ea
 
 Each attempt runs under `docker/measure-process-tree.py`, installed at `/opt/measurement`, which measures the attempt's whole process tree and stops it at the time limit; its boundary is described in the schemas README.
 
-Two Compose services share the image. `app` has network access, for `composer install` and `acquire`. `sandbox` has no network interface other than loopback, a read-only root filesystem with 512 MiB `tmpfs` mounts at `/sandbox` and `/tmp`, 3 GiB of memory for the whole container, a process limit and no capabilities; attempts and the tests run there. The attempt runner refuses to start when another network interface is present or when its work directory is on a filesystem larger than the storage limit, so attempts work in `/sandbox`. Inside it each attempt runs in its own process group, with an empty environment, its own work directory, and `prlimit` bounds on address space per process, file size and open files; the whole group is killed at the timeout and as soon as the attempt's process ends. The `/app` mount stays writable.
+Two Compose services share the image. `app` has network access, for `composer install` and `acquire`. `sandbox` has no network interface other than loopback, a read-only root filesystem with 512 MiB `tmpfs` mounts at `/sandbox` and `/tmp`, 3 GiB of memory for the whole container, a process limit and no capabilities; attempts and the tests run there. The attempt runner refuses to start when another network interface is present or when its work directory is on a filesystem larger than the storage limit, so attempts work in `/sandbox`. Inside it each attempt runs in its own process group, with an empty environment, its own work directory, and `prlimit` bounds on address space per process, file size and open files; the whole group is killed at the timeout and as soon as the attempt's process ends. Landlock confines each attempt to reading the system directories and the test credential and writing its own work directory, so the `/app` mount stays writable for the runner and out of the attempts' reach; the runner refuses to start without Landlock ABI 3 or later and stops when an attempt cannot be confined. The validators are not confined yet ([#59](https://github.com/SignerPHP/pdf-signing-qualification/issues/59)).
 
 On Linux, export `HOST_UID=$(id -u) HOST_GID=$(id -g)` when your IDs are not 1000, so files written in the mount keep your ownership.
 
@@ -118,6 +118,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 ## Boundaries
 
 - Never commit upstream or user-reported PDFs, private keys or passwords. Follow the fixture policy in [CONTRIBUTING.md](CONTRIBUTING.md).
+- Never disclose a vulnerability in a public issue, pull request, commit, document or result bundle. Follow [SECURITY.md](SECURITY.md).
 - Never replace an unavailable or hash-mismatched input silently. Record it as unavailable.
 - Never weaken a verdict, a validator or a test to make a run or a check pass. A disagreement between validators is a result to report, not to resolve by vote.
 - Never record an unavailable measurement as zero.

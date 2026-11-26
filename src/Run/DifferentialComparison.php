@@ -142,6 +142,7 @@ final class DifferentialComparison
                     [RunComparison::policies($records), self::baselinePolicies($records)],
                 ],
                 'resource limits' => [$reference->run['environment']['resource_limits'] ?? null, $records->run['environment']['resource_limits'] ?? null],
+                'confinement' => [$reference->run['environment']['confinement'] ?? null, $records->run['environment']['confinement'] ?? null],
                 'inputs' => [$referenceSourceIds, self::sourceIds($records)],
             ];
             foreach ($settings as $setting => [$referenceValue, $value]) {

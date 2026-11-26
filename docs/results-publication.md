@@ -59,6 +59,7 @@ Searched over every record of the directories above, outside `outputs/`:
 - Private keys, keystores and passwords.
 - PDFs reported by users, or records of a run over one, since such an input is never declared in a source configuration.
 - Logs written outside the run directories, such as the output of `bin/performance` captured on the host.
+- Anything that would disclose a vulnerability found in an implementation or a validator before its project has released a fix or agreed to the disclosure, as [SECURITY.md](../SECURITY.md) describes.
 
 ### Form
 

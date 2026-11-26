@@ -126,7 +126,7 @@ final class PilotTest extends TestCase
 
         try {
             $pilot = new Pilot(
-                new AttemptRunner(new ProcessRunner, new NetworkIsolation, $this->credential, $this->directory.'/work', $this->directory.'/outputs', new ResourceLimits, $clock, $pki),
+                new AttemptRunner(new ProcessRunner, new NetworkIsolation, $this->credential, $this->directory.'/work', $this->directory.'/outputs', new ResourceLimits, $clock, pki: $pki),
                 new CommandImplementation(static fn (): array => ['false']),
                 new ValidationPanel([new QpdfCheckValidator($this->validatorRunner, $clock)]),
                 ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, self::SCENARIO_DIRECTORY),

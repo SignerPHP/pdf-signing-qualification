@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Run;
 
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Signing\FilesystemConfinement;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
 
 final class Environment
 {
     public const string IMAGE_VARIABLE = 'QUALIFICATION_IMAGE_ID';
 
-    public static function describe(string|false $imageId, ResourceLimits $limits, string $osReleasePath = '/etc/os-release', string $cpuInfoPath = '/proc/cpuinfo'): array
+    public static function describe(string|false $imageId, ResourceLimits $limits, string $osReleasePath = '/etc/os-release', string $cpuInfoPath = '/proc/cpuinfo', ?FilesystemConfinement $confinement = null): array
     {
-        return [
+        $environment = [
             'os' => [
                 'name' => self::operatingSystemName($osReleasePath),
                 'kernel' => php_uname('r'),
@@ -24,6 +25,8 @@ final class Environment
             'php_version' => PHP_VERSION,
             'resource_limits' => $limits->record(),
         ];
+
+        return $confinement === null ? $environment : $environment + ['confinement' => $confinement->record()];
     }
 
     private static function operatingSystemName(string $osReleasePath): string

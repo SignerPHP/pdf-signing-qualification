@@ -16,6 +16,7 @@ final class CommandImplementation implements SigningImplementation
     public function __construct(
         private readonly Closure $command,
         private readonly bool $supported = true,
+        private readonly ?array $compatibilityCheck = null,
     ) {}
 
     public function id(): string
@@ -45,6 +46,6 @@ final class CommandImplementation implements SigningImplementation
 
     public function compatibilityCheck(?array $signing = null): ?array
     {
-        return null;
+        return $this->compatibilityCheck;
     }
 }

@@ -32,7 +32,7 @@ To run the pilot over the [selected sample](docs/pilot-sample.md) and get its su
 bin/pilot
 ```
 
-See [AGENTS.md](AGENTS.md) for the repository layout and workflow, and [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture policy.
+See [AGENTS.md](AGENTS.md) for the repository layout and workflow, [CONTRIBUTING.md](CONTRIBUTING.md) for the fixture policy, and [SECURITY.md](SECURITY.md) to report a vulnerability privately.
 
 ## License
 

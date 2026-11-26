@@ -305,6 +305,9 @@ final class DifferentialComparisonTest extends TestCase
             'other limits' => [static function (array $first, array $second): void {
                 $second[1]->run['environment']['resource_limits']['timeout_seconds'] = 60;
             }, 'resource limits'],
+            'a confinement on one side only' => [static function (array $first, array $second): void {
+                $second[1]->run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
+            }, 'confinement'],
             'other expected rejections' => [static function (array $first, array $second): void {
                 $second[0]->run['expected_rejections']['byte_size'] = 1;
             }, 'expected rejections'],

@@ -300,6 +300,7 @@ final class RunComparisonTest extends TestCase
         $candidate->run['expected_rejections']['byte_size'] = 400;
         $candidate->run['environment']['container_image']['id'] = 'sha256:'.str_repeat('9', 64);
         $candidate->run['environment']['resource_limits']['timeout_seconds'] = 60;
+        $candidate->run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
         $candidate->run['implementation_runtime'] = ['engine' => 'OpenPDF'];
         $candidate->compatibility(['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']);
 
@@ -317,6 +318,7 @@ final class RunComparisonTest extends TestCase
             ['subject' => 'expected_rejections', 'reference' => ['sha256' => str_repeat('e', 64), 'byte_size' => 373], 'candidate' => ['sha256' => str_repeat('e', 64), 'byte_size' => 400]],
             ['subject' => 'container_image', 'reference' => ['status' => 'available', 'id' => 'sha256:'.str_repeat('c', 64)], 'candidate' => ['status' => 'available', 'id' => 'sha256:'.str_repeat('9', 64)]],
             ['subject' => 'resource_limits', 'reference' => $reference->run['environment']['resource_limits'], 'candidate' => $candidate->run['environment']['resource_limits']],
+            ['subject' => 'confinement', 'reference' => null, 'candidate' => $candidate->run['environment']['confinement']],
         ], $comparison['differences']);
         self::assertSame([
             'capability' => ['supported', 'supported', 'unchanged'],

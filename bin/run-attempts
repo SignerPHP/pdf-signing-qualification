@@ -14,6 +14,7 @@ use SignerPHP\PdfSigningQualification\Run\Pilot;
 use SignerPHP\PdfSigningQualification\Run\RunReport;
 use SignerPHP\PdfSigningQualification\Run\Summary;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
+use SignerPHP\PdfSigningQualification\Signing\FilesystemConfinement;
 use SignerPHP\PdfSigningQualification\Signing\Implementations;
 use SignerPHP\PdfSigningQualification\Signing\NetworkIsolation;
 use SignerPHP\PdfSigningQualification\Signing\ResourceLimits;
@@ -92,7 +93,8 @@ try {
     }
 
     $limits = new ResourceLimits;
-    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', $limits, $clock, $pki);
+    $confinement = new FilesystemConfinement;
+    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', $limits, $clock, $confinement, $pki);
     $panel = ValidationPanel::installed($clock, $scenario, $pki);
 
     $regressionReplay = new RegressionReplay($attemptRunner, $panel, $regressionConditions, $scratchDirectory.'/regression-inputs', $clock);
@@ -102,7 +104,7 @@ try {
         $scenario,
         $inputs,
         $acquisitions,
-        Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits),
+        Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits, confinement: $confinement),
         ['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)],
         $regressionCases,
     );

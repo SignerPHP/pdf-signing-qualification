@@ -134,11 +134,20 @@ final class PadesProfileValidatorsTest extends TestCase
         self::assertSame(self::ARTIFACT, self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT))['evidence']['details']['trusted_root']);
     }
 
-    public function test_dss_without_a_readable_report_is_inconclusive(): void
+    public static function dssRunsWithoutReport(): iterable
     {
-        $runner = new FakeCommandRunner(new CommandResult(0, "dss-validator 6.2\n"), new CommandResult(1, 'Exception in thread "main"'));
+        yield 'unreadable report' => [new CommandResult(1, 'Exception in thread "main"')];
+        yield 'timed out' => [new CommandResult(null, '', true)];
+    }
 
-        self::assertSame('inconclusive', self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT))['verdict']);
+    #[DataProvider('dssRunsWithoutReport')]
+    public function test_dss_without_a_readable_report_is_inconclusive_and_records_the_trusted_root(CommandResult $result): void
+    {
+        $runner = new FakeCommandRunner(new CommandResult(0, "dss-validator 6.2\n"), $result);
+        $observation = self::observe(new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT));
+
+        self::assertSame('inconclusive', $observation['verdict']);
+        self::assertSame(self::ARTIFACT, $observation['evidence']['details']['trusted_root'] ?? null);
     }
 
     public static function demoiselleReports(): iterable

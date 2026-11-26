@@ -9,10 +9,6 @@
     <version>0.1.0</version>
     <packaging>pom</packaging>
 
-    <!-- Single-document command-line validators run by the analyzers eu-dss and
-         demoiselle-signer (src/Validation). Every dependency is pinned here.
-         DSS and Demoiselle pull different PDFBox/BouncyCastle lines, so each
-         validator is its own module and its own fat jar. -->
     <modules>
         <module>dss-validator</module>
         <module>icp-validator</module>

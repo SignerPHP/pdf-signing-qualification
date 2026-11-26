@@ -55,7 +55,7 @@ final class EuDssValidator extends ToolValidator
     {
         return [
             'id' => 'eu-dss-default-policy-test-pki',
-            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature one of whose fields holds a signature in the input, as qpdf lists it, is prior and only recorded. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
+            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation, and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature one of whose fields holds a signature in the input, as qpdf lists it, is prior and only recorded. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
             'parameters' => [
                 'expected_format' => self::expectedFormat($this->signing),
                 'expected_signatures' => $this->expectedSignatures(),
@@ -79,11 +79,13 @@ final class EuDssValidator extends ToolValidator
     {
         $result = $this->runner->run([$this->javaBinary, ...self::JAVA_OPTIONS, '-jar', self::JAR, $this->trustedRootPath, $outputPath], $this->timeoutSeconds);
         if ($result->timedOut) {
-            return $this->timedOut($result);
+            $timedOut = $this->timedOut($result);
+
+            return new Judgement($timedOut->verdict, $timedOut->summary, $timedOut->exitCode, $timedOut->rawOutput, ['trusted_root' => $this->trustedRoot]);
         }
         $report = AddedSignatures::report($result);
         if ($report === null) {
-            return new Judgement('inconclusive', 'DSS '.$result->describe().' without a report the analyzer can read', $result->exitCode, $result->output);
+            return new Judgement('inconclusive', 'DSS '.$result->describe().' without a report the analyzer can read', $result->exitCode, $result->output, ['trusted_root' => $this->trustedRoot]);
         }
         $inputFields = AddedSignatures::inputFields($this->runner, $subject->inputPath, $this->timeoutSeconds);
 

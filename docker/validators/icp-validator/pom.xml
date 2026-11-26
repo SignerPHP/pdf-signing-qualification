@@ -25,7 +25,6 @@
             <artifactId>chain-icp-brasil</artifactId>
             <version>${demoiselle.version}</version>
         </dependency>
-        <!-- Only used to locate signatures and their byte ranges inside the PDF. -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>

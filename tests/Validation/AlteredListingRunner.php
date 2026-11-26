@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SignerPHP\PdfSigningQualification\Tests\Validation;
 
 use Closure;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
@@ -20,9 +21,9 @@ final class AlteredListingRunner implements CommandRunner
         private readonly Closure $alter,
     ) {}
 
-    public function run(array $command, float $timeoutSeconds): CommandResult
+    public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
     {
-        $result = (new ProcessRunner)->run($command, $timeoutSeconds);
+        $result = (new ProcessRunner)->run($command, $timeoutSeconds, $access);
 
         return $command === ['qpdf', ...SignatureListing::ARGUMENTS, $this->documentPath] ? ($this->alter)($result) : $result;
     }

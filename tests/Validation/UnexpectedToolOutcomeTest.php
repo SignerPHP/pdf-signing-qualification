@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
@@ -255,7 +256,7 @@ final class UnexpectedToolOutcomeTest extends TestCase
         {
             public function __construct(private readonly CommandResult $versionResult) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match ($command[0]) {
                     'qpdf' => new CommandResult(2, "qpdf: output.pdf: can't find startxref\n"),
@@ -283,7 +284,7 @@ final class UnexpectedToolOutcomeTest extends TestCase
         {
             public function __construct(private readonly string $version, private readonly string $listing) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match (true) {
                     $command[0] === 'qpdf' => new CommandResult(3, $this->listing),
@@ -319,7 +320,7 @@ final class UnexpectedToolOutcomeTest extends TestCase
         {
             public function __construct(private readonly string $version, private readonly string $report, private readonly string $listing) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match (true) {
                     $command[0] === 'qpdf' => new CommandResult(0, $this->listing),

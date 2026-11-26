@@ -77,7 +77,7 @@ final class EuDssValidator extends ToolValidator
 
     protected function judgeOutput(ValidationSubject $subject, string $outputPath): Judgement
     {
-        $result = $this->runner->run([$this->javaBinary, ...self::JAVA_OPTIONS, '-jar', self::JAR, $this->trustedRootPath, $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run([$this->javaBinary, ...self::JAVA_OPTIONS, '-jar', self::JAR, $this->trustedRootPath, $outputPath], $this->timeoutSeconds, new CommandAccess([$this->trustedRootPath, $outputPath]));
         if ($result->timedOut) {
             $timedOut = $this->timedOut($result);
 

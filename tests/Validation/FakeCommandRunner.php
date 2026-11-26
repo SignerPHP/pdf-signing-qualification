@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Tests\Validation;
 
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 
@@ -17,7 +18,7 @@ final class FakeCommandRunner implements CommandRunner
         private readonly CommandResult $validationResult,
     ) {}
 
-    public function run(array $command, float $timeoutSeconds): CommandResult
+    public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
     {
         $this->commands[] = $command;
 

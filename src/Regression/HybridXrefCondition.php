@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SignerPHP\PdfSigningQualification\Regression;
 
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 
 final class HybridXrefCondition implements RegressionCondition
@@ -16,7 +17,7 @@ final class HybridXrefCondition implements RegressionCondition
 
     public function evaluate(string $inputPath, string $outputPath): array
     {
-        $result = $this->runner->run(['qpdf', '--show-object=trailer', $outputPath], self::TIMEOUT_SECONDS);
+        $result = $this->runner->run(['qpdf', '--show-object=trailer', $outputPath], self::TIMEOUT_SECONDS, new CommandAccess([$outputPath]));
         if ($result->timedOut || $result->exitCode !== 0) {
             return ['status' => 'undetermined', 'evidence' => "qpdf could not show the final trailer of the output: it {$result->describe()}: ".trim($result->output)];
         }

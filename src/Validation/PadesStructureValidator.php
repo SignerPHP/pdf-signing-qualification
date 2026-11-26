@@ -38,7 +38,7 @@ final class PadesStructureValidator extends ToolValidator
     {
         return [
             'id' => 'qpdf-pades-structure',
-            'description' => 'From qpdf\'s JSON listing of the output, leaving out the signature dictionaries of the input (same /ByteRange and /Contents): the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario adds none to /Perms /DocMDP; every added dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
+            'description' => 'From qpdf\'s JSON listing of the output, leaving out the signature dictionaries of the input (same /ByteRange and /Contents): the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp other than one the input holds with the same value; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario adds none to /Perms /DocMDP; every added dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
             'parameters' => [
                 'listing' => ['qpdf', ...QpdfObjects::ARGUMENTS],
                 'certification_level' => $this->certificationLevel,
@@ -70,25 +70,45 @@ final class PadesStructureValidator extends ToolValidator
         }
 
         $inputKeys = [];
+        $inputDocument = null;
+        $inputCatalog = [];
         if ($subject->inputPath !== null) {
             $inputListing = SignatureListing::read($this->runner, $subject->inputPath, $this->timeoutSeconds);
             if ($inputListing->signatures === null || ! $inputListing->isComplete()) {
                 return new Judgement('inconclusive', 'qpdf cannot list every signature of the input, so those the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
             }
             $inputKeys = $inputListing->keys();
-        }
-
-        $problems = [];
-        foreach (['/DocMDP', '/DocTimeStamp'] as $key) {
-            if (array_key_exists($key, $catalog)) {
-                $problems[] = "the catalog has a {$key} entry";
+            $inputDocument = QpdfObjects::fromResult($inputListing->result);
+            $inputCatalog = $inputDocument?->catalog();
+            if ($inputDocument === null || $inputCatalog === null) {
+                return new Judgement('inconclusive', 'qpdf lists no catalog of the input, so the entries the implementation added cannot be told apart', $inputListing->result->exitCode, $inputListing->result->output);
             }
         }
+
         $perms = $document->resolve($catalog['/Perms'] ?? null);
-        if (is_array($perms) && array_key_exists('/DocTimeStamp', $perms)) {
-            $problems[] = '/Perms has a /DocTimeStamp entry';
+        $perms = is_array($perms) ? $perms : [];
+        $inputPerms = $inputDocument?->resolve($inputCatalog['/Perms'] ?? null);
+        $inputPerms = is_array($inputPerms) ? $inputPerms : [];
+        $problems = [];
+        $inheritedEntries = [];
+        $entries = [
+            ['the catalog', $catalog, $inputCatalog, '/DocMDP'],
+            ['the catalog', $catalog, $inputCatalog, '/DocTimeStamp'],
+            ['/Perms', $perms, $inputPerms, '/DocTimeStamp'],
+        ];
+        foreach ($entries as [$holder, $outputEntries, $inputEntries, $key]) {
+            if (! array_key_exists($key, $outputEntries)) {
+                continue;
+            }
+            if (! array_key_exists($key, $inputEntries)) {
+                $problems[] = "{$holder} has a {$key} entry";
+            } elseif ($document->resolve($outputEntries[$key]) !== $inputDocument?->resolve($inputEntries[$key])) {
+                $problems[] = "{$holder} {$key} entry differs from the input's";
+            } else {
+                $inheritedEntries[] = "{$holder} {$key}";
+            }
         }
-        array_push($problems, ...$this->certificationProblems($document, is_array($perms) ? $perms : [], $inputKeys));
+        array_push($problems, ...$this->certificationProblems($document, $perms, $inputKeys));
 
         $fieldValues = $document->signatureFieldValues();
         $documentTimestamps = [];
@@ -112,7 +132,7 @@ final class PadesStructureValidator extends ToolValidator
             $problems[] = 'the scenario adds no document timestamp, but the output has '.count($documentTimestamps);
         }
 
-        $details = ['document_timestamps' => $documentTimestamps, 'problems' => $problems];
+        $details = ['document_timestamps' => $documentTimestamps, 'inherited_entries' => $inheritedEntries, 'problems' => $problems];
         if ($problems !== []) {
             return new Judgement('invalid', 'The PAdES structure of the output is wrong: '.implode('; ', $problems), $result->exitCode, '', $details);
         }

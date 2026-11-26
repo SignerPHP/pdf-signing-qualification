@@ -25,7 +25,7 @@ final class EnvironmentTest extends TestCase
     {
         $environment = Environment::describe(false, new ResourceLimits(timeoutSeconds: 30.0, memoryBytes: 2048));
 
-        self::assertSame(['timeout_seconds' => 30.0, 'cpu_time_seconds' => 120.0, 'address_space_bytes' => 2048, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128], $environment['resource_limits']);
+        self::assertSame(['timeout_seconds' => 30.0, 'cpu_time_seconds' => 240.0, 'address_space_bytes' => 2048, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128], $environment['resource_limits']);
     }
 
     public function test_confinement_of_the_attempts_is_recorded_when_the_run_confines_them(): void

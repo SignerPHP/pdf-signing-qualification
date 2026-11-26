@@ -48,7 +48,7 @@ final class RunFixture
                 'os' => ['name' => 'Debian GNU/Linux 12 (bookworm)', 'kernel' => '6.1.0', 'architecture' => 'x86_64'],
                 'container_image' => ['status' => 'available', 'id' => 'sha256:'.str_repeat('c', 64)],
                 'php_version' => '8.4.27',
-                'resource_limits' => ['timeout_seconds' => 120, 'cpu_time_seconds' => 120, 'address_space_bytes' => 1_073_741_824, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128],
+                'resource_limits' => ['timeout_seconds' => 120, 'cpu_time_seconds' => 240, 'address_space_bytes' => 1_073_741_824, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128],
             ],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]],
             'analyzers' => array_map(static fn (string $analyzerId, string $version): array => ['id' => $analyzerId, 'revision' => ['kind' => 'version', 'value' => $version]], array_keys($analyzerVersions), $analyzerVersions),

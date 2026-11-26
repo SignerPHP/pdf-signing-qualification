@@ -12,7 +12,7 @@ final class ResourceLimits
         public readonly int $fileSizeBytes = 256 * 1024 * 1024,
         public readonly int $storageBytes = 512 * 1024 * 1024,
         public readonly int $openFiles = 256,
-        public readonly float $cpuTimeSeconds = 120.0,
+        public readonly float $cpuTimeSeconds = 240.0,
         public readonly int $processes = 128,
     ) {}
 

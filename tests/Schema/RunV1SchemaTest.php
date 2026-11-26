@@ -118,7 +118,7 @@ final class RunV1SchemaTest extends SchemaTestCase
     public function test_limits_of_cpu_time_and_processes_are_left_to_version_2(): void
     {
         self::assertInvalid(self::mutate(function (array $run): array {
-            $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'cpu_time_seconds' => 120.0, 'address_space_bytes' => 1, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1, 'processes' => 128];
+            $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'cpu_time_seconds' => 240.0, 'address_space_bytes' => 1, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1, 'processes' => 128];
 
             return $run;
         }));

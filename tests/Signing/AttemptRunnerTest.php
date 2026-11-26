@@ -419,6 +419,19 @@ final class AttemptRunnerTest extends TestCase
         self::assertSame('command-signer did not finish within 1 seconds', $result->record['execution']['error']['message']);
     }
 
+    public function test_tree_that_uses_several_cpus_before_looping_on_one_still_reaches_the_time_limit_first_under_the_default_ratio(): void
+    {
+        $defaults = new ResourceLimits;
+        $timeoutSeconds = 2.0;
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'for burst in 1 2 3; do timeout 0.4 sh -c "while :; do :; done" & done; wait; while :; do :; done']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: $timeoutSeconds, cpuTimeSeconds: $timeoutSeconds * $defaults->cpuTimeSeconds / $defaults->timeoutSeconds))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('timed_out', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        $metrics = self::assertMeasurementValid($result);
+        self::assertGreaterThan($timeoutSeconds, $metrics['cpu_user_seconds']['value'] + $metrics['cpu_system_seconds']['value']);
+    }
+
     public function test_cpu_time_limit_counts_every_process_of_the_attempt(): void
     {
         $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'while :; do sh -c \'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done\'; done']);

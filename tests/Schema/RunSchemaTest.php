@@ -27,7 +27,7 @@ final class RunSchemaTest extends SchemaTestCase
                 'php_version' => '8.4.27',
                 'resource_limits' => [
                     'timeout_seconds' => 120.0,
-                    'cpu_time_seconds' => 120.0,
+                    'cpu_time_seconds' => 240.0,
                     'address_space_bytes' => 1_073_741_824,
                     'file_size_bytes' => 268_435_456,
                     'storage_bytes' => 536_870_912,

@@ -69,7 +69,7 @@ final class Pilot
         if ($runtime !== []) {
             $run['implementation_runtime'] = $runtime;
         }
-        $run['implementation_compatibility'] = $this->compatibility();
+        $run['implementation_compatibility'] = $this->compatibility($scenario['signing']);
 
         $baselines = [];
         $attempts = [];
@@ -81,7 +81,7 @@ final class Pilot
             if ($inputPath !== null) {
                 array_push($baselines, ...$this->baselines($runId, $acquisition, $inputPath));
             }
-            $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']));
+            $result = $this->attemptRunner->run($runId, $scenario, $this->implementation, $acquisition, $inputPath, $this->expectedRejections->declares($input->id(), $scenario['id']) || isset($scenario['expected_rejection']));
             $attempts[] = $result->record;
             if ($result->measurement !== null) {
                 $measurements[] = $result->measurement;
@@ -106,12 +106,12 @@ final class Pilot
     /**
      * @return array{status: 'compatible'|'not_checked'}|array{status: 'incompatible', reason: string}
      */
-    private function compatibility(): array
+    private function compatibility(array $signing): array
     {
-        if ($this->implementation->compatibilityCheck() === null) {
+        if ($this->implementation->compatibilityCheck($signing) === null) {
             return ['status' => 'not_checked'];
         }
-        $reason = $this->attemptRunner->incompatibility($this->implementation);
+        $reason = $this->attemptRunner->incompatibility($this->implementation, $signing);
 
         return $reason === null ? ['status' => 'compatible'] : ['status' => 'incompatible', 'reason' => $reason];
     }

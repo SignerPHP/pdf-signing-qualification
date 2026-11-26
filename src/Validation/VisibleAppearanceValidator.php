@@ -309,7 +309,7 @@ final class VisibleAppearanceValidator extends ComparisonValidator
     }
 
     /**
-     * @param  array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}  $signature
+     * @param  array{object: string, field: ?string, type: ?string, sub_filter: ?string, byte_range: ?list<int>, contents: ?string}  $signature
      * @return array{object: string, field: ?string}
      */
     private static function signatureDetails(array $signature): array

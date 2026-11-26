@@ -10,6 +10,7 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
 use SignerPHP\PdfSigningQualification\Run\Environment;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
 use SignerPHP\PdfSigningQualification\Run\Pilot;
@@ -22,6 +23,7 @@ use SignerPHP\PdfSigningQualification\Tests\Signing\CommandImplementation;
 use SignerPHP\PdfSigningQualification\Tests\Validation\FakeCommandRunner;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 use SignerPHP\PdfSigningQualification\Validation\QpdfCheckValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 
@@ -110,6 +112,34 @@ final class PilotTest extends TestCase
         self::assertSame([], $records['measurements']);
         self::assertSame(['local:unsigned.pdf'], array_column($records['baselines'], 'source_id'));
         self::assertSame(['valid'], array_column($records['baselines'], 'verdict'));
+    }
+
+    public function test_refusal_under_a_scenario_that_expects_one_is_an_expected_rejection(): void
+    {
+        [$inputs, $acquisitions] = $this->acquiredInput();
+        $clock = static fn (): DateTimeImmutable => new DateTimeImmutable('2026-10-31T12:00:00Z');
+        $expectedRejectionsPath = $this->directory.'/expected-rejections.json';
+        file_put_contents($expectedRejectionsPath, json_encode(['schema' => ExpectedRejections::SCHEMA, 'rejections' => []], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        $scenario = json_decode((string) file_get_contents(self::SCENARIO_DIRECTORY.'/pades-revoked-signer.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($scenario);
+        $pki = TestPki::start(new ProcessRunner, $this->directory.'/pki');
+
+        try {
+            $pilot = new Pilot(
+                new AttemptRunner(new ProcessRunner, new NetworkIsolation, $this->credential, $this->directory.'/work', $this->directory.'/outputs', new ResourceLimits, $clock, pki: $pki),
+                new CommandImplementation(static fn (): array => ['false']),
+                new ValidationPanel([new QpdfCheckValidator($this->validatorRunner, $clock)]),
+                ExpectedRejections::fromFile($expectedRejectionsPath, $inputs, self::SCENARIO_DIRECTORY),
+                $this->directory.'/cache',
+                $clock,
+            );
+            $records = $pilot->run('run-pilot', $scenario, $inputs, $acquisitions, Environment::describe(false, new ResourceLimits), ['sha256' => str_repeat('b', 64), 'byte_size' => 1]);
+        } finally {
+            $pki->stop();
+        }
+
+        self::assertSame('expected_rejection', $records['attempts'][0]['capability']);
+        self::assertSame('failed', $records['attempts'][0]['execution']['outcome']);
     }
 
     public function test_no_validator_judges_an_input_outside_the_isolation_even_when_the_scenario_is_unsupported(): void

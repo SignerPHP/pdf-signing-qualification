@@ -1,0 +1,18 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "id": "pades-baseline-b",
+    "description": "One invisible PAdES baseline B signature (SHA-256, RSA PKCS#1 v1.5, ETSI.CAdES.detached) by a certificate of the test PKI, without timestamp or revocation data",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "ETSI.CAdES.detached",
+        "appearance": "invisible",
+        "timestamp": false,
+        "revocation_info": false,
+        "document_timestamp": false,
+        "signers": [
+            "valid"
+        ]
+    }
+}

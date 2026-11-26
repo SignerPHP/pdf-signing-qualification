@@ -101,7 +101,7 @@ final class JSignPdfImplementation implements SigningImplementation
         ];
     }
 
-    public function compatibilityCheck(): ?array
+    public function compatibilityCheck(?array $signing = null): ?array
     {
         return null;
     }

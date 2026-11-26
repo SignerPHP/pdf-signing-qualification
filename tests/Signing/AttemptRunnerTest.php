@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptResult;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
@@ -36,6 +37,8 @@ final class AttemptRunnerTest extends TestCase
     private const string RUN_ID = 'run-20261029T120000Z';
 
     private const string SCENARIO_PATH = __DIR__.'/../../config/scenarios/basic-invisible-sha256.json';
+
+    private const string TWO_SIGNERS_SCENARIO_PATH = __DIR__.'/../../config/scenarios/pades-two-approval-signatures.json';
 
     private const string SANDBOX_DIRECTORY = '/sandbox';
 
@@ -78,7 +81,7 @@ final class AttemptRunnerTest extends TestCase
         exec('chmod -R u+rwx '.escapeshellarg($this->workDirectory).' 2>/dev/null; rm -rf '.escapeshellarg($this->workDirectory));
     }
 
-    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null, ?FilesystemConfinement $confinement = null, ?TestCredential $credential = null): AttemptRunner
+    private function runner(?ResourceLimits $limits = null, ?NetworkIsolation $networkIsolation = null, ?CommandRunner $commandRunner = null, ?FilesystemConfinement $confinement = null, ?TestCredential $credential = null, ?TestPki $pki = null): AttemptRunner
     {
         return new AttemptRunner(
             $commandRunner ?? new ProcessRunner,
@@ -92,6 +95,7 @@ final class AttemptRunnerTest extends TestCase
                 readableDirectories: [...FilesystemConfinement::SYSTEM_DIRECTORIES, self::installationsDirectory()],
                 writablePaths: [...FilesystemConfinement::WRITABLE_PATHS, self::observationsDirectory()],
             ),
+            $pki,
         );
     }
 
@@ -456,6 +460,21 @@ final class AttemptRunnerTest extends TestCase
         self::assertNull($result->outputPath);
         self::assertFileDoesNotExist($this->outputDirectory.'/planted.pdf');
         self::assertFileDoesNotExist($siblingDirectory.'/planted.pdf');
+    }
+
+    public function test_attempt_reads_the_credential_of_every_signer_of_the_test_pki(): void
+    {
+        $pki = TestPki::start(new ProcessRunner, self::$directory.'/pki-'.bin2hex(random_bytes(4)));
+        try {
+            $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'cat "$1" "$2" > /dev/null && cp input.pdf output.pdf', 'sh', $request->credential->pkcs12Path, $request->additionalCredentials[0]->pkcs12Path]);
+            $scenario = json_decode((string) file_get_contents(self::TWO_SIGNERS_SCENARIO_PATH), true, flags: JSON_THROW_ON_ERROR);
+
+            $result = $this->runner(pki: $pki)->run(self::RUN_ID, $scenario, $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+        } finally {
+            $pki->stop();
+        }
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], json_encode($result->record['execution']['error'] ?? null, JSON_THROW_ON_ERROR));
     }
 
     public function test_attempt_inherits_no_descriptor_but_its_standard_streams(): void

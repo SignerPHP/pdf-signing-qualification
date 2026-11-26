@@ -1,0 +1,20 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "id": "icp-brasil-ad-rt",
+    "description": "One invisible signature under the ICP-Brasil PAdES policy AD-RT: PAdES baseline LTA with a certification signature of DocMDP level 2, committing to the AD-RT policy identifier, by a certificate of the test PKI, which does not chain to the ICP-Brasil root",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "ETSI.CAdES.detached",
+        "appearance": "invisible",
+        "timestamp": true,
+        "revocation_info": true,
+        "document_timestamp": true,
+        "signers": [
+            "valid"
+        ],
+        "certification_level": 2,
+        "signature_policy": "icp-brasil-ad-rt"
+    }
+}

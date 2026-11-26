@@ -146,7 +146,7 @@ final class PyHankoValidator extends CommandLineValidator
     }
 
     /**
-     * @param  list<array{object: string, field: ?string, type: ?string, byte_range: ?list<int>, contents: ?string}>  $listedSignatures
+     * @param  list<array{object: string, field: ?string, type: ?string, sub_filter: ?string, byte_range: ?list<int>, contents: ?string}>  $listedSignatures
      * @param  list<string>  $reportedFields
      * @return list<array{object: string, field: ?string}>
      */

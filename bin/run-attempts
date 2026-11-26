@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
 use SignerPHP\PdfSigningQualification\Regression\RegressionCases;
 use SignerPHP\PdfSigningQualification\Regression\RegressionConditions;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
@@ -64,6 +65,7 @@ $encodeJson = static fn (array $document): string => json_encode($document, JSON
 $clock = static fn (): DateTimeImmutable => new DateTimeImmutable;
 $scratchDirectory = $sandboxDirectory.'/run-'.bin2hex(random_bytes(8));
 $credential = null;
+$pki = null;
 $exitCode = 0;
 
 try {
@@ -86,11 +88,14 @@ try {
         throw new RuntimeException("Unable to create the scratch directory {$scratchDirectory}");
     }
     $credential = TestCredential::generate($scratchDirectory.'/credential');
+    if (isset($scenario['signing']['signers'])) {
+        $pki = TestPki::start(new ProcessRunner, $scratchDirectory.'/pki');
+    }
 
     $limits = new ResourceLimits;
     $confinement = new FilesystemConfinement;
-    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', $limits, $clock, $confinement);
-    $panel = ValidationPanel::installed($clock, $scenario);
+    $attemptRunner = new AttemptRunner(new ProcessRunner, new NetworkIsolation, $credential, $scratchDirectory.'/work', $runDirectory.'/outputs', $limits, $clock, $confinement, $pki);
+    $panel = ValidationPanel::installed($clock, $scenario, $pki);
 
     $regressionReplay = new RegressionReplay($attemptRunner, $panel, $regressionConditions, $scratchDirectory.'/regression-inputs', $clock);
 
@@ -119,6 +124,7 @@ try {
     fwrite(STDERR, $exception->getMessage()."\n");
     $exitCode = 1;
 } finally {
+    $pki?->stop();
     $credential?->remove();
     exec('rm -rf '.escapeshellarg($scratchDirectory));
 }

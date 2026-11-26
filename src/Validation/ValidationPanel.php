@@ -6,6 +6,8 @@ namespace SignerPHP\PdfSigningQualification\Validation;
 
 use Closure;
 use DateTimeImmutable;
+use RuntimeException;
+use SignerPHP\PdfSigningQualification\Pki\TestPki;
 
 final class ValidationPanel
 {
@@ -19,7 +21,7 @@ final class ValidationPanel
     /**
      * @param  Closure(): DateTimeImmutable  $clock
      */
-    public static function installed(Closure $clock, array $scenario): self
+    public static function installed(Closure $clock, array $scenario, ?TestPki $pki = null): self
     {
         $validators = [
             new PyHankoValidator(new ProcessRunner, $clock),
@@ -33,6 +35,20 @@ final class ValidationPanel
         $placement = $scenario['signing']['placement'] ?? null;
         if (is_array($placement)) {
             $validators[] = new VisibleAppearanceValidator(new ProcessRunner, $clock, $placement);
+        }
+        $signing = $scenario['signing'];
+        if (is_array($signing['signers'] ?? null)) {
+            if ($pki === null) {
+                throw new RuntimeException("The scenario {$scenario['id']} signs with certificates of the test PKI, which the run did not start");
+            }
+            $validators[] = new EuDssValidator(new ProcessRunner, $clock, $signing, $pki->rootCertificatePath(), $pki->rootCertificate());
+            $validators[] = new PadesStructureValidator(new ProcessRunner, $clock, $signing['certification_level'] ?? null, $signing['document_timestamp'] === true);
+            if ($signing['document_timestamp'] === true) {
+                $validators[] = new DocumentTimestampImprintValidator(new ProcessRunner, $clock);
+            }
+            if (isset($signing['signature_policy'])) {
+                $validators[] = new DemoiselleValidator(new ProcessRunner, $clock, count($signing['signers']));
+            }
         }
 
         return new self($validators);

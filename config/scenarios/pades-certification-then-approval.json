@@ -1,0 +1,20 @@
+{
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/scenario.schema.json",
+    "id": "pades-certification-then-approval",
+    "description": "An invisible PAdES baseline B certification signature with DocMDP permission level 2, then an approval signature by another certificate of the test PKI, which level 2 permits",
+    "operation": "sign",
+    "signing": {
+        "digest_algorithm": "sha256",
+        "signature_algorithm": "rsa-pkcs1-v1_5",
+        "sub_filter": "ETSI.CAdES.detached",
+        "appearance": "invisible",
+        "timestamp": false,
+        "revocation_info": false,
+        "document_timestamp": false,
+        "signers": [
+            "valid",
+            "valid"
+        ],
+        "certification_level": 2
+    }
+}

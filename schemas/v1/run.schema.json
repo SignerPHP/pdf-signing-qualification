@@ -74,7 +74,7 @@
                 },
                 "php_version": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
                 "confinement": {
-                    "description": "How the filesystem access of each attempt was confined. Besides these paths, an attempt may read the test credential and read and write its own work directory, and nothing else. A run without it predates the confinement.",
+                    "description": "How the filesystem access of each attempt was confined. Besides these paths, an attempt may read the credentials it signs with and read and write its own work directory, and nothing else. A run without it predates the confinement.",
                     "type": "object",
                     "required": ["mechanism", "landlock_abi", "readable_directories", "writable_paths"],
                     "additionalProperties": false,

@@ -14,6 +14,7 @@ final class Scenarios
     public const array SCHEMAS = [
         SchemaValidator::SCHEMA_PREFIX.'v1/scenario.schema.json',
         SchemaValidator::SCHEMA_PREFIX.'v2/scenario.schema.json',
+        SchemaValidator::SCHEMA_PREFIX.'v3/scenario.schema.json',
     ];
 
     public const string DEFAULT_ID = 'basic-invisible-sha256';

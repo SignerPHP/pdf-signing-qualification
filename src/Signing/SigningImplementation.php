@@ -14,7 +14,7 @@ interface SigningImplementation
     public function revision(): array;
 
     /**
-     * @param  array{digest_algorithm: string, signature_algorithm: string, sub_filter: string, appearance: string, placement?: array{page: int, left: int|float, top: int|float, width: int|float, height: int|float}, timestamp: bool, revocation_info: bool}  $signing
+     * @param  array{digest_algorithm: string, signature_algorithm: string, sub_filter: string, appearance: string, placement?: array{page: int, left: int|float, top: int|float, width: int|float, height: int|float}, timestamp: bool, revocation_info: bool, document_timestamp?: bool, signers?: list<string>, certification_level?: int, signature_policy?: string}  $signing
      */
     public function supports(array $signing): bool;
 
@@ -29,7 +29,8 @@ interface SigningImplementation
     public function command(SigningRequest $request): array;
 
     /**
+     * @param  array|null  $signing  the signing of the run's scenario, when the options depend on it
      * @return array{command: list<string>, options: list<string>}|null
      */
-    public function compatibilityCheck(): ?array;
+    public function compatibilityCheck(?array $signing = null): ?array;
 }

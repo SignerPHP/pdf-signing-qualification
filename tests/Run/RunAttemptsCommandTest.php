@@ -28,7 +28,7 @@ final class RunAttemptsCommandTest extends TestCase
 
     private const string REGRESSION_CASE_PATH = __DIR__.'/../../config/regressions/hybrid-xref.json';
 
-    private const array ANALYZER_IDS = ['pyhanko', 'pdfsig', 'openssl-cms', 'qpdf', 'cmp', 'qpdf-prior-signatures', 'qpdf-byte-range'];
+    private const array ANALYZER_IDS = ['pyhanko', 'pdfsig', 'openssl-cms', 'qpdf', 'cmp', 'qpdf-prior-signatures', 'qpdf-byte-range', 'qpdf-certification-permissions'];
 
     private string $directory;
 
@@ -220,6 +220,7 @@ final class RunAttemptsCommandTest extends TestCase
             }
         }
         $expectedVerdicts['local:unsigned.pdf qpdf-prior-signatures'] = 'not_applicable';
+        $expectedVerdicts['local:unsigned.pdf qpdf-certification-permissions'] = 'not_applicable';
         self::assertSame($expectedVerdicts, $this->verdicts('run-20261031T120000Z'));
 
         $summary = (string) file_get_contents("{$this->directory}/runs/run-20261031T120000Z/summary.md");
@@ -267,7 +268,7 @@ final class RunAttemptsCommandTest extends TestCase
         $outputVerdicts = $this->verdicts('run-baseline');
         self::assertSame(['valid', 'valid', 'valid'], [$outputVerdicts['local:signed.pdf cmp'], $outputVerdicts['local:signed.pdf qpdf-prior-signatures'], $outputVerdicts['local:signed.pdf qpdf-byte-range']]);
         self::assertSame('invalid', $outputVerdicts['local:tampered.pdf pdfsig']);
-        self::assertStringContainsString('`cmp`, `qpdf-prior-signatures` and `qpdf-byte-range` compare the output with its input, so they have no baseline.', $output);
+        self::assertStringContainsString('`cmp`, `qpdf-prior-signatures`, `qpdf-byte-range` and `qpdf-certification-permissions` compare the output with its input, so they have no baseline.', $output);
         self::assertSame('valid', $outputVerdicts['local:unsigned.pdf pdfsig']);
         self::assertSame('invalid', $outputVerdicts['local:tampered.pdf pdfsig']);
         self::assertStringContainsString("| `local:unsigned.pdf` | `not_applicable` → `valid` | `not_applicable` → `valid` | `not_applicable` → `valid` | `valid` → `valid` |\n", $output);

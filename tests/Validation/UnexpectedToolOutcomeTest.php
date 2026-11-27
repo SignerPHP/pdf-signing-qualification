@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
+use SignerPHP\PdfSigningQualification\Validation\CertificationPermissionsValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
@@ -357,6 +358,8 @@ final class UnexpectedToolOutcomeTest extends TestCase
         yield 'prior signatures listing that timed out' => [PriorSignaturesValidator::class, "qpdf version 11.3.0\n", new CommandResult(null, '', timedOut: true), 'qpdf-prior-signatures did not finish within 120 seconds'];
         yield 'coverage of an input qpdf cannot read' => [SignatureCoverageValidator::class, "qpdf version 11.3.0\n", new CommandResult(2, "qpdf: input.pdf: can't find startxref\n"), 'qpdf could not list the signatures of the input, so the added signature cannot be told apart: qpdf exited with code 2'];
         yield 'coverage of a recovered output without a new signature' => [SignatureCoverageValidator::class, "qpdf version 11.3.0\n", new CommandResult(3, $noByteRange), 'No signature that is not already in the input was found in an output qpdf had to recover'];
+        yield 'certification of an input qpdf cannot read' => [CertificationPermissionsValidator::class, "qpdf version 11.3.0\n", new CommandResult(2, "qpdf: input.pdf: can't find startxref\n"), 'qpdf could not read the catalog of the input: qpdf exited with code 2'];
+        yield 'certification listing that timed out' => [CertificationPermissionsValidator::class, "qpdf version 11.3.0\n", new CommandResult(null, '', timedOut: true), 'qpdf-certification-permissions did not finish within 120 seconds'];
     }
 
     /**

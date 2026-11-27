@@ -53,6 +53,38 @@ final class QpdfObjects
         return $value;
     }
 
+    public function resolveNested(mixed $value): mixed
+    {
+        $expanded = [];
+
+        return $this->expand($value, $expanded);
+    }
+
+    /**
+     * @param  array<string, true>  $expanded
+     */
+    private function expand(mixed $value, array &$expanded): mixed
+    {
+        if (is_array($value)) {
+            $items = [];
+            foreach ($value as $key => $item) {
+                $items[$key] = $this->expand($item, $expanded);
+            }
+
+            return $items;
+        }
+        if (! is_string($value) || preg_match(self::REFERENCE_PATTERN, $value) !== 1 || isset($expanded[$value])) {
+            return $value;
+        }
+        $object = $this->resolve($value);
+        if ($object === null) {
+            return $value;
+        }
+        $expanded[$value] = true;
+
+        return ['object' => $value, 'value' => $this->expand($object, $expanded)];
+    }
+
     public function catalog(): ?array
     {
         $trailer = $this->objects['trailer']['value'] ?? null;

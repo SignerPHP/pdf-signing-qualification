@@ -41,7 +41,7 @@ final class PdfsigValidator extends CommandLineValidator
 
     protected function judge(string $documentPath): Judgement
     {
-        $result = $this->runner->run(['pdfsig', '-nocert', $documentPath], $this->timeoutSeconds);
+        $result = $this->runner->run(['pdfsig', '-nocert', $documentPath], $this->timeoutSeconds, new CommandAccess([$documentPath]));
         if ($result->timedOut) {
             return $this->timedOut($result);
         }

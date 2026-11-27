@@ -55,6 +55,7 @@ public final class IcpValidator {
     private static Map<String, Object> check(String field, PDSignature signature, byte[] pdf) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("field", field);
+        result.put("byte_range", signature.getByteRange());
         result.put("sub_filter", signature.getSubFilter());
         try {
             List<SignatureInformations> informations = new PAdESChecker()

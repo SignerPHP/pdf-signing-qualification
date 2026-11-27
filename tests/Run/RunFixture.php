@@ -41,7 +41,7 @@ final class RunFixture
     public function __construct(string $runId, array $analyzerVersions = ['pdfsig' => '22.12.0', 'qpdf' => '11.3.0'], string $scenarioId = 'basic-invisible-sha256')
     {
         $this->run = [
-            'schema' => self::PREFIX.'run.schema.json',
+            'schema' => SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json',
             'id' => $runId,
             'scenario_id' => $scenarioId,
             'started_at' => '2026-11-07T12:00:00Z',
@@ -50,7 +50,7 @@ final class RunFixture
                 'os' => ['name' => 'Debian GNU/Linux 12 (bookworm)', 'kernel' => '6.1.0', 'architecture' => 'x86_64'],
                 'container_image' => ['status' => 'available', 'id' => 'sha256:'.str_repeat('c', 64)],
                 'php_version' => '8.4.27',
-                'resource_limits' => ['timeout_seconds' => 120, 'address_space_bytes' => 1_073_741_824, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256],
+                'resource_limits' => ['timeout_seconds' => 120, 'cpu_time_seconds' => 240, 'address_space_bytes' => 1_073_741_824, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128],
             ],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]],
             'analyzers' => array_map(static fn (string $analyzerId, string $version): array => ['id' => $analyzerId, 'revision' => ['kind' => 'version', 'value' => $version]], array_keys($analyzerVersions), $analyzerVersions),
@@ -238,6 +238,14 @@ final class RunFixture
         $this->regressions ??= ['schema' => self::PREFIX.'regressions.schema.json', 'run_id' => $this->run['id'], 'attempts' => [], 'observations' => [], 'cases' => []];
 
         return $this->regressionCase($caseId, null, 'not_evaluated');
+    }
+
+    public function versionOne(): self
+    {
+        $this->run['schema'] = self::PREFIX.'run.schema.json';
+        unset($this->run['environment']['resource_limits']['cpu_time_seconds'], $this->run['environment']['resource_limits']['processes']);
+
+        return $this;
     }
 
     public function compatibility(array $compatibility): self

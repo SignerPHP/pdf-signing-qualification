@@ -9,5 +9,5 @@ interface CommandRunner
     /**
      * @param  list<string>  $command
      */
-    public function run(array $command, float $timeoutSeconds): CommandResult;
+    public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult;
 }

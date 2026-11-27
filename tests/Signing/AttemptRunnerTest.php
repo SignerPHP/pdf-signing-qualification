@@ -389,6 +389,104 @@ final class AttemptRunnerTest extends TestCase
         $this->assertWorkDirectoryIsEmpty();
     }
 
+    public function test_attempt_looping_on_the_cpu_is_stopped_by_the_cpu_time_limit_before_the_timeout(): void
+    {
+        $childPidPath = self::observationsDirectory().'/cpu-child.pid';
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'sleep 30 & echo $! > "$1"; while :; do :; done', 'sh', $childPidPath]);
+
+        $start = hrtime(true);
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 20.0, cpuTimeSeconds: 0.5))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+        self::assertSchemaValid($result);
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        self::assertSame('command-signer exceeded the CPU time limit of 0.5 seconds', $result->record['execution']['error']['message']);
+        self::assertNull($result->record['output']);
+        $metrics = self::assertMeasurementValid($result);
+        self::assertGreaterThanOrEqual(0.5, $metrics['cpu_user_seconds']['value'] + $metrics['cpu_system_seconds']['value']);
+        self::assertTrue(ProcessStatus::endsWithin((int) file_get_contents($childPidPath), 2.0), 'The child process is still running');
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_single_threaded_loop_reaches_the_time_limit_before_an_equal_cpu_time_limit(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'while :; do :; done']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 1.0, cpuTimeSeconds: 1.0))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('timed_out', $result->record['execution']['outcome']);
+        self::assertSame('command-signer did not finish within 1 seconds', $result->record['execution']['error']['message']);
+    }
+
+    public function test_tree_that_uses_several_cpus_before_looping_on_one_still_reaches_the_time_limit_first_under_the_default_ratio(): void
+    {
+        $defaults = new ResourceLimits;
+        $timeoutSeconds = 2.0;
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'for burst in 1 2 3; do timeout 0.4 sh -c "while :; do :; done" & done; wait; while :; do :; done']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: $timeoutSeconds, cpuTimeSeconds: $timeoutSeconds * $defaults->cpuTimeSeconds / $defaults->timeoutSeconds))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('timed_out', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+        $metrics = self::assertMeasurementValid($result);
+        self::assertGreaterThan($timeoutSeconds, $metrics['cpu_user_seconds']['value'] + $metrics['cpu_system_seconds']['value']);
+    }
+
+    public function test_cpu_time_limit_counts_every_process_of_the_attempt(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'while :; do sh -c \'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done\'; done']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 20.0, cpuTimeSeconds: 1.0))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertSame('command-signer exceeded the CPU time limit of 1 seconds', $result->record['execution']['error']['message']);
+        $metrics = self::assertMeasurementValid($result);
+        self::assertGreaterThanOrEqual(1.0, $metrics['cpu_user_seconds']['value'] + $metrics['cpu_system_seconds']['value']);
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_attempt_forking_without_end_is_stopped_by_the_process_limit(): void
+    {
+        $childPidsPath = self::observationsDirectory().'/forked-children.pid';
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'while :; do sleep 30 & echo $! >> "$1"; done', 'sh', $childPidsPath]);
+
+        $start = hrtime(true);
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 20.0, processes: 16))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertLessThan(5.0, (hrtime(true) - $start) / 1e9);
+        self::assertSchemaValid($result);
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertNull($result->record['execution']['exit_code']);
+        self::assertSame('command-signer exceeded the limit of 16 processes and threads', $result->record['execution']['error']['message']);
+        self::assertNull($result->record['output']);
+        self::assertMeasurementValid($result);
+        $childPids = array_map(intval(...), file($childPidsPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []);
+        self::assertGreaterThanOrEqual(15, count($childPids));
+        foreach ($childPids as $childPid) {
+            self::assertTrue(ProcessStatus::endsWithin($childPid, 2.0), "The child process {$childPid} is still running");
+        }
+        $this->assertWorkDirectoryIsEmpty();
+    }
+
+    public function test_threads_of_the_attempt_count_against_the_process_limit(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['env', 'MALLOC_ARENA_MAX=1', 'python3', '-I', '-c', 'import threading, time; threading.stack_size(256 * 1024); [threading.Thread(target=time.sleep, args=(30,), daemon=True).start() for _ in range(32)]; time.sleep(30)']);
+
+        $result = $this->runner(new ResourceLimits(timeoutSeconds: 20.0, processes: 16))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('failed', $result->record['execution']['outcome']);
+        self::assertSame('command-signer exceeded the limit of 16 processes and threads', $result->record['execution']['error']['message']);
+    }
+
+    public function test_attempt_within_its_cpu_time_and_process_limits_succeeds(): void
+    {
+        $implementation = self::command(static fn (SigningRequest $request): array => ['sh', '-c', 'sleep 0.3 & sleep 0.3 & wait; cp input.pdf output.pdf']);
+
+        $result = $this->runner(new ResourceLimits(cpuTimeSeconds: 1.0, processes: 4))->run(self::RUN_ID, self::scenario(), $implementation, self::availableAcquisition(self::$unsignedPath), self::$unsignedPath);
+
+        self::assertSame('succeeded', $result->record['execution']['outcome'], (string) ($result->record['execution']['error']['message'] ?? ''));
+    }
+
     public function test_attempt_exceeding_the_memory_limit_fails(): void
     {
         $implementation = self::command(static fn (SigningRequest $request): array => ['php', '-d', 'memory_limit=-1', '-r', 'str_repeat("x", 512 * 1024 * 1024); file_put_contents($argv[1], "%PDF-1.7");', $request->outputPath]);

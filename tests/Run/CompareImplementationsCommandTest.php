@@ -49,9 +49,10 @@ final class CompareImplementationsCommandTest extends TestCase
 
     /**
      * @param  array<string, string>  $firstVerdicts
+     * @param  list<string>  $versionOneRunIds
      * @return list<string>
      */
-    private function writeRuns(array $firstVerdicts = ['pdfsig' => 'valid', 'qpdf' => 'valid']): array
+    private function writeRuns(array $firstVerdicts = ['pdfsig' => 'valid', 'qpdf' => 'valid'], array $versionOneRunIds = []): array
     {
         $directories = [];
         foreach ([['pdf-signer', '12', $firstVerdicts], ['jsignpdf', '13', ['pdfsig' => 'valid', 'qpdf' => 'valid']]] as [$implementationId, $hour, $verdicts]) {
@@ -63,6 +64,9 @@ final class CompareImplementationsCommandTest extends TestCase
                     ->baselines(self::INPUT, ['pdfsig' => 'not_applicable', 'qpdf' => 'valid'])
                     ->stratify(self::INPUT, ['hybrid'])
                     ->selection('stratified');
+                if (in_array($run->run['id'], $versionOneRunIds, true)) {
+                    $run->versionOne();
+                }
                 $directories[] = $run->write($this->directory.'/'.$run->run['id']);
             }
         }
@@ -88,6 +92,27 @@ final class CompareImplementationsCommandTest extends TestCase
         self::assertStringContainsString('`run-20261107T120000Z/basic-invisible-sha256/pdf-signer/'.self::INPUT.'/qpdf`', $output);
         self::assertStringContainsString('**This sample is stratified', $output);
         self::assertStringContainsString('Agreement between the implementations does not establish conformance', $output);
+    }
+
+    public function test_version_1_run_records_are_still_read(): void
+    {
+        $runs = $this->writeRuns(versionOneRunIds: ['run-20261107T120000Z', 'run-20261107T123000Z', 'run-20261107T130000Z', 'run-20261107T133000Z']);
+
+        [$exitCode, , $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertFileExists($this->directory.'/differential/differential.json');
+    }
+
+    public function test_a_version_1_run_without_the_new_limits_is_refused_next_to_runs_with_them(): void
+    {
+        $runs = $this->writeRuns(versionOneRunIds: ['run-20261107T133000Z']);
+
+        [$exitCode, , $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('differ in their resource limits', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/differential');
     }
 
     public function test_runs_of_one_implementation_only_are_refused_without_writing_anything(): void

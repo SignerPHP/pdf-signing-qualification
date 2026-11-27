@@ -88,9 +88,12 @@ final class AttemptRunner
                 throw new RuntimeException("Unable to confine the attempt of {$implementation->id()} on {$acquisition['source_id']}: {$measured['confinement_error']}");
             }
             $timedOut = $result->timedOut || ($measured['timed_out'] ?? false) === true;
+            $exceededLimit = $timedOut ? null : $measured['limit_exceeded'] ?? null;
 
             [$outcome, $error] = match (true) {
                 $timedOut => ['timed_out', "{$implementation->id()} did not finish within {$this->limits->timeoutSeconds} seconds"],
+                $exceededLimit === 'cpu_time' => ['failed', "{$implementation->id()} exceeded the CPU time limit of {$this->limits->cpuTimeSeconds} seconds"],
+                $exceededLimit === 'processes' => ['failed', "{$implementation->id()} exceeded the limit of {$this->limits->processes} processes and threads"],
                 $result->exitCode !== 0 => ['failed', $this->failure($implementation, $result)],
                 ! file_exists($request->outputPath) && ! is_link($request->outputPath) => ['failed', "{$implementation->id()} exited with code 0 without writing an output"],
                 is_link($request->outputPath) || ! is_file($request->outputPath) => ['failed', "{$implementation->id()} did not write its output as a regular file"],
@@ -133,7 +136,7 @@ final class AttemptRunner
             'capability' => $rejectionExpected ? 'expected_rejection' : 'supported',
             'execution' => [
                 'outcome' => $outcome,
-                'exit_code' => $timedOut ? null : $result->exitCode,
+                'exit_code' => $timedOut || $exceededLimit !== null ? null : $result->exitCode,
                 'started_at' => $startedAt,
                 'finished_at' => $finishedAt,
                 'error' => $error === null ? null : ['message' => $error],
@@ -210,6 +213,7 @@ final class AttemptRunner
     {
         return [
             'python3', '-I', self::MEASUREMENT_PROCESS, (string) $this->limits->timeoutSeconds, $measurementPath,
+            ...$this->limits->measurementArguments(),
             ...$this->confinement->arguments($attemptDirectory, $credentialPaths),
             '--', ...$command,
         ];
@@ -235,7 +239,7 @@ final class AttemptRunner
 
     /**
      * @param  resource  $measurementHandle
-     * @return array{confinement_error: ?string, timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
+     * @return array{confinement_error: ?string, timed_out: bool, limit_exceeded: ?string, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null
      */
     private static function readMeasurement($measurementHandle): ?array
     {
@@ -244,7 +248,7 @@ final class AttemptRunner
             return null;
         }
         $measured = json_decode($contents, true);
-        if (! is_array($measured) || ! array_key_exists('confinement_error', $measured) || ($measured['confinement_error'] !== null && ! is_string($measured['confinement_error'])) || ! is_bool($measured['timed_out'] ?? null) || ! is_int($measured['peak_resident_kibibytes'] ?? null) || $measured['peak_resident_kibibytes'] < 0) {
+        if (! is_array($measured) || ! array_key_exists('confinement_error', $measured) || ($measured['confinement_error'] !== null && ! is_string($measured['confinement_error'])) || ! is_bool($measured['timed_out'] ?? null) || ! in_array($measured['limit_exceeded'] ?? null, [null, 'cpu_time', 'processes'], true) || ! is_int($measured['peak_resident_kibibytes'] ?? null) || $measured['peak_resident_kibibytes'] < 0) {
             return null;
         }
         foreach (['wall_time_seconds', 'cpu_user_seconds', 'cpu_system_seconds'] as $name) {
@@ -256,6 +260,7 @@ final class AttemptRunner
         return [
             'confinement_error' => $measured['confinement_error'],
             'timed_out' => $measured['timed_out'],
+            'limit_exceeded' => $measured['limit_exceeded'] ?? null,
             'wall_time_seconds' => (float) $measured['wall_time_seconds'],
             'cpu_user_seconds' => (float) $measured['cpu_user_seconds'],
             'cpu_system_seconds' => (float) $measured['cpu_system_seconds'],
@@ -264,7 +269,7 @@ final class AttemptRunner
     }
 
     /**
-     * @param  array{confinement_error: ?string, timed_out: bool, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null  $measured
+     * @param  array{confinement_error: ?string, timed_out: bool, limit_exceeded: ?string, wall_time_seconds: float, cpu_user_seconds: float, cpu_system_seconds: float, peak_resident_kibibytes: int}|null  $measured
      */
     private static function metrics(?array $measured, string $ending): array
     {

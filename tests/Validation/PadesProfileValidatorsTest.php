@@ -150,6 +150,41 @@ final class PadesProfileValidatorsTest extends TestCase
         self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
     }
 
+    public static function reportsWithAByteRangeTheValidatorCouldNotRead(): iterable
+    {
+        $check = ['invalid_signature' => false, 'policy' => '2.16.76.1.7.1.12.1.3', 'signer' => 'Signer A', 'timestamp' => true, 'errors' => [], 'warnings' => []];
+
+        yield 'eu-dss' => [
+            "dss-validator 6.2\n",
+            ['signatures' => [
+                ['id' => 'S-0', 'fields' => ['Signature1'], 'byte_range' => null, 'indication' => 'INDETERMINATE', 'sub_indication' => 'NO_CERTIFICATE_CHAIN_FOUND', 'format' => 'PKCS7-B'],
+                ['id' => 'S-1', 'fields' => ['Signature2'], 'byte_range' => [0, 10, 20, 30], 'indication' => 'TOTAL_PASSED', 'sub_indication' => null, 'format' => 'PAdES-BASELINE-LTA'],
+            ], 'timestamps' => []],
+            static fn (CommandRunner $runner): ToolValidator => new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT),
+        ];
+        yield 'demoiselle-signer' => [
+            "demoiselle-signer 4.4.0\n",
+            ['signatures' => [
+                ['field' => 'Signature1', 'byte_range' => [], 'sub_filter' => 'adbe.pkcs7.detached', 'error' => 'java.lang.RuntimeException: not ICP-Brasil'],
+                ['field' => 'Signature2', 'byte_range' => [0, 10, 20, 30], 'sub_filter' => 'ETSI.CAdES.detached', 'checks' => [$check]],
+            ]],
+            static fn (CommandRunner $runner): ToolValidator => new DemoiselleValidator($runner, self::clock(), 1),
+        ];
+    }
+
+    /**
+     * @param  callable(CommandRunner): ToolValidator  $createValidator
+     */
+    #[DataProvider('reportsWithAByteRangeTheValidatorCouldNotRead')]
+    public function test_reported_signature_whose_byte_range_the_validator_could_not_read_makes_the_count_inconclusive(string $version, array $report, callable $createValidator): void
+    {
+        $runner = self::runnerWithInputListing($version, $report);
+
+        $observation = $createValidator($runner)->observe(new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output, '/input.pdf'));
+
+        self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
+    }
+
     public static function reportsWithoutByteRanges(): iterable
     {
         yield 'eu-dss' => [

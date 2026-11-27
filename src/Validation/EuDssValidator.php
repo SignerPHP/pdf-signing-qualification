@@ -55,7 +55,7 @@ final class EuDssValidator extends ToolValidator
     {
         return [
             'id' => 'eu-dss-default-policy-test-pki',
-            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation, and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature whose /ByteRange, as DSS reports it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. A report without the /ByteRange of every signature, and an input signature whose /ByteRange qpdf cannot read when the count does not match, are inconclusive. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
+            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation, and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature whose /ByteRange, as DSS reports it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. A report without the /ByteRange of every signature is inconclusive, and so is a count that does not match when the input has a signature whose /ByteRange qpdf cannot read, or when the input is signed and the validator reports a signature whose /ByteRange is not four non-negative integers. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
             'parameters' => [
                 'expected_format' => self::expectedFormat($this->signing),
                 'expected_signatures' => $this->expectedSignatures(),
@@ -87,7 +87,7 @@ final class EuDssValidator extends ToolValidator
         if ($report === null) {
             return new Judgement('inconclusive', 'DSS '.$result->describe().' without a report the analyzer can read', $result->exitCode, $result->output, ['trusted_root' => $this->trustedRoot]);
         }
-        $inputByteRanges = AddedSignatures::inputByteRanges($this->runner, $subject->inputPath, $this->timeoutSeconds);
+        $inputByteRanges = AddedSignatures::priorByteRanges($this->runner, $subject->inputPath, $this->timeoutSeconds, $report['signatures']);
 
         $added = [];
         $prior = [];
@@ -116,7 +116,7 @@ final class EuDssValidator extends ToolValidator
             'timestamps' => is_array($report['timestamps'] ?? null) ? $report['timestamps'] : [],
         ];
         if ($inputByteRanges === null && count($added) !== $this->expectedSignatures()) {
-            return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, or the /ByteRange of one of them, so the '.count($added).' signature(s) DSS reports cannot be told apart from those of the input', $result->exitCode, $result->output, $details);
+            return new Judgement('inconclusive', 'The /ByteRange of a signature of the input, or of one the validator reports, cannot be read, or qpdf cannot list the signatures of the input, so the '.count($added).' signature(s) DSS reports cannot be told apart from those of the input', $result->exitCode, $result->output, $details);
         }
         $expectedFormat = self::expectedFormat($this->signing);
 

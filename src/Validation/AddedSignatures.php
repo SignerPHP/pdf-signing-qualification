@@ -30,7 +30,25 @@ final class AddedSignatures
     /**
      * @return list<list<int>>|null
      */
-    public static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
+    public static function priorByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds, array $reportedSignatures): ?array
+    {
+        $inputByteRanges = self::inputByteRanges($runner, $inputPath, $timeoutSeconds);
+        if ($inputByteRanges === null || $inputByteRanges === []) {
+            return $inputByteRanges;
+        }
+        foreach ($reportedSignatures as $signature) {
+            if (! is_array($signature) || ! self::isByteRange($signature['byte_range'] ?? null)) {
+                return null;
+            }
+        }
+
+        return $inputByteRanges;
+    }
+
+    /**
+     * @return list<list<int>>|null
+     */
+    private static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
     {
         if ($inputPath === null) {
             return [];
@@ -57,5 +75,19 @@ final class AddedSignatures
     public static function isPrior(mixed $byteRange, array $inputByteRanges): bool
     {
         return is_array($byteRange) && in_array($byteRange, $inputByteRanges, true);
+    }
+
+    private static function isByteRange(mixed $value): bool
+    {
+        if (! is_array($value) || ! array_is_list($value) || count($value) !== 4) {
+            return false;
+        }
+        foreach ($value as $element) {
+            if (! is_int($element) || $element < 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

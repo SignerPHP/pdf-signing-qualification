@@ -219,6 +219,35 @@ final class AcquirerTest extends TestCase
         self::assertFileDoesNotExist($this->cachedPath());
     }
 
+    public function test_unreachable_further_origin_is_recorded_while_the_declared_origin_matches(): void
+    {
+        $record = $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT], [self::MIRROR_FILE_URL]))->acquire(self::inputWithFurtherOrigin());
+
+        self::assertValidRecord($record);
+        self::assertSame('available', $record['status']);
+        self::assertSame('unreachable', $record['origins'][1]['reason']);
+        self::assertStringContainsString('Connection to '.self::MIRROR_FILE_URL, $record['origins'][1]['message']);
+        self::assertSame(self::CONTENT, file_get_contents($this->cachedPath()));
+    }
+
+    public function test_unreachable_declared_origin_is_recorded_while_a_further_origin_matches(): void
+    {
+        $record = $this->acquirer(new InMemoryFetcher([self::MIRROR_FILE_URL => self::CONTENT], [self::FILE_URL]))->acquire(self::inputWithFurtherOrigin());
+
+        self::assertValidRecord($record);
+        self::assertSame('available', $record['status']);
+        self::assertSame(['unavailable', 'available'], array_column($record['origins'], 'status'));
+        self::assertSame('unreachable', $record['origins'][0]['reason']);
+    }
+
+    public function test_unreachable_origin_stops_the_acquisition_when_no_other_origin_matches(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Connection to '.self::MIRROR_FILE_URL);
+
+        $this->acquirer(new InMemoryFetcher(unreachableUrls: [self::MIRROR_FILE_URL]))->acquire(self::inputWithFurtherOrigin());
+    }
+
     public function test_cached_record_of_other_origins_is_acquired_again(): void
     {
         $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT]))->acquire(self::input());

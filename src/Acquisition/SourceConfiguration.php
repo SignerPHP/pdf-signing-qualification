@@ -11,6 +11,8 @@ final class SourceConfiguration
 {
     public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v3/sources.schema.json';
 
+    public const string PREVIOUS_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
+
     /**
      * @return list<string>
      */
@@ -51,6 +53,21 @@ final class SourceConfiguration
     /**
      * @return list<Input>
      */
+    public static function fromRecordedJson(string $contents): array
+    {
+        $document = json_decode($contents, flags: JSON_THROW_ON_ERROR);
+        $schema = is_object($document) && ($document->schema ?? null) === self::PREVIOUS_SCHEMA ? self::PREVIOUS_SCHEMA : self::SCHEMA;
+        self::assertFollowsSchema($document, $schema);
+
+        /** @var array $configuration */
+        $configuration = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+
+        return self::bind($configuration);
+    }
+
+    /**
+     * @return list<Input>
+     */
     public static function fromArray(array $configuration): array
     {
         self::assertFollowsSchema($configuration);
@@ -58,10 +75,10 @@ final class SourceConfiguration
         return self::bind($configuration);
     }
 
-    private static function assertFollowsSchema(mixed $configuration): void
+    private static function assertFollowsSchema(mixed $configuration, string $schema = self::SCHEMA): void
     {
         $errors = is_array($configuration) || is_object($configuration)
-            ? (new SchemaValidator)->errors($configuration, self::SCHEMA)
+            ? (new SchemaValidator)->errors($configuration, $schema)
             : ['/: The source configuration is not a JSON object'];
         if ($errors !== []) {
             throw new InvalidArgumentException("The source configuration does not follow its schema:\n".implode("\n", $errors));

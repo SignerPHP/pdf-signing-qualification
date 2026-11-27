@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
+use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class SourceConfigurationTest extends TestCase
 {
@@ -109,6 +110,42 @@ final class SourceConfigurationTest extends TestCase
         $this->expectExceptionMessage('Origin pdfjs:test/pdfs/issue17069.pdf is declared more than once');
 
         SourceConfiguration::fromArray($configuration);
+    }
+
+    public function test_recorded_configuration_of_version_two_is_read_with_one_origin_per_input(): void
+    {
+        $configuration = self::configuration();
+        $configuration['schema'] = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
+        unset($configuration['inputs'][0]['license']['redistribution_restrictions']);
+
+        $inputs = SourceConfiguration::fromRecordedJson((string) json_encode($configuration));
+
+        self::assertSame('pdfjs:test/pdfs/issue17069.pdf', $inputs[0]->id());
+        self::assertSame([], $inputs[0]->furtherOrigins);
+        self::assertArrayNotHasKey('redistribution_restrictions', $inputs[0]->license);
+    }
+
+    public function test_configuration_of_version_two_is_not_acquired_or_run(): void
+    {
+        $configuration = self::configuration();
+        $configuration['schema'] = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
+        unset($configuration['inputs'][0]['license']['redistribution_restrictions']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('does not follow its schema');
+
+        SourceConfiguration::fromJson((string) json_encode($configuration));
+    }
+
+    public function test_recorded_configuration_naming_another_schema_is_checked_against_the_current_one(): void
+    {
+        $configuration = self::configuration();
+        $configuration['schema'] = SchemaValidator::SCHEMA_PREFIX.'v1/sources.schema.json';
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('/schema');
+
+        SourceConfiguration::fromRecordedJson((string) json_encode($configuration));
     }
 
     public function test_versioned_configuration_of_the_repository_is_valid(): void

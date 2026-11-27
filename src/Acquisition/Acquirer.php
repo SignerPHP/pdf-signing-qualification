@@ -42,12 +42,23 @@ final class Acquirer
 
         $content = null;
         $origins = [];
+        $transportFailure = null;
         foreach ($input->origins() as $origin) {
-            [$originRecord, $originContent] = $this->acquireOrigin($input, $origin);
+            try {
+                [$originRecord, $originContent] = $this->acquireOrigin($input, $origin);
+            } catch (RuntimeException $failure) {
+                $transportFailure ??= $failure;
+                $origins[] = self::originIdentity($origin) + ['status' => 'unavailable', 'reason' => 'unreachable', 'message' => $failure->getMessage()];
+
+                continue;
+            }
             $origins[] = $originRecord;
             $content ??= $originContent;
         }
 
+        if ($content === null && $transportFailure !== null) {
+            throw $transportFailure;
+        }
         if ($content === null) {
             return $this->unavailable($input, $now, $origins);
         }

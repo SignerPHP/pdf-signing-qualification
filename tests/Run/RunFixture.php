@@ -33,6 +33,8 @@ final class RunFixture
 
     private string $selection = 'failure_enriched';
 
+    private bool $sourcesVersionTwo = false;
+
     /**
      * @param  array<string, string>  $analyzerVersions
      */
@@ -177,10 +179,18 @@ final class RunFixture
         foreach ($this->strata as $sourceId => $strata) {
             [$source, $path] = explode(':', $sourceId, 2);
             $sources[$source] = ['id' => $source, 'url' => "https://example.org/{$source}", 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)], 'file_url' => "https://example.org/{$source}/{revision}/{path}", 'license' => $license];
-            $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $license + ['redistribution_restrictions' => []], 'strata' => $strata];
+            $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $this->sourcesVersionTwo ? $license : $license + ['redistribution_restrictions' => []], 'strata' => $strata];
         }
+        $schema = $this->sourcesVersionTwo ? SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json' : SourceConfiguration::SCHEMA;
 
-        return ['schema' => SourceConfiguration::SCHEMA, 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];
+        return ['schema' => $schema, 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];
+    }
+
+    public function sourcesVersionTwo(): self
+    {
+        $this->sourcesVersionTwo = true;
+
+        return $this;
     }
 
     public function policy(string $analyzerId, string $policyId): self

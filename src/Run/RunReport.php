@@ -33,7 +33,7 @@ final class RunReport
         $directory = rtrim($directory, '/');
         $records = RunRecords::fromDirectory($directory);
         $configuration = self::sourceConfiguration($directory, $records);
-        $inputs = SourceConfiguration::fromJson($configuration);
+        $inputs = SourceConfiguration::fromRecordedJson($configuration);
 
         return self::markdown($records, self::selectionOf($configuration), $inputs);
     }

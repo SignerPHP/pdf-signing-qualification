@@ -107,6 +107,14 @@ final class PanelSelector
                     $repeatedAcrossSources++;
                 }
             }
+            $restrictions = [];
+            foreach ($originIds as $originId) {
+                foreach ($classifiedFiles[$originId]['license']['redistribution_restrictions'] as $restriction) {
+                    if (! in_array($restriction, $restrictions, true)) {
+                        $restrictions[] = $restriction;
+                    }
+                }
+            }
             $strataById[$declaredId] = $declared['strata'];
             $describedById[$declaredId] = [
                 'source' => $declared['source'],
@@ -114,7 +122,7 @@ final class PanelSelector
                 ...($furtherOrigins === [] ? [] : ['further_origins' => $furtherOrigins]),
                 'sha256' => $declared['cached']['sha256'],
                 'byte_size' => $declared['cached']['byte_size'],
-                'license' => $declared['license'],
+                'license' => array_replace($declared['license'], ['redistribution_restrictions' => $restrictions]),
                 'strata' => $declared['strata'],
             ];
         }

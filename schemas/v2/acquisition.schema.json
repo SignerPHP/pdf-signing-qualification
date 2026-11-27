@@ -47,10 +47,10 @@
                 "path": true,
                 "file_url": true,
                 "status": { "const": "unavailable" },
-                "origins": { "items": { "properties": { "status": { "const": "unavailable" } } } },
+                "origins": { "items": { "properties": { "status": { "const": "unavailable" }, "reason": { "enum": ["missing_upstream", "hash_mismatch"] } } } },
                 "attempted_at": { "$ref": "../v1/common.schema.json#/$defs/utcTimestamp" },
                 "reason": {
-                    "description": "`hash_mismatch` when at least one origin yielded other bytes, with the hash and size observed at the first of them; `missing_upstream` when every origin was missing.",
+                    "description": "`hash_mismatch` when at least one origin yielded other bytes, with the hash and size observed at the first of them; `missing_upstream` when every origin was missing. An origin that could not be reached stops the acquisition when no other origin matches, so an unavailable input never has one.",
                     "enum": ["missing_upstream", "hash_mismatch"]
                 },
                 "expected_sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
@@ -60,8 +60,14 @@
                 "message": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
             },
             "if": { "properties": { "reason": { "const": "hash_mismatch" } } },
-            "then": { "required": ["observed_sha256", "observed_byte_size"] },
-            "else": { "not": { "anyOf": [{ "required": ["observed_sha256"] }, { "required": ["observed_byte_size"] }] } }
+            "then": {
+                "required": ["observed_sha256", "observed_byte_size"],
+                "properties": { "origins": { "contains": { "properties": { "reason": { "const": "hash_mismatch" } } } } }
+            },
+            "else": {
+                "not": { "anyOf": [{ "required": ["observed_sha256"] }, { "required": ["observed_byte_size"] }] },
+                "properties": { "origins": { "items": { "properties": { "reason": { "const": "missing_upstream" } } } } }
+            }
         }
     ],
     "$defs": {
@@ -77,7 +83,7 @@
             }
         },
         "origin": {
-            "description": "One origin of the input and what it yielded: `available` when its bytes match the declaration, or `unavailable` with the reason. An origin that yields other bytes or none never makes the input unavailable while another origin matches.",
+            "description": "One origin of the input and what it yielded: `available` when its bytes match the declaration, or `unavailable` with the reason. An origin that yields other bytes or none, or that cannot be reached (`unreachable`: no connection, a timeout, an HTTP status other than 200, 404 or 410, or a truncated body), never makes the input unavailable while another origin matches.",
             "type": "object",
             "required": ["source", "path", "file_url", "status"],
             "properties": {
@@ -104,7 +110,7 @@
                         "path": true,
                         "file_url": true,
                         "status": { "const": "unavailable" },
-                        "reason": { "enum": ["missing_upstream", "hash_mismatch"] },
+                        "reason": { "enum": ["missing_upstream", "hash_mismatch", "unreachable"] },
                         "observed_sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
                         "observed_byte_size": { "type": "integer", "minimum": 0 },
                         "message": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }

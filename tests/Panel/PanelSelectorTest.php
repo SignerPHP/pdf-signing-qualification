@@ -159,7 +159,8 @@ final class PanelSelectorTest extends TestCase
         $responses[self::LISTING_URL] = $fixtureFetcher->fetch(self::LISTING_URL);
         $responses['https://example.test/mirror-tree/'.self::REVISION] = $mirrorFetcher->fetch(self::LISTING_URL);
         $plan = self::plan(['quota_per_stratum' => 10]);
-        $plan['sources'][] = [...$plan['sources'][0], 'id' => 'mirror', 'file_url' => 'https://example.test/mirror/{revision}/{path}', 'listing_url' => 'https://example.test/mirror-tree/{revision}', 'include' => ['copies/*.pdf']];
+        $mirrorRestriction = ['description' => 'Only within test suites of PDF software', 'evidence_url' => 'https://example.test/mirror/TERMS'];
+        $plan['sources'][] = [...$plan['sources'][0], 'id' => 'mirror', 'file_url' => 'https://example.test/mirror/{revision}/{path}', 'listing_url' => 'https://example.test/mirror-tree/{revision}', 'document_license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.test/README', 'redistribution_restrictions' => [$mirrorRestriction]], 'include' => ['copies/*.pdf']];
 
         $selection = $this->select(new InMemoryFetcher($responses), $plan);
 
@@ -173,6 +174,7 @@ final class PanelSelectorTest extends TestCase
         self::assertCount(1, $repeatedInputs);
         self::assertSame($declaredOrigin, $repeatedInputs[0]->id());
         self::assertSame($furtherOrigins, array_map(static fn ($origin): string => $origin->id(), $repeatedInputs[0]->furtherOrigins));
+        self::assertSame([$mirrorRestriction], $repeatedInputs[0]->license['redistribution_restrictions'] ?? null);
 
         $pool = $selection['pool'];
         self::assertSame([], (new SchemaValidator)->errors($pool, PanelSelector::POOL_SCHEMA));

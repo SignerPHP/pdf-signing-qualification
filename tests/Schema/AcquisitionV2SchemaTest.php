@@ -107,6 +107,11 @@ final class AcquisitionV2SchemaTest extends SchemaTestCase
         })];
         yield 'every origin missing' => [self::unavailable('missing_upstream', [self::missingOrigin('pdfjs', 'test/pdfs/issue17069.pdf'), self::missingOrigin('mirror', 'issue17069.pdf')])];
         yield 'one origin missing and another changed' => [self::unavailable('hash_mismatch', [self::missingOrigin('pdfjs', 'test/pdfs/issue17069.pdf'), self::changedOrigin('mirror', 'issue17069.pdf')])];
+        yield 'available from the declared origin while a further one is unreachable' => [self::mutate(function (array $acquisition): array {
+            $acquisition['origins'][] = self::origin('mirror', 'issue17069.pdf', 'unavailable') + ['reason' => 'unreachable', 'message' => 'Connection to the mirror failed'];
+
+            return $acquisition;
+        })];
         yield 'redistribution restriction' => [self::mutate(function (array $acquisition): array {
             $acquisition['license']['redistribution_restrictions'] = [['description' => 'Only within test suites of PDF software', 'evidence_url' => 'https://example.org/terms']];
 
@@ -179,6 +184,18 @@ final class AcquisitionV2SchemaTest extends SchemaTestCase
 
             return $acquisition;
         }, self::unavailable('hash_mismatch', [self::changedOrigin('pdfjs', 'test/pdfs/issue17069.pdf')]))];
+        yield 'every origin missing reported as a hash mismatch' => [self::mutate(function (array $acquisition): array {
+            $acquisition['origins'] = [self::missingOrigin('pdfjs', 'test/pdfs/issue17069.pdf')];
+
+            return $acquisition;
+        }, self::unavailable('hash_mismatch', [self::changedOrigin('pdfjs', 'test/pdfs/issue17069.pdf')]))];
+        yield 'changed origin reported as missing upstream' => [self::unavailable('missing_upstream', [self::missingOrigin('pdfjs', 'test/pdfs/issue17069.pdf'), self::changedOrigin('mirror', 'issue17069.pdf')])];
+        yield 'unavailable input with an unreachable origin' => [self::unavailable('missing_upstream', [self::missingOrigin('pdfjs', 'test/pdfs/issue17069.pdf'), self::origin('mirror', 'issue17069.pdf', 'unavailable') + ['reason' => 'unreachable', 'message' => 'Connection to the mirror failed']])];
+        yield 'unreachable origin with an observed hash' => [self::mutate(function (array $acquisition): array {
+            $acquisition['origins'][] = self::origin('mirror', 'issue17069.pdf', 'unavailable') + ['reason' => 'unreachable', 'observed_sha256' => self::OBSERVED_SHA256, 'message' => 'Connection to the mirror failed'];
+
+            return $acquisition;
+        })];
         yield 'unknown unavailability reason' => [self::mutate(function (array $acquisition): array {
             $acquisition['reason'] = 'network_error';
 

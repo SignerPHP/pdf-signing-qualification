@@ -243,6 +243,14 @@ final class RunReportTest extends TestCase
         self::assertStringContainsString("| All inputs | 9 | 1 | 1 | 1 | 2 | 4 |\n", $report);
     }
 
+    public function test_run_whose_copy_follows_version_two_of_the_sources_schema_is_reported_as_before(): void
+    {
+        $reportFromVersionThree = $this->report();
+        exec('rm -rf '.escapeshellarg($this->directory));
+
+        self::assertSame($reportFromVersionThree, $this->report(self::fixture()->sourcesVersionTwo()));
+    }
+
     public function test_run_without_a_copy_of_its_source_configuration_is_refused(): void
     {
         $directory = (new RunFixture('run-20261107T120000Z'))->succeeded('qpdf:signed.pdf', ['pdfsig' => 'valid', 'qpdf' => 'valid'])->write($this->directory);

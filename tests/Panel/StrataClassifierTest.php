@@ -11,6 +11,7 @@ use SignerPHP\PdfSigningQualification\Panel\StrataClassifier;
 use SignerPHP\PdfSigningQualification\Panel\UnclassifiableFile;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\HybridXrefPdf;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SyntheticPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
@@ -122,7 +123,7 @@ final class StrataClassifierTest extends TestCase
         $path = SyntheticPdf::write($this->directory, 'input.pdf', SyntheticPdf::classic(SyntheticPdf::onePage()));
         $runner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return new CommandResult(null, '', timedOut: true);
             }
@@ -140,7 +141,7 @@ final class StrataClassifierTest extends TestCase
         $path = SyntheticPdf::write($this->directory, 'input.pdf', SyntheticPdf::classic(SyntheticPdf::onePage()));
         $runner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return new CommandResult(in_array('--check', $command, true) ? 139 : 0, '{}');
             }

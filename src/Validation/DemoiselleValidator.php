@@ -67,7 +67,7 @@ final class DemoiselleValidator extends ToolValidator
 
     protected function judgeOutput(ValidationSubject $subject, string $outputPath): Judgement
     {
-        $result = $this->runner->run([$this->javaBinary, ...self::JAVA_OPTIONS, '-jar', self::JAR, $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run([$this->javaBinary, ...self::JAVA_OPTIONS, '-jar', self::JAR, $outputPath], $this->timeoutSeconds, new CommandAccess([$outputPath]));
         if ($result->timedOut) {
             return $this->timedOut($result);
         }

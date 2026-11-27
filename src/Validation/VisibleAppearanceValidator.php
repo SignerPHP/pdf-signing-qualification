@@ -76,7 +76,7 @@ final class VisibleAppearanceValidator extends ComparisonValidator
 
     protected function compare(string $inputPath, string $outputPath): Judgement
     {
-        $inputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $inputPath], $this->timeoutSeconds);
+        $inputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $inputPath], $this->timeoutSeconds, new CommandAccess([$inputPath]));
         if ($inputResult->timedOut) {
             return $this->timedOut($inputResult);
         }
@@ -84,7 +84,7 @@ final class VisibleAppearanceValidator extends ComparisonValidator
         if ($inputListing->signatures === null) {
             return new Judgement('inconclusive', 'qpdf could not list the signatures of the input, so the added signature cannot be told apart: qpdf '.$inputResult->describe(), $inputResult->exitCode, $inputResult->output);
         }
-        $outputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $outputPath], $this->timeoutSeconds);
+        $outputResult = $this->runner->run(['qpdf', ...self::DOCUMENT_ARGUMENTS, $outputPath], $this->timeoutSeconds, new CommandAccess([$outputPath]));
         if ($outputResult->timedOut) {
             return $this->timedOut($outputResult);
         }
@@ -278,7 +278,7 @@ final class VisibleAppearanceValidator extends ComparisonValidator
         $pages = $firstPage === $lastPage ? "page {$firstPage}" : "pages {$firstPage} to {$lastPage}";
         $remainingSeconds = ($deadline - hrtime(true)) / 1e9;
         $result = $remainingSeconds > 0
-            ? $this->runner->run(['pdftoppm', ...self::RENDER_ARGUMENTS, '-f', (string) $firstPage, '-l', (string) $lastPage, $documentPath, $prefix], $remainingSeconds)
+            ? $this->runner->run(['pdftoppm', ...self::RENDER_ARGUMENTS, '-f', (string) $firstPage, '-l', (string) $lastPage, $documentPath, $prefix], $remainingSeconds, new CommandAccess([$documentPath], [dirname($prefix)]))
             : new CommandResult(null, '', true);
         if ($result->timedOut) {
             return $this->timedOut($result);

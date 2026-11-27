@@ -9,24 +9,25 @@ bin/differential --panel=pilot
 
 Each command builds the image, acquires the inputs once, runs each implementation twice, alternating between them, and classifies every item of every input. A difference counts as a reproducible defect only when it is the same in both runs of each implementation.
 
-The runs below were made after [#50](https://github.com/SignerPHP/pdf-signing-qualification/issues/50), under which pyHanko is `inconclusive` on an output with a signature it did not report. They replace the runs of release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1), `differential-20261107T204257Z` and `differential-20261107T210046Z`, made under the earlier policy. At the same revisions, only pyHanko's verdicts and baselines changed, and no execution outcome:
+The runs below were made at commit `909bdec5e3ae6baf591d5512f1e67b1668f777b6` of this repository, after [#61](https://github.com/SignerPHP/pdf-signing-qualification/pull/61), with every analyzer of the `basic-invisible-sha256` scenario and the limits that [#67](https://github.com/SignerPHP/pdf-signing-qualification/pull/67) to [#72](https://github.com/SignerPHP/pdf-signing-qualification/pull/72) set. They replace the runs of release [`results-20261111-2`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261111-2), `differential-20261111T213209Z` and `differential-20261111T215015Z`, made after [#50](https://github.com/SignerPHP/pdf-signing-qualification/issues/50) with the same pinned `pdf-signer` and JSignPdf; those replaced the runs of release [`results-20261110-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261110-1). Compared with the published runs, every execution outcome is the same, and so is every verdict and baseline of the seven analyzers both have, except these:
 
-- On the `pdf-signer` outputs of `minimal-signed-restricted.pdf`, in both samples, and on the JSignPdf outputs of veraPDF `6-1-12-t01-pass-a.pdf`, in the pilot, pyHanko went from `valid` to `inconclusive` because it did not report a signature that qpdf lists, so two items of the pilot and one of the main panel moved from `validator_disagreement` to `shared_failure`.
-- On the outputs that qpdf lists only with warnings, the listing cannot show that pyHanko reported every signature, so pyHanko went from `valid` to `inconclusive` on the `pdf-signer` outputs of `bad27.pdf` and `name-pound-images.pdf` (main panel) and `bad-xref-entry.pdf` (pilot), and on the JSignPdf outputs of `bad35.pdf` (pilot). The other implementation does not sign these inputs, so they have no verdict item and no classification changed.
-- pyHanko's baseline went from `valid` to `inconclusive` on `weird-byterange.pdf` (main panel), listed by qpdf with a warning, and from `not_applicable` to `inconclusive` on veraPDF `6-1-12-t01-pass-a.pdf` (pilot), where pyHanko finds no signature but qpdf lists one. Neither changed a classification.
+- Before #61, `openssl-cms` verified the CMS of every signature dictionary against the bytes of its `/ByteRange`, so it failed every `/ETSI.RFC3161` document timestamp, whose CMS signs its encapsulated TSTInfo. Two inputs of the main panel hold one, pyHanko's `pades-lta-dss-indirect-arrs-test.pdf` and `pades-lta-dss-indirect-arrs-test-2.pdf`. Their `openssl-cms` baseline and the verdict on every output of both implementations went from `invalid` to `valid`, so their two items moved from `shared_failure` to `agreement`. Both inputs stay shared failures for `pdfsig`, which does not decide every signature of the input or of the outputs (`inconclusive`). The pilot sample holds no document timestamp.
+- The analyzer `qpdf-certification-permissions` of [#71](https://github.com/SignerPHP/pdf-signing-qualification/pull/71) is new, so its items are new: 81 on the main panel and 20 on the pilot. Of them, 14 on the main panel and 7 on the pilot are shared failures, described under the shared failures. The others are agreements: `not_applicable` on both outputs of an input without a certification signature, 65 on the main panel and 12 on the pilot, and `valid` on both outputs of the 2 inputs of the main panel and the 1 of the pilot whose certification permits an approval signature. It adds no other class.
 
 ## Revisions and environment
 
 | Item | Value |
 | ---- | ----- |
+| This repository | Commit `909bdec5e3ae6baf591d5512f1e67b1668f777b6`, the head of `main` when the runs were made |
 | Scenario | `basic-invisible-sha256` |
 | `pdf-signer` | Commit `f27e4064be107b8a662f370a9acdcecd786da9f7` (`v0.3.0`), with `pdf-core` v0.1.1 from its `composer.lock` |
 | `jsignpdf` | 3.2.1 with the OpenPDF engine, through `jsignpdf-php` at commit `6f150373a41cd2f149725e428e21d3f9ca5b4267`, on Java 21.0.13+9-LTS with `-Xmx512m`, `-XX:+UseSerialGC`, `-XX:CompressedClassSpaceSize=64m`, `-XX:ReservedCodeCacheSize=48m`, `-XX:-UsePerfData` and `MALLOC_ARENA_MAX=1` |
-| Analyzers | `pyhanko` 0.38.0, `pdfsig` 22.12.0, `openssl-cms` 3.0.22, `qpdf` 11.3.0, `cmp` 3.8, `qpdf-prior-signatures` 11.3.0 and `qpdf-byte-range` 11.3.0 |
-| Image | `sha256:fb9309bc0fd21550d66fb71523821c612d643c94f7c5f7c54078a9a189c4b13e`, the same for the eight runs; it differs from the image of the earlier runs by the process measurement of [#42](https://github.com/SignerPHP/pdf-signing-qualification/pull/42) |
-| Main panel | `config/main-panel/inputs.json` with SHA-256 `83bb6856302496b5dc9f22f1ab5c8bf9e2fe98372c5b0ecd5c42862a20a97cc5`, expected rejections with SHA-256 `a2eb2e33a06ff8612dc12af661a9e8b018cedda303bd4ed66fdcad65d5ccadd0` |
-| Pilot sample | `config/inputs.json` with SHA-256 `0b4cd0e74b6fb5c1652e04f28b02bb600c14866a89dde8dacefa5f0b50ff7575`, expected rejections with SHA-256 `fd1c9906de8e57f60706d3aa035a53f4c148fbd5b6ca3b63593f30670dd33b21` |
-| Records | Main panel: `differential-20261111T213209Z.tar.xz`, SHA-256 `335acb795ca52c49cfb0e144c7c5f9cb71de5f99dade794d782327337755c8b4`; pilot sample: `differential-20261111T215015Z.tar.xz`, SHA-256 `44a2e8f42415561273526067fba8135518009ef3dfef94304eb8f11da394c0c4`; attached to release [`results-20261111-2`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261111-2) |
+| Analyzers | `pyhanko` 0.38.0, `pdfsig` 22.12.0, `openssl-cms` 3.0.22, `qpdf` 11.3.0, `cmp` 3.8, `qpdf-prior-signatures` 11.3.0, `qpdf-byte-range` 11.3.0 and `qpdf-certification-permissions` 11.3.0 |
+| Image | `sha256:558e74f8bd68d8691e3475874e5adef0de851790c83aff302c4926513490c9ca`, the same for the eight runs |
+| Limits | Per attempt: 120 s of wall time, 240 s of CPU time for the whole process tree, 1 GiB of address space per process, 256 MiB per file, 512 MiB of storage, 256 open files and 128 processes, under Landlock ABI 11 |
+| Main panel | `config/main-panel/inputs.json` with SHA-256 `2963452148130a8ecaee266635becb7023fe9befb1cf2198ac118dc002c540b3`, expected rejections with SHA-256 `cbf700fcf211a6f8b47e3e7b3324fc1518172e8e31d77b4ac5975905e0ef69fb` |
+| Pilot sample | `config/inputs.json` with SHA-256 `805dd8296a3c8c7ab406911eba1672e1d8f14ca8dd37ce8fc8418449d9bcecef`, expected rejections with SHA-256 `c5745bfb527b6a495a428cc80345a1a2fb69079613bba0062145e3a28bea6e81` |
+| Records | Main panel: `differential-20261127T221951Z.tar.xz`, SHA-256 `999d613abdc6280bb3a50c324a89e510fd7fe18375ad8a26b4db10e8673cc754`; pilot sample: `differential-20261127T224101Z.tar.xz`, SHA-256 `22ad0087baa285266693e5dd2a469e9519451e5af777bf1e5d7e9d47204899c0`; attached to release [`results-20261127-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261127-1) |
 
 ## Denominators
 
@@ -45,8 +46,8 @@ The main panel is [stratified](main-panel.md): a share of it holds for one strat
 
 | Class | Main panel items | Main panel inputs | Pilot items | Pilot inputs |
 | ----- | ---------------: | ----------------: | ----------: | -----------: |
-| `agreement` | 692 | 45 | 156 | 7 |
-| `shared_failure` | 42 | 28 | 24 | 12 |
+| `agreement` | 761 | 45 | 169 | 7 |
+| `shared_failure` | 54 | 28 | 31 | 12 |
 | `capability_mismatch` | 0 | 0 | 0 | 0 |
 | `expected_rejection` | 0 | 0 | 0 | 0 |
 | `reproducible_implementation_defect` | 2 | 2 | 4 | 3 |
@@ -90,15 +91,31 @@ All 22 are pyHanko against `pdfsig` or `openssl-cms`, which judge the same outpu
 
 ## Shared failures
 
-Both implementations fail these items with the same value in every run (42 on the main panel, 24 on the pilot). Most are the prior signatures that were already broken in the inputs (`openssl-cms`, `pdfsig` and `pyhanko` `invalid`), the hybrid-reference files pyHanko refuses (`inconclusive`), and inputs that qpdf had to recover, where `qpdf-prior-signatures` cannot tell that no signature was lost (`inconclusive`). Two inputs of the main panel and one of the pilot are signed by neither implementation. pyHanko is `inconclusive` on both outputs of `minimal-signed-restricted.pdf`, in both samples, and of veraPDF `6-1-12-t01-pass-a.pdf`, in the pilot, for the causes given under the validator disagreements. Agreement is not evidence that these outputs are correct.
+Both implementations fail these items with the same value in every run (54 on the main panel, 31 on the pilot). Agreement is not evidence that these outputs are correct.
+
+| Cause | Items | Main panel | Pilot |
+| ----- | ----- | ---------: | ----: |
+| Signed by neither implementation | execution `failed` | 2 | 1 |
+| Prior signatures of the input that the `cms_signature` analyzers already fail or cannot decide before signing | `openssl-cms` `invalid`; `pdfsig` `invalid` or `inconclusive`; `pyhanko` `invalid` | 15 | 7 |
+| Hybrid-reference files that pyHanko refuses once signed, while it finds no signature in the input | `pyhanko` `inconclusive` | 6 | 3 |
+| Inputs on which pyHanko is already `inconclusive` | `pyhanko` `inconclusive` | 1 | 3 |
+| pyHanko does not report a signature that qpdf lists, for the causes given under the validator disagreements | `pyhanko` `inconclusive` | 1 | 2 |
+| Inputs that qpdf reads only with warnings | `qpdf` `inconclusive` | 1 | 2 |
+| Inputs that qpdf had to recover, where the analyzers that compare the output with its input cannot tell that no signature was lost | `qpdf-prior-signatures`, `qpdf-byte-range` and `qpdf-certification-permissions` `inconclusive` | 27 | 12 |
+| A signature added to an input whose certification permits no change | `qpdf-certification-permissions` `invalid` | 1 | 1 |
+
+- The prior signatures are those of `ed448-shake256-nolen.pdf`, `extensions-indirect.pdf`, `weird-byterange.pdf`, the two document timestamp inputs `pades-lta-dss-indirect-arrs-test.pdf` and `pades-lta-dss-indirect-arrs-test-2.pdf`, and veraPDF `6-1-11-t01-pass-a.pdf`, `6-1-12-t02-fail-b.pdf` and `6-1-12-t02-pass-a.pdf` on the main panel, and veraPDF `6-1-11-t01-pass-a.pdf`, `6-1-12-t01-pass-a.pdf` and `6-1-12-t02-pass-a.pdf` on the pilot. On the two document timestamp inputs only `pdfsig` fails, because it does not decide every signature, before signing as after; `openssl-cms` and pyHanko pass them.
+- `pyhanko` is already `inconclusive` on `pound-in-name.pdf` of the main panel, and on `xref-errors.pdf`, `xref-with-short-size.pdf` and veraPDF `6-1-4-t02-pass-a.pdf` of the pilot. It does not report the new signature of `minimal-signed-restricted.pdf`, in both samples, and the prior signature of veraPDF `6-1-12-t01-pass-a.pdf`, in the pilot.
+- Of the 27 items of the main panel on recovered inputs, 13 are `qpdf-prior-signatures`, 1 is `qpdf-byte-range`, on `recover-xref-stream.pdf`, and 13 are `qpdf-certification-permissions`: on 11 inputs it finds no `/Perms` `/DocMDP`, which does not show that the input has no certification because qpdf recovered it, on veraPDF `6-1-11-t01-pass-a.pdf` it cannot tell whether qpdf listed every signature of the input, and on `recover-xref-stream.pdf` qpdf cannot read the catalog. Of the 12 of the pilot, 6 are `qpdf-prior-signatures` and 6 `qpdf-certification-permissions`, for the first two of these reasons.
+- `minimal-signed-restricted.pdf`, in both samples, carries a certification signature whose DocMDP transform has `/P 1`, which permits no change to the document. Both implementations sign it anyway, adding an approval signature (object 77 in the `pdf-signer` outputs, 76 in the JSignPdf ones), so `qpdf-certification-permissions` is `invalid` on every output. The other analyzers do not judge certification permissions: `openssl-cms` and `pdfsig` pass the outputs.
 
 ## Reported defects
 
-The three defects of the table above whose cause lies in an implementation, two in `pdf-core` and one in JSignPdf, and the two `pdf-core` causes of the validator disagreements are not reported upstream yet. JSignPdf dropping the bytes before the header is a documented behavior of the adapter, so it will not be reported.
+The three defects of the table above whose cause lies in an implementation, two in `pdf-core` and one in JSignPdf, the two `pdf-core` causes of the validator disagreements, and the signature that both implementations add to `minimal-signed-restricted.pdf` against its certification are not reported upstream yet. JSignPdf dropping the bytes before the header is a documented behavior of the adapter, so it will not be reported.
 
 ## Limits
 
-- Agreement between the implementations does not establish conformance: both can be wrong in the same way, and the analyzers judge only the seven properties above, with no trust store, revocation check or profile validation.
+- Agreement between the implementations does not establish conformance: both can be wrong in the same way, and the analyzers judge only the properties of the eight analyzers above, with no trust store, revocation check or profile validation.
 - A defect is reproduced by two runs in the same image and host. It says nothing about other environments, and its cause was read from one output.
 - A failure the input already has before signing is not attributed to the implementation, even when the other one passes it, so a refusal of a damaged input stays unresolved however reasonable signing it would be.
 - Neither implementation nor any analyzer is given a password, so inputs that need one are judged without it, and JSignPdf runs with a 512 MiB heap.

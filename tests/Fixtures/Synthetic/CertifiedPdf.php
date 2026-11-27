@@ -37,18 +37,21 @@ final class CertifiedPdf
     /**
      * @param  list<string>  $priorFields
      */
-    public static function appendSignature(string $document, array $priorFields, ?string $certificationReference, ?int $certificationPermission = null): string
+    public static function appendSignature(string $document, array $priorFields, ?string $certificationReference, ?int $certificationPermission = null, bool $directSignature = false, bool $documentTimestamp = false): string
     {
         $updateStart = strlen($document);
         $fields = [...$priorFields, '6 0 R'];
-        $updated = SyntheticPdf::appendUpdate($document, [
-            1 => self::catalog($fields, $certificationPermission === null ? $certificationReference : '7 0 R'),
+        $signature = self::signature($certificationPermission, $documentTimestamp);
+        $objects = [
+            1 => self::catalog($fields, $certificationReference),
             3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Annots ['.implode(' ', $fields).'] >>',
-            6 => self::field('Added', '7 0 R'),
-            7 => self::signature($certificationPermission),
-        ]);
+            6 => self::field('Added', $directSignature ? $signature : '7 0 R'),
+        ];
+        if (! $directSignature) {
+            $objects[7] = $signature;
+        }
 
-        return self::fillByteRange($updated, $updateStart);
+        return self::fillByteRange(SyntheticPdf::appendUpdate($document, $objects), $updateStart);
     }
 
     /**
@@ -62,18 +65,20 @@ final class CertifiedPdf
         return "<< /Type /Catalog /Pages 2 0 R{$form}{$permissions} >>";
     }
 
-    private static function field(string $name, string $signatureReference): string
+    private static function field(string $name, string $signature): string
     {
-        return "<< /Type /Annot /Subtype /Widget /FT /Sig /T ({$name}) /Rect [0 0 0 0] /F 132 /P 3 0 R /V {$signatureReference} >>";
+        return "<< /Type /Annot /Subtype /Widget /FT /Sig /T ({$name}) /Rect [0 0 0 0] /F 132 /P 3 0 R /V {$signature} >>";
     }
 
-    private static function signature(?int $certificationPermission): string
+    private static function signature(?int $certificationPermission, bool $documentTimestamp = false): string
     {
         $reference = $certificationPermission === null
             ? ''
             : " /Reference [<< /Type /SigRef /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P {$certificationPermission} /V /1.2 >> >>]";
 
-        return '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).">{$reference} /M (D:20261127120000Z) >>";
+        $kind = $documentTimestamp ? '/Type /DocTimeStamp /Filter /Adobe.PPKLite /SubFilter /ETSI.RFC3161 ' : '/Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached ';
+
+        return '<< '.$kind.self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).">{$reference} /M (D:20261127120000Z) >>";
     }
 
     private static function fillByteRange(string $document, int $searchFrom): string

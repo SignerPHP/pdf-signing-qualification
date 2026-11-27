@@ -14,7 +14,6 @@ use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SyntheticPdf;
 use SignerPHP\PdfSigningQualification\Validation\BaselineValidator;
 use SignerPHP\PdfSigningQualification\Validation\CertificationPermissionsValidator;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
-use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
@@ -101,24 +100,15 @@ final class CertificationPermissionsValidatorTest extends TestCase
 
     public function test_added_signature_whose_dictionary_cannot_be_read_is_inconclusive(): void
     {
-        $certification = ['/ByteRange' => [0, 1, 2, 3], '/Contents' => 'b:00', '/Reference' => [['/TransformMethod' => '/DocMDP', '/TransformParams' => ['/P' => 2]]]];
-        $input = ['trailer' => ['value' => ['/Root' => '1 0 R']], 'obj:1 0 R' => ['value' => ['/Type' => '/Catalog', '/Perms' => ['/DocMDP' => '5 0 R']]], 'obj:5 0 R' => ['value' => $certification]];
-        $output = $input;
-        $output['trailer']['value']['/Signature'] = ['/ByteRange' => [0, 4, 5, 6], '/Contents' => 'b:01'];
-        $inputPath = SyntheticPdf::write(self::$directory, 'listed-input.pdf', 'input');
-        $outputPath = SyntheticPdf::write(self::$directory, 'listed-output.pdf', 'output');
-        $listings = [$inputPath => $input, $outputPath => $output];
-        $runner = new class($listings) implements CommandRunner
-        {
-            public function __construct(private readonly array $listings) {}
+        $input = CertifiedPdf::certified(2);
+        $inputPath = SyntheticPdf::write(self::$directory, 'listed-input.pdf', $input);
+        $outputPath = SyntheticPdf::write(self::$directory, 'listed-output.pdf', CertifiedPdf::appendSignature($input, ['4 0 R'], '5 0 R'));
+        $runner = new AlteredListingRunner($outputPath, static function (CommandResult $result): CommandResult {
+            $listing = json_decode($result->output, true, flags: JSON_THROW_ON_ERROR);
+            $listing['qpdf'][1]['trailer']['value']['/Signature'] = ['/ByteRange' => [0, 4, 5, 6], '/Contents' => 'b:01'];
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
-            {
-                $listing = $this->listings[end($command)] ?? null;
-
-                return $listing === null ? new CommandResult(0, "qpdf version 11.3.0\n") : new CommandResult(0, json_encode(['qpdf' => [['jsonversion' => 2], $listing]], JSON_THROW_ON_ERROR));
-            }
-        };
+            return new CommandResult($result->exitCode, json_encode($listing, JSON_THROW_ON_ERROR));
+        });
 
         $observation = (new CertificationPermissionsValidator($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-27T12:00:00Z')))->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($inputPath), $outputPath, $inputPath));
 

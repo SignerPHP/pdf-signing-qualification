@@ -20,7 +20,7 @@ use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
 
 final class RunAttemptsCommandTest extends TestCase
 {
-    private const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/run.schema.json';
+    private const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
 
     private const string PDF_SIGNER_COMMIT = 'f27e4064be107b8a662f370a9acdcecd786da9f7';
 

@@ -87,6 +87,22 @@ final class CompareRunsCommandTest extends TestCase
         self::assertSame(4, $this->readComparison($this->directory.'/comparison')['totals']['changes']['unchanged']);
     }
 
+    public function test_a_version_1_run_is_read_and_its_missing_limits_are_stated_as_a_difference(): void
+    {
+        $reference = (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->versionOne();
+        [$referenceDirectory, $candidateDirectory] = $this->writeRuns(
+            $reference,
+            (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']),
+        );
+
+        [$exitCode, , $errorOutput] = $this->compareRuns($referenceDirectory, $candidateDirectory, $this->directory.'/comparison');
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        $differences = $this->readComparison($this->directory.'/comparison')['differences'];
+        self::assertSame([['subject' => 'resource_limits', 'reference' => $reference->run['environment']['resource_limits'], 'candidate' => (new RunFixture('run-20261107T130000Z'))->run['environment']['resource_limits']]], $differences);
+        self::assertArrayNotHasKey('processes', $differences[0]['reference']);
+    }
+
     public function test_a_new_failure_exits_with_one(): void
     {
         [$reference, $candidate] = $this->writeRuns(
@@ -226,6 +242,19 @@ final class CompareRunsCommandTest extends TestCase
 
         self::assertSame(2, $exitCode);
         self::assertStringContainsString('Invalid attempt '.$fixture->attemptId(self::INPUT), $errorOutput);
+    }
+
+    public function test_a_run_record_of_an_unknown_schema_is_refused(): void
+    {
+        $candidate = (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']);
+        $candidate->run['schema'] = SchemaValidator::SCHEMA_PREFIX.'v3/run.schema.json';
+        [$reference, $candidate] = $this->writeRuns((new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']), $candidate);
+
+        [$exitCode, , $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');
+
+        self::assertSame(2, $exitCode);
+        self::assertStringContainsString('must name one of the run schemas', $errorOutput);
+        self::assertFileDoesNotExist($this->directory.'/comparison');
     }
 
     public function test_runs_without_any_paired_input_exit_with_two(): void

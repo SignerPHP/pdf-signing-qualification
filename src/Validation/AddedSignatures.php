@@ -15,13 +15,40 @@ final class AddedSignatures
         }
         $report = json_decode($matches[1], true);
 
-        return is_array($report) && is_array($report['signatures'] ?? null) ? $report : null;
+        if (! is_array($report) || ! is_array($report['signatures'] ?? null)) {
+            return null;
+        }
+        foreach ($report['signatures'] as $signature) {
+            if (! is_array($signature) || ! array_key_exists('byte_range', $signature)) {
+                return null;
+            }
+        }
+
+        return $report;
     }
 
     /**
-     * @return list<string>|null
+     * @return list<list<int>>|false|null
      */
-    public static function inputFields(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
+    public static function priorByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds, array $reportedSignatures): array|false|null
+    {
+        $inputByteRanges = self::inputByteRanges($runner, $inputPath, $timeoutSeconds);
+        if (! is_array($inputByteRanges) || $inputByteRanges === []) {
+            return $inputByteRanges;
+        }
+        foreach ($reportedSignatures as $signature) {
+            if (! is_array($signature) || ! self::isByteRange($signature['byte_range'] ?? null)) {
+                return false;
+            }
+        }
+
+        return $inputByteRanges;
+    }
+
+    /**
+     * @return list<list<int>>|false|null
+     */
+    private static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): array|false|null
     {
         if ($inputPath === null) {
             return [];
@@ -31,22 +58,36 @@ final class AddedSignatures
             return null;
         }
 
-        $fields = [];
+        $byteRanges = [];
         foreach ($listing->signatures as $signature) {
-            if ($signature['field'] !== null) {
-                $fields[$signature['field']] = true;
+            if ($signature['byte_range'] === null) {
+                return false;
             }
+            $byteRanges[] = $signature['byte_range'];
         }
 
-        return array_map(strval(...), array_keys($fields));
+        return $byteRanges;
     }
 
     /**
-     * @param  list<string>  $fields
-     * @param  list<string>  $inputFields
+     * @param  list<list<int>>  $inputByteRanges
      */
-    public static function isPrior(array $fields, array $inputFields): bool
+    public static function isPrior(mixed $byteRange, array $inputByteRanges): bool
     {
-        return array_intersect($fields, $inputFields) !== [];
+        return is_array($byteRange) && in_array($byteRange, $inputByteRanges, true);
+    }
+
+    private static function isByteRange(mixed $value): bool
+    {
+        if (! is_array($value) || ! array_is_list($value) || count($value) !== 4) {
+            return false;
+        }
+        foreach ($value as $element) {
+            if (! is_int($element) || $element < 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

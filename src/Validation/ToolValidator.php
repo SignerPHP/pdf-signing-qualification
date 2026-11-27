@@ -101,7 +101,7 @@ abstract class ToolValidator implements Validator
             return $this->version;
         }
 
-        $result = $this->runner->run($this->versionCommand(), $this->timeoutSeconds);
+        $result = $this->runner->run($this->versionCommand(), $this->timeoutSeconds, new CommandAccess);
         if ($result->exitCode !== 0 || preg_match($this->versionPattern(), $result->output, $matches) !== 1) {
             throw new RuntimeException("Unable to determine the version of {$this->analyzerId()}: {$result->output}");
         }

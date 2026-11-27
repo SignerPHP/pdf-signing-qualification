@@ -287,6 +287,30 @@ final class RunComparisonTest extends TestCase
         RunComparison::compare($reference->records(), $candidate->records());
     }
 
+    /**
+     * @return array<string, array{string, int|float}>
+     */
+    public static function newLimits(): array
+    {
+        return [
+            'CPU time' => ['cpu_time_seconds', 60],
+            'processes' => ['processes', 256],
+        ];
+    }
+
+    #[DataProvider('newLimits')]
+    public function test_a_difference_in_a_new_limit_is_stated_like_the_others(string $limit, int|float $value): void
+    {
+        $reference = self::reference()->succeeded(self::INPUT, self::VALID);
+        $candidate = self::candidate()->succeeded(self::INPUT, self::VALID);
+        $candidate->run['environment']['resource_limits'][$limit] = $value;
+
+        self::assertSame(
+            [['subject' => 'resource_limits', 'reference' => $reference->run['environment']['resource_limits'], 'candidate' => $candidate->run['environment']['resource_limits']]],
+            self::compare($reference, $candidate)['differences'],
+        );
+    }
+
     public function test_differences_in_implementation_analyzers_policies_and_configuration_are_stated(): void
     {
         $reference = (new RunFixture('run-20261107T120000Z', ['pdfsig' => '22.12.0', 'qpdf' => '11.3.0', 'pyhanko' => '0.38.0']))

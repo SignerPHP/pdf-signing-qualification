@@ -57,6 +57,7 @@ public final class DssValidator {
             signature.put("signed_by", simple.getSignedBy(id));
             SignatureWrapper wrapper = reports.getDiagnosticData().getSignatureById(id);
             signature.put("fields", wrapper == null || wrapper.getSignatureFieldNames() == null ? List.of() : wrapper.getSignatureFieldNames());
+            signature.put("byte_range", wrapper == null || wrapper.getPDFRevision() == null ? null : wrapper.getPDFRevision().getSignatureByteRange());
             signatures.add(signature);
         }
         List<Map<String, Object>> timestamps = new ArrayList<>();

@@ -47,7 +47,7 @@ final class CertificationPermissionsValidator extends ComparisonValidator
 
     protected function compare(string $inputPath, string $outputPath): Judgement
     {
-        $inputResult = $this->runner->run(QpdfObjects::command($inputPath), $this->timeoutSeconds);
+        $inputResult = $this->runner->run(QpdfObjects::command($inputPath), $this->timeoutSeconds, new CommandAccess([$inputPath]));
         if ($inputResult->timedOut) {
             return $this->timedOut($inputResult);
         }
@@ -78,7 +78,7 @@ final class CertificationPermissionsValidator extends ComparisonValidator
             return new Judgement('inconclusive', 'The DocMDP transform parameters of the input do not give a permission level of 1, 2 or 3: '.json_encode($permission), $inputResult->exitCode, '');
         }
 
-        $outputResult = $this->runner->run(QpdfObjects::command($outputPath), $this->timeoutSeconds);
+        $outputResult = $this->runner->run(QpdfObjects::command($outputPath), $this->timeoutSeconds, new CommandAccess([$outputPath]));
         if ($outputResult->timedOut) {
             return $this->timedOut($outputResult);
         }

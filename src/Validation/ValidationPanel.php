@@ -21,34 +21,34 @@ final class ValidationPanel
     /**
      * @param  Closure(): DateTimeImmutable  $clock
      */
-    public static function installed(Closure $clock, array $scenario, ?TestPki $pki = null): self
+    public static function installed(Closure $clock, array $scenario, ?TestPki $pki = null, CommandRunner $runner = new ProcessRunner): self
     {
         $validators = [
-            new PyHankoValidator(new ProcessRunner, $clock),
-            new PdfsigValidator(new ProcessRunner, $clock),
-            new OpenSslCmsValidator(new ProcessRunner, $clock),
-            new QpdfCheckValidator(new ProcessRunner, $clock),
-            new InputPreservationValidator(new ProcessRunner, $clock),
-            new PriorSignaturesValidator(new ProcessRunner, $clock),
-            new SignatureCoverageValidator(new ProcessRunner, $clock),
-            new CertificationPermissionsValidator(new ProcessRunner, $clock),
+            new PyHankoValidator($runner, $clock),
+            new PdfsigValidator($runner, $clock),
+            new OpenSslCmsValidator($runner, $clock),
+            new QpdfCheckValidator($runner, $clock),
+            new InputPreservationValidator($runner, $clock),
+            new PriorSignaturesValidator($runner, $clock),
+            new SignatureCoverageValidator($runner, $clock),
+            new CertificationPermissionsValidator($runner, $clock),
         ];
         $placement = $scenario['signing']['placement'] ?? null;
         if (is_array($placement)) {
-            $validators[] = new VisibleAppearanceValidator(new ProcessRunner, $clock, $placement);
+            $validators[] = new VisibleAppearanceValidator($runner, $clock, $placement);
         }
         $signing = $scenario['signing'];
         if (is_array($signing['signers'] ?? null)) {
             if ($pki === null) {
                 throw new RuntimeException("The scenario {$scenario['id']} signs with certificates of the test PKI, which the run did not start");
             }
-            $validators[] = new EuDssValidator(new ProcessRunner, $clock, $signing, $pki->rootCertificatePath(), $pki->rootCertificate());
-            $validators[] = new PadesStructureValidator(new ProcessRunner, $clock, $signing['certification_level'] ?? null, $signing['document_timestamp'] === true);
+            $validators[] = new EuDssValidator($runner, $clock, $signing, $pki->rootCertificatePath(), $pki->rootCertificate());
+            $validators[] = new PadesStructureValidator($runner, $clock, $signing['certification_level'] ?? null, $signing['document_timestamp'] === true);
             if ($signing['document_timestamp'] === true) {
-                $validators[] = new DocumentTimestampImprintValidator(new ProcessRunner, $clock);
+                $validators[] = new DocumentTimestampImprintValidator($runner, $clock);
             }
             if (isset($signing['signature_policy'])) {
-                $validators[] = new DemoiselleValidator(new ProcessRunner, $clock, count($signing['signers']));
+                $validators[] = new DemoiselleValidator($runner, $clock, count($signing['signers']));
             }
         }
 

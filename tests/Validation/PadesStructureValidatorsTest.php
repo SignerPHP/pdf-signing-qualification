@@ -8,11 +8,15 @@ use Closure;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\PadesCatalogEntriesPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\DocumentTimestampImprintValidator;
 use SignerPHP\PdfSigningQualification\Validation\PadesStructureValidator;
+use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 use SignerPHP\PdfSigningQualification\Validation\QpdfObjects;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
@@ -29,15 +33,20 @@ final class PadesStructureValidatorsTest extends TestCase
 
     private static string $output;
 
+    private static string $directory;
+
     public static function setUpBeforeClass(): void
     {
         self::$output = (string) tempnam(sys_get_temp_dir(), 'output');
         file_put_contents(self::$output, self::BEFORE.'<'.str_repeat('0', 64).'>'.self::AFTER);
+        self::$directory = sys_get_temp_dir().'/pades-structure-'.bin2hex(random_bytes(6));
+        mkdir(self::$directory);
     }
 
     public static function tearDownAfterClass(): void
     {
         @unlink(self::$output);
+        exec('rm -rf '.escapeshellarg(self::$directory));
     }
 
     /**
@@ -115,6 +124,62 @@ final class PadesStructureValidatorsTest extends TestCase
         self::assertStringContainsString('certification signature of the input', $certification['evidence']['summary']);
     }
 
+    public static function catalogEntries(): iterable
+    {
+        foreach (PadesCatalogEntriesPdf::ENTRIES as $entry => $catalogEntries) {
+            yield $entry => [$entry, $catalogEntries];
+        }
+    }
+
+    #[DataProvider('catalogEntries')]
+    public function test_entry_the_input_already_holds_is_not_the_implementation_s(string $entry, string $catalogEntries): void
+    {
+        $name = md5($entry);
+        $input = PadesCatalogEntriesPdf::input(self::$directory, "{$name}-input", $catalogEntries);
+        $output = PadesCatalogEntriesPdf::update(self::$directory, "{$name}-kept", $input, $catalogEntries);
+
+        $observation = self::observeDocument($output, $input);
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame([$entry], $observation['evidence']['details']['inherited_entries']);
+    }
+
+    #[DataProvider('catalogEntries')]
+    public function test_entry_the_output_adds_is_invalid(string $entry, string $catalogEntries): void
+    {
+        $name = md5($entry);
+        $input = PadesCatalogEntriesPdf::input(self::$directory, "{$name}-without", '');
+        $output = PadesCatalogEntriesPdf::update(self::$directory, "{$name}-added", $input, $catalogEntries);
+
+        $observation = self::observeDocument($output, $input);
+
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertStringContainsString((string) preg_replace('# (/\w+)$#', ' has a $1 entry', $entry), $observation['evidence']['summary']);
+        self::assertSame([], $observation['evidence']['details']['inherited_entries']);
+    }
+
+    public static function changedEntries(): iterable
+    {
+        foreach (PadesCatalogEntriesPdf::ENTRIES as $entry => $catalogEntries) {
+            yield "{$entry}, object it points to" => [$entry, $catalogEntries, 4];
+            yield "{$entry}, object nested in its value" => [$entry, $catalogEntries, 6];
+        }
+        yield 'direct value with a reference to a changed object' => ['the catalog /DocMDP', '/DocMDP << /Signature 4 0 R >>', 4];
+    }
+
+    #[DataProvider('changedEntries')]
+    public function test_entry_whose_value_changed_is_invalid(string $entry, string $catalogEntries, int $changedObject): void
+    {
+        $name = md5($entry.$catalogEntries.$changedObject);
+        $input = PadesCatalogEntriesPdf::input(self::$directory, "{$name}-original", $catalogEntries);
+        $output = PadesCatalogEntriesPdf::update(self::$directory, "{$name}-changed", $input, $catalogEntries, $changedObject);
+
+        $observation = self::observeDocument($output, $input);
+
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertStringContainsString("{$entry} entry differs from the input's", $observation['evidence']['summary']);
+    }
+
     public function test_input_that_qpdf_has_to_recover_is_inconclusive(): void
     {
         $listing = json_encode(self::listing(), JSON_THROW_ON_ERROR);
@@ -122,7 +187,7 @@ final class PadesStructureValidatorsTest extends TestCase
         {
             public function __construct(private readonly string $listing) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match (true) {
                     in_array('--version', $command, true) => new CommandResult(0, "qpdf version 11.3.0\n"),
@@ -177,6 +242,15 @@ final class PadesStructureValidatorsTest extends TestCase
     private static function observe(ToolValidator $validator): array
     {
         $observation = $validator->observe(new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output));
+        (new SchemaValidator)->assertValid($observation, ToolValidator::OBSERVATION_SCHEMA, 'observation');
+
+        return $observation;
+    }
+
+    private static function observeDocument(string $output, string $input): array
+    {
+        $validator = new PadesStructureValidator(new ProcessRunner, self::clock(), null, false);
+        $observation = $validator->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($output), $output, $input));
         (new SchemaValidator)->assertValid($observation, ToolValidator::OBSERVATION_SCHEMA, 'observation');
 
         return $observation;

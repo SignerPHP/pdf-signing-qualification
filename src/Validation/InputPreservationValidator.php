@@ -44,7 +44,7 @@ final class InputPreservationValidator extends ComparisonValidator
             throw new RuntimeException("Unable to read the size of the input {$inputPath}");
         }
 
-        $result = $this->runner->run(['cmp', '-n', (string) $inputSize, $inputPath, $outputPath], $this->timeoutSeconds);
+        $result = $this->runner->run(['cmp', '-n', (string) $inputSize, $inputPath, $outputPath], $this->timeoutSeconds, new CommandAccess([$inputPath, $outputPath]));
         if ($result->timedOut) {
             return $this->timedOut($result);
         }

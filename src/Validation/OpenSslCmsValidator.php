@@ -187,15 +187,15 @@ final class OpenSslCmsValidator extends CommandLineValidator
                 self::writeFile($contentPath, $signedContent);
             }
 
-            $decoded = $this->runner->run(['openssl', ...self::DECODE_ARGUMENTS, '-in', $cmsPath], $this->timeoutSeconds);
+            $decoded = $this->runner->run(['openssl', ...self::DECODE_ARGUMENTS, '-in', $cmsPath], $this->timeoutSeconds, new CommandAccess([$cmsPath]));
             if ($decoded->exitCode !== 0) {
                 return [$decoded, null, null];
             }
 
             if ($signedContent !== null) {
-                return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, '-content', $contentPath], $this->timeoutSeconds), null];
+                return [$decoded, $this->runner->run(['openssl', ...self::ARGUMENTS, '-in', $cmsPath, '-content', $contentPath], $this->timeoutSeconds, new CommandAccess([$cmsPath, $contentPath])), null];
             }
-            $verified = $this->runner->run(['openssl', ...self::ENCAPSULATED_ARGUMENTS, $encapsulatedPath, '-in', $cmsPath], $this->timeoutSeconds);
+            $verified = $this->runner->run(['openssl', ...self::ENCAPSULATED_ARGUMENTS, $encapsulatedPath, '-in', $cmsPath], $this->timeoutSeconds, new CommandAccess([$cmsPath], [$workDirectory]));
             $encapsulatedContent = is_file($encapsulatedPath) ? file_get_contents($encapsulatedPath) : false;
 
             return [$decoded, $verified, $encapsulatedContent === false ? null : $encapsulatedContent];

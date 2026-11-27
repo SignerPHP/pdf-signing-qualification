@@ -44,7 +44,7 @@ final class DemoiselleValidator extends ToolValidator
     {
         return [
             'id' => 'demoiselle-icp-brasil-ad-rt-test-pki',
-            'description' => 'Demoiselle Signer\'s PAdES check of the signature of every signature field other than a document timestamp, located with PDFBox. Only the signatures the implementation added are judged: one whose /ByteRange, as PDFBox reads it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. A report without the /ByteRange of every signature is inconclusive, and so is a count that does not match when the input has a signature whose /ByteRange qpdf cannot read, or when the input is signed and the validator reports a signature whose /ByteRange is not four non-negative integers. Valid when there is one added signature per signer and each is checked without an exception, is not reported invalid, commits to a policy identifier of the ICP-Brasil PAdES AD-RT arc and has no error other than the untrusted chain that a certificate of the test PKI always gives; anything else is invalid; a signature Demoiselle could not check, with nothing invalid, and a report the analyzer cannot read are inconclusive. Warnings are recorded and do not change the verdict',
+            'description' => 'Demoiselle Signer\'s PAdES check of the signature of every signature field other than a document timestamp, located with PDFBox. Only the signatures the implementation added are judged: one whose /ByteRange, as PDFBox reads it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. A report without the /ByteRange of every signature is inconclusive, and so is a signed input when qpdf cannot read the /ByteRange of one of its signatures or the validator reports a signature whose /ByteRange is not four non-negative integers, whatever the count. Valid when there is one added signature per signer and each is checked without an exception, is not reported invalid, commits to a policy identifier of the ICP-Brasil PAdES AD-RT arc and has no error other than the untrusted chain that a certificate of the test PKI always gives; anything else is invalid; a signature Demoiselle could not check, with nothing invalid, and a report the analyzer cannot read are inconclusive. Warnings are recorded and do not change the verdict',
             'parameters' => [
                 'policy_arc' => self::AD_RT_ARC,
                 'tolerated_errors' => [self::UNTRUSTED_CHAIN_PATTERN],
@@ -80,14 +80,17 @@ final class DemoiselleValidator extends ToolValidator
         $signatures = [];
         $prior = [];
         foreach (array_filter($report['signatures'], is_array(...)) as $signature) {
-            if ($inputByteRanges !== null && AddedSignatures::isPrior($signature['byte_range'] ?? null, $inputByteRanges)) {
+            if (is_array($inputByteRanges) && AddedSignatures::isPrior($signature['byte_range'] ?? null, $inputByteRanges)) {
                 $prior[] = $signature;
             } else {
                 $signatures[] = $signature;
             }
         }
+        if ($inputByteRanges === false) {
+            return new Judgement('inconclusive', 'The input is signed, and the /ByteRange of one of its signatures or of one of the '.count($signatures).' signature(s) Demoiselle reports cannot be read, so the signatures of the input cannot be told apart from those the implementation added', $result->exitCode, $result->output, ['signatures' => $signatures, 'prior_signatures' => $prior]);
+        }
         if ($inputByteRanges === null && count($signatures) !== $this->expectedSignatures) {
-            return new Judgement('inconclusive', 'The /ByteRange of a signature of the input, or of one the validator reports, cannot be read, or qpdf cannot list the signatures of the input, so the '.count($signatures).' signature(s) Demoiselle reports cannot be told apart from those of the input', $result->exitCode, $result->output, ['signatures' => $signatures]);
+            return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so the '.count($signatures).' signature(s) Demoiselle reports cannot be told apart from those of the input', $result->exitCode, $result->output, ['signatures' => $signatures]);
         }
         $problems = [];
         $unchecked = [];

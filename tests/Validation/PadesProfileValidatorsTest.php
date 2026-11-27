@@ -135,6 +135,16 @@ final class PadesProfileValidatorsTest extends TestCase
             ]],
             static fn (CommandRunner $runner): ToolValidator => new DemoiselleValidator($runner, self::clock(), 1),
         ];
+        yield 'eu-dss, only the prior signature' => [
+            "dss-validator 6.2\n",
+            ['signatures' => [['id' => 'S-0', 'fields' => ['Signature1'], 'byte_range' => [0, 1, 2, 3, 4, 5], 'indication' => 'TOTAL_PASSED', 'sub_indication' => null, 'format' => 'PAdES-BASELINE-LTA']], 'timestamps' => []],
+            static fn (CommandRunner $runner): ToolValidator => new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT),
+        ];
+        yield 'demoiselle-signer, only the prior signature' => [
+            "demoiselle-signer 4.4.0\n",
+            ['signatures' => [['field' => 'Signature1', 'byte_range' => [0, 1, 2, 3, 4, 5], 'sub_filter' => 'ETSI.CAdES.detached', 'checks' => [$check]]]],
+            static fn (CommandRunner $runner): ToolValidator => new DemoiselleValidator($runner, self::clock(), 1),
+        ];
     }
 
     /**
@@ -168,6 +178,16 @@ final class PadesProfileValidatorsTest extends TestCase
                 ['field' => 'Signature1', 'byte_range' => [], 'sub_filter' => 'adbe.pkcs7.detached', 'error' => 'java.lang.RuntimeException: not ICP-Brasil'],
                 ['field' => 'Signature2', 'byte_range' => [0, 10, 20, 30], 'sub_filter' => 'ETSI.CAdES.detached', 'checks' => [$check]],
             ]],
+            static fn (CommandRunner $runner): ToolValidator => new DemoiselleValidator($runner, self::clock(), 1),
+        ];
+        yield 'eu-dss, only the prior signature' => [
+            "dss-validator 6.2\n",
+            ['signatures' => [['id' => 'S-0', 'fields' => ['Signature1'], 'byte_range' => null, 'indication' => 'TOTAL_PASSED', 'sub_indication' => null, 'format' => 'PAdES-BASELINE-LTA']], 'timestamps' => []],
+            static fn (CommandRunner $runner): ToolValidator => new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT),
+        ];
+        yield 'demoiselle-signer, only the prior signature' => [
+            "demoiselle-signer 4.4.0\n",
+            ['signatures' => [['field' => 'Signature1', 'byte_range' => [], 'sub_filter' => 'ETSI.CAdES.detached', 'checks' => [$check]]]],
             static fn (CommandRunner $runner): ToolValidator => new DemoiselleValidator($runner, self::clock(), 1),
         ];
     }

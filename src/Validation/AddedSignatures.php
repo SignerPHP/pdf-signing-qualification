@@ -28,17 +28,17 @@ final class AddedSignatures
     }
 
     /**
-     * @return list<list<int>>|null
+     * @return list<list<int>>|false|null
      */
-    public static function priorByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds, array $reportedSignatures): ?array
+    public static function priorByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds, array $reportedSignatures): array|false|null
     {
         $inputByteRanges = self::inputByteRanges($runner, $inputPath, $timeoutSeconds);
-        if ($inputByteRanges === null || $inputByteRanges === []) {
+        if (! is_array($inputByteRanges) || $inputByteRanges === []) {
             return $inputByteRanges;
         }
         foreach ($reportedSignatures as $signature) {
             if (! is_array($signature) || ! self::isByteRange($signature['byte_range'] ?? null)) {
-                return null;
+                return false;
             }
         }
 
@@ -46,9 +46,9 @@ final class AddedSignatures
     }
 
     /**
-     * @return list<list<int>>|null
+     * @return list<list<int>>|false|null
      */
-    private static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
+    private static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): array|false|null
     {
         if ($inputPath === null) {
             return [];
@@ -61,7 +61,7 @@ final class AddedSignatures
         $byteRanges = [];
         foreach ($listing->signatures as $signature) {
             if ($signature['byte_range'] === null) {
-                return null;
+                return false;
             }
             $byteRanges[] = $signature['byte_range'];
         }

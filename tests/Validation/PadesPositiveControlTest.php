@@ -6,10 +6,13 @@ namespace SignerPHP\PdfSigningQualification\Tests\Validation;
 
 use Closure;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Pki\TestPki;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\MinimalPdf;
+use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SignatureFieldNamePdf;
+use SignerPHP\PdfSigningQualification\Validation\DemoiselleValidator;
 use SignerPHP\PdfSigningQualification\Validation\DocumentTimestampImprintValidator;
 use SignerPHP\PdfSigningQualification\Validation\EuDssValidator;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
@@ -116,6 +119,30 @@ final class PadesPositiveControlTest extends TestCase
 
         self::assertVerdict('invalid', self::dss(self::BASELINE_LTA), $output);
         self::assertVerdict('invalid', new PadesStructureValidator(new ProcessRunner, self::clock(), null, true), $output);
+    }
+
+    public static function inputsSignedInFieldsOtherDecodersNameDifferently(): iterable
+    {
+        yield 'non-ASCII name' => [SignatureFieldNamePdf::nonAsciiName(...)];
+        yield 'name qpdf cannot decode' => [SignatureFieldNamePdf::undecodableName(...)];
+    }
+
+    /**
+     * @param  callable(string): string  $createInput
+     */
+    #[DataProvider('inputsSignedInFieldsOtherDecodersNameDifferently')]
+    public function test_signature_of_the_input_is_prior_whatever_the_name_of_its_field(callable $createInput): void
+    {
+        $input = $createInput(self::$directory);
+        $output = SyntheticSignedPdf::appendSignature($input, self::$directory, basename($input, '.pdf').'-signed');
+
+        $dss = self::dss(self::BASELINE_B)->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($input), $output, $input));
+        self::assertCount(1, $dss['evidence']['details']['prior_signatures'], $dss['evidence']['summary']);
+        self::assertSame([['Signature2']], array_column($dss['evidence']['details']['signatures'], 'fields'));
+
+        $demoiselle = (new DemoiselleValidator(new ProcessRunner, self::clock(), 1))->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($input), $output, $input));
+        self::assertCount(1, $demoiselle['evidence']['details']['prior_signatures'], $demoiselle['evidence']['summary']);
+        self::assertSame(['Signature2'], array_column($demoiselle['evidence']['details']['signatures'], 'field'));
     }
 
     private static function baselineLta(): string

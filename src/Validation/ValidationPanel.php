@@ -31,6 +31,7 @@ final class ValidationPanel
             new InputPreservationValidator($runner, $clock),
             new PriorSignaturesValidator($runner, $clock),
             new SignatureCoverageValidator($runner, $clock),
+            new CertificationPermissionsValidator($runner, $clock),
         ];
         $placement = $scenario['signing']['placement'] ?? null;
         if (is_array($placement)) {

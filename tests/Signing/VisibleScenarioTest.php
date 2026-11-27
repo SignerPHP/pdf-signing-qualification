@@ -129,6 +129,7 @@ final class VisibleScenarioTest extends TestCase
         $verdicts = array_column(array_map(static fn (array $observation): array => ['analyzer' => $observation['analyzer']['id'], 'verdict' => $observation['verdict'].': '.$observation['evidence']['summary']], $observations), 'verdict', 'analyzer');
         $expected = array_fill_keys(array_keys($verdicts), 'valid');
         $expected['qpdf-prior-signatures'] = 'not_applicable';
+        $expected['qpdf-certification-permissions'] = 'not_applicable';
         self::assertSame($expected, array_map(static fn (string $verdict): string => strstr($verdict, ':', true) ?: $verdict, $verdicts), print_r($verdicts, true));
     }
 
@@ -226,6 +227,6 @@ final class VisibleScenarioTest extends TestCase
         $panel = ValidationPanel::installed(static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-12T12:00:02Z'), Scenarios::load(self::SCENARIO_DIRECTORY, 'basic-invisible-sha256'));
 
         self::assertNotContains('pdftoppm-appearance', array_column($panel->analyzers(), 'id'));
-        self::assertCount(7, $panel->analyzers());
+        self::assertCount(8, $panel->analyzers());
     }
 }

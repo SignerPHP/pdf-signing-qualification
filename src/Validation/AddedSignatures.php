@@ -15,7 +15,16 @@ final class AddedSignatures
         }
         $report = json_decode($matches[1], true);
 
-        return is_array($report) && is_array($report['signatures'] ?? null) ? $report : null;
+        if (! is_array($report) || ! is_array($report['signatures'] ?? null)) {
+            return null;
+        }
+        foreach ($report['signatures'] as $signature) {
+            if (! is_array($signature) || ! array_key_exists('byte_range', $signature)) {
+                return null;
+            }
+        }
+
+        return $report;
     }
 
     /**
@@ -33,9 +42,10 @@ final class AddedSignatures
 
         $byteRanges = [];
         foreach ($listing->signatures as $signature) {
-            if ($signature['byte_range'] !== null) {
-                $byteRanges[] = $signature['byte_range'];
+            if ($signature['byte_range'] === null) {
+                return null;
             }
+            $byteRanges[] = $signature['byte_range'];
         }
 
         return $byteRanges;

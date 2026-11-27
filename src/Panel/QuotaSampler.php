@@ -7,6 +7,20 @@ namespace SignerPHP\PdfSigningQualification\Panel;
 final class QuotaSampler
 {
     /**
+     * @param  non-empty-list<string>  $ids
+     */
+    public static function firstInDrawOrder(array $ids, string $seed): string
+    {
+        $drawOrder = [];
+        foreach ($ids as $id) {
+            $drawOrder[$id] = hash('sha256', "{$seed}:{$id}");
+        }
+        asort($drawOrder, SORT_STRING);
+
+        return (string) array_key_first($drawOrder);
+    }
+
+    /**
      * @param  array<string, list<string>>  $strataById
      * @return list<string>
      */

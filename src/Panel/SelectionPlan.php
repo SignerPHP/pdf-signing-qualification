@@ -10,7 +10,7 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final readonly class SelectionPlan
 {
-    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/panel-selection.schema.json';
+    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/panel-selection.schema.json';
 
     /**
      * @param  list<PlanSource>  $sources
@@ -41,7 +41,7 @@ final readonly class SelectionPlan
             throw new InvalidArgumentException("The selection plan does not follow its schema:\n".implode("\n", $errors));
         }
 
-        /** @var array{seed: string, quota_per_stratum: int, large: array{byte_size: int, page_count: int}, sources: list<array{id: string, url: string, revision: array{kind: string, value: string}, file_url: string, license: array{expression: string, evidence_url: string}, listing_url: string, document_license: array{expression: string, evidence_url: string}, include: list<string>, exclude: list<array{pattern: string, reason: string}>}>} $plan */
+        /** @var array{seed: string, quota_per_stratum: int, large: array{byte_size: int, page_count: int}, sources: list<array{id: string, url: string, revision: array{kind: string, value: string}, file_url: string, license: array{expression: string, evidence_url: string}, listing_url: string, document_license: array{expression: string, evidence_url: string, redistribution_restrictions: list<array{description: string, evidence_url: string}>}, include: list<string>, exclude: list<array{pattern: string, reason: string}>}>} $plan */
         $plan = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
         $sources = [];

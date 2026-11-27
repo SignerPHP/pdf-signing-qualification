@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\Input;
+use SignerPHP\PdfSigningQualification\Acquisition\Origin;
 use SignerPHP\PdfSigningQualification\Acquisition\Source;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
@@ -20,6 +21,8 @@ final class AcquirerTest extends TestCase
     private const string REVISION = '4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b';
 
     private const string FILE_URL = 'https://raw.githubusercontent.com/mozilla/pdf.js/'.self::REVISION.'/test/pdfs/issue17069.pdf';
+
+    private const string MIRROR_FILE_URL = 'https://mirror.example.org/'.self::REVISION.'/copies/issue17069.pdf';
 
     private string $cacheDirectory;
 
@@ -54,9 +57,24 @@ final class AcquirerTest extends TestCase
             license: [
                 'expression' => 'NOASSERTION',
                 'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069',
+                'redistribution_restrictions' => [],
             ],
             strata: ['classic'],
         );
+    }
+
+    private static function inputWithFurtherOrigin(): Input
+    {
+        $declared = self::input();
+        $mirror = new Source(
+            id: 'mirror',
+            url: 'https://mirror.example.org',
+            revision: ['kind' => 'commit', 'value' => self::REVISION],
+            fileUrlTemplate: 'https://mirror.example.org/{revision}/{path}',
+            license: ['expression' => 'Apache-2.0', 'evidence_url' => 'https://mirror.example.org/LICENSE'],
+        );
+
+        return new Input($declared->source, $declared->path, $declared->sha256, $declared->byteSize, $declared->license, $declared->strata, [new Origin($mirror, 'copies/issue17069.pdf')]);
     }
 
     private function acquirer(InMemoryFetcher $fetcher, string $now = '2026-10-29T12:00:00Z'): Acquirer
@@ -154,6 +172,62 @@ final class AcquirerTest extends TestCase
         self::assertArrayNotHasKey('observed_sha256', $record);
         self::assertStringContainsString('404', $record['message']);
         self::assertFileDoesNotExist($this->cachedPath());
+    }
+
+    public function test_input_changed_upstream_at_its_declared_origin_is_acquired_from_a_further_origin(): void
+    {
+        $changedContent = self::CONTENT.'changed upstream';
+
+        $record = $this->acquirer(new InMemoryFetcher([self::FILE_URL => $changedContent, self::MIRROR_FILE_URL => self::CONTENT]))->acquire(self::inputWithFurtherOrigin());
+
+        self::assertValidRecord($record);
+        self::assertSame('available', $record['status']);
+        self::assertSame('pdfjs:test/pdfs/issue17069.pdf', $record['source_id']);
+        self::assertSame(self::FILE_URL, $record['file_url']);
+        self::assertSame([
+            ['file_url' => self::FILE_URL, 'status' => 'unavailable', 'reason' => 'hash_mismatch', 'observed_sha256' => hash('sha256', $changedContent), 'observed_byte_size' => strlen($changedContent)],
+            ['file_url' => self::MIRROR_FILE_URL, 'status' => 'available'],
+        ], array_map(static fn (array $origin): array => array_diff_key($origin, ['source' => true, 'path' => true, 'message' => true]), $record['origins']));
+        self::assertSame('mirror', $record['origins'][1]['source']['id']);
+        self::assertSame(self::CONTENT, file_get_contents($this->cachedPath()));
+    }
+
+    public function test_missing_further_origin_is_recorded_while_the_declared_origin_matches(): void
+    {
+        $record = $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT]))->acquire(self::inputWithFurtherOrigin());
+
+        self::assertValidRecord($record);
+        self::assertSame('available', $record['status']);
+        self::assertSame('available', $record['origins'][0]['status']);
+        self::assertSame('unavailable', $record['origins'][1]['status']);
+        self::assertSame('missing_upstream', $record['origins'][1]['reason']);
+        self::assertStringContainsString('404', $record['origins'][1]['message']);
+    }
+
+    public function test_input_is_unavailable_when_no_origin_yields_the_declared_bytes(): void
+    {
+        $changedContent = self::CONTENT.'changed upstream';
+
+        $record = $this->acquirer(new InMemoryFetcher([self::MIRROR_FILE_URL => $changedContent]))->acquire(self::inputWithFurtherOrigin());
+
+        self::assertValidRecord($record);
+        self::assertSame('unavailable', $record['status']);
+        self::assertSame('hash_mismatch', $record['reason']);
+        self::assertSame(hash('sha256', $changedContent), $record['observed_sha256']);
+        self::assertSame(['missing_upstream', 'hash_mismatch'], array_column($record['origins'], 'reason'));
+        self::assertStringContainsString('mirror:copies/issue17069.pdf', $record['message']);
+        self::assertFileDoesNotExist($this->cachedPath());
+    }
+
+    public function test_cached_record_of_other_origins_is_acquired_again(): void
+    {
+        $this->acquirer(new InMemoryFetcher([self::FILE_URL => self::CONTENT]))->acquire(self::input());
+        $fetcher = new InMemoryFetcher([self::FILE_URL => self::CONTENT, self::MIRROR_FILE_URL => self::CONTENT]);
+
+        $record = $this->acquirer($fetcher, '2026-10-30T08:00:00Z')->acquire(self::inputWithFurtherOrigin());
+
+        self::assertSame([self::FILE_URL, self::MIRROR_FILE_URL], $fetcher->requestedUrls);
+        self::assertSame(['available', 'available'], array_column($record['origins'], 'status'));
     }
 
     public function test_unreachable_upstream_is_not_recorded_as_missing(): void

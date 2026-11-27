@@ -1,0 +1,119 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/acquisition.schema.json",
+    "title": "Acquisition, version 2",
+    "description": "The outcome of acquiring one declared input from each of its origins. `source`, `path` and `file_url` give the origin the input is declared at, which carries its identity. The input is available when the bytes of at least one origin match the declaration; an unavailable input keeps its identity and the reason, and no other file is ever recorded in its place.",
+    "type": "object",
+    "required": ["schema", "source_id", "source", "path", "file_url", "status", "origins"],
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/acquisition.schema.json" },
+        "source_id": { "$ref": "../v1/common.schema.json#/$defs/inputIdentifier" },
+        "source": { "$ref": "#/$defs/source" },
+        "path": { "$ref": "../v1/common.schema.json#/$defs/relativePath" },
+        "file_url": { "$ref": "../v1/common.schema.json#/$defs/httpsUrl" },
+        "status": { "enum": ["available", "unavailable"] },
+        "origins": {
+            "description": "The outcome of every origin of the input, in the order of the source configuration: first the origin it is declared at, then its further origins.",
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/origin" }
+        }
+    },
+    "oneOf": [
+        {
+            "required": ["retrieved_at", "sha256", "byte_size", "license"],
+            "additionalProperties": false,
+            "properties": {
+                "schema": true,
+                "source_id": true,
+                "source": true,
+                "path": true,
+                "file_url": true,
+                "status": { "const": "available" },
+                "origins": { "contains": { "properties": { "status": { "const": "available" } } } },
+                "retrieved_at": { "$ref": "../v1/common.schema.json#/$defs/utcTimestamp" },
+                "sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
+                "byte_size": { "type": "integer", "minimum": 0 },
+                "license": { "$ref": "../v3/sources.schema.json#/$defs/documentLicense" }
+            }
+        },
+        {
+            "required": ["attempted_at", "reason", "expected_sha256", "expected_byte_size", "message"],
+            "additionalProperties": false,
+            "properties": {
+                "schema": true,
+                "source_id": true,
+                "source": true,
+                "path": true,
+                "file_url": true,
+                "status": { "const": "unavailable" },
+                "origins": { "items": { "properties": { "status": { "const": "unavailable" } } } },
+                "attempted_at": { "$ref": "../v1/common.schema.json#/$defs/utcTimestamp" },
+                "reason": {
+                    "description": "`hash_mismatch` when at least one origin yielded other bytes, with the hash and size observed at the first of them; `missing_upstream` when every origin was missing.",
+                    "enum": ["missing_upstream", "hash_mismatch"]
+                },
+                "expected_sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
+                "expected_byte_size": { "type": "integer", "minimum": 0 },
+                "observed_sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
+                "observed_byte_size": { "type": "integer", "minimum": 0 },
+                "message": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+            },
+            "if": { "properties": { "reason": { "const": "hash_mismatch" } } },
+            "then": { "required": ["observed_sha256", "observed_byte_size"] },
+            "else": { "not": { "anyOf": [{ "required": ["observed_sha256"] }, { "required": ["observed_byte_size"] }] } }
+        }
+    ],
+    "$defs": {
+        "source": {
+            "type": "object",
+            "required": ["id", "url", "revision", "license"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "../v1/common.schema.json#/$defs/sourceId" },
+                "url": { "$ref": "../v1/common.schema.json#/$defs/httpsUrl" },
+                "revision": { "$ref": "../v1/common.schema.json#/$defs/revision" },
+                "license": { "$ref": "../v1/common.schema.json#/$defs/license" }
+            }
+        },
+        "origin": {
+            "description": "One origin of the input and what it yielded: `available` when its bytes match the declaration, or `unavailable` with the reason. An origin that yields other bytes or none never makes the input unavailable while another origin matches.",
+            "type": "object",
+            "required": ["source", "path", "file_url", "status"],
+            "properties": {
+                "source": { "$ref": "#/$defs/source" },
+                "path": { "$ref": "../v1/common.schema.json#/$defs/relativePath" },
+                "file_url": { "$ref": "../v1/common.schema.json#/$defs/httpsUrl" },
+                "status": { "enum": ["available", "unavailable"] }
+            },
+            "oneOf": [
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "source": true,
+                        "path": true,
+                        "file_url": true,
+                        "status": { "const": "available" }
+                    }
+                },
+                {
+                    "required": ["reason", "message"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "source": true,
+                        "path": true,
+                        "file_url": true,
+                        "status": { "const": "unavailable" },
+                        "reason": { "enum": ["missing_upstream", "hash_mismatch"] },
+                        "observed_sha256": { "$ref": "../v1/common.schema.json#/$defs/sha256" },
+                        "observed_byte_size": { "type": "integer", "minimum": 0 },
+                        "message": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                    },
+                    "if": { "properties": { "reason": { "const": "hash_mismatch" } } },
+                    "then": { "required": ["observed_sha256", "observed_byte_size"] },
+                    "else": { "not": { "anyOf": [{ "required": ["observed_sha256"] }, { "required": ["observed_byte_size"] }] } }
+                }
+            ]
+        }
+    }
+}

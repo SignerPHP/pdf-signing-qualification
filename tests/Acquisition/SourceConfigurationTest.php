@@ -47,7 +47,7 @@ final class SourceConfigurationTest extends TestCase
                     'path' => 'test/pdfs/issue17069.pdf',
                     'sha256' => self::SHA256,
                     'byte_size' => 18_423,
-                    'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069'],
+                    'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069', 'redistribution_restrictions' => []],
                     'strata' => ['stream', 'objstm'],
                 ],
             ],
@@ -63,6 +63,52 @@ final class SourceConfigurationTest extends TestCase
         self::assertSame('https://github.com/mozilla/pdf.js', $inputs[0]->source->url);
         self::assertSame(self::SHA256, $inputs[0]->sha256);
         self::assertSame(18_423, $inputs[0]->byteSize);
+    }
+
+    public function test_further_origins_are_bound_to_their_source(): void
+    {
+        $configuration = self::configuration();
+        $configuration['sources'][] = [...$configuration['sources'][0], 'id' => 'mirror', 'file_url' => 'https://mirror.example.org/{revision}/{path}'];
+        $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror', 'path' => 'copies/issue17069.pdf']];
+
+        $input = SourceConfiguration::fromArray($configuration)[0];
+
+        self::assertSame('pdfjs:test/pdfs/issue17069.pdf', $input->id());
+        self::assertSame(['pdfjs:test/pdfs/issue17069.pdf', 'mirror:copies/issue17069.pdf'], array_map(static fn ($origin): string => $origin->id(), $input->origins()));
+        self::assertSame('https://mirror.example.org/4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b/copies/issue17069.pdf', $input->origins()[1]->fileUrl());
+    }
+
+    public function test_further_origin_of_an_undeclared_source_is_rejected(): void
+    {
+        $configuration = self::configuration();
+        $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror', 'path' => 'copies/issue17069.pdf']];
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('undeclared source mirror');
+
+        SourceConfiguration::fromArray($configuration);
+    }
+
+    public function test_origin_declared_again_as_a_further_origin_is_rejected(): void
+    {
+        $configuration = self::configuration();
+        $configuration['inputs'][0]['further_origins'] = [['source' => 'pdfjs', 'path' => 'test/pdfs/issue17069.pdf']];
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Origin pdfjs:test/pdfs/issue17069.pdf is declared more than once');
+
+        SourceConfiguration::fromArray($configuration);
+    }
+
+    public function test_origin_shared_by_two_inputs_is_rejected(): void
+    {
+        $configuration = self::configuration();
+        $configuration['inputs'][] = [...$configuration['inputs'][0], 'path' => 'test/pdfs/other.pdf', 'further_origins' => [['source' => 'pdfjs', 'path' => 'test/pdfs/issue17069.pdf']]];
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Origin pdfjs:test/pdfs/issue17069.pdf is declared more than once');
+
+        SourceConfiguration::fromArray($configuration);
     }
 
     public function test_versioned_configuration_of_the_repository_is_valid(): void

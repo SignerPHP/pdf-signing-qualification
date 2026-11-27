@@ -83,7 +83,7 @@ final class RunAttemptsCommandTest extends TestCase
                 'path' => $path,
                 'sha256' => hash('sha256', $content),
                 'byte_size' => strlen($content),
-                'license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license'],
+                'license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.org/license', 'redistribution_restrictions' => []],
                 'strata' => ['classic'],
             ], array_keys($declaredContents), $declaredContents),
         ];

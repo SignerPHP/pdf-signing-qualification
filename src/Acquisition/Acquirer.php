@@ -12,7 +12,11 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class Acquirer
 {
-    public const string RECORD_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/acquisition.schema.json';
+    public const string RECORD_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/acquisition.schema.json';
+
+    public const string SINGLE_ORIGIN_RECORD_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/acquisition.schema.json';
+
+    private const array ORIGIN_IDENTITY = ['source' => true, 'path' => true, 'file_url' => true];
 
     /**
      * @param  Closure(): DateTimeImmutable  $clock
@@ -36,26 +40,24 @@ final class Acquirer
         $this->remove($filePath, $recordPath);
         $now = $this->now();
 
-        try {
-            $content = $this->fetcher->fetch($input->fileUrl());
-        } catch (UpstreamFileMissing $missing) {
-            return $this->unavailable($input, $now, 'missing_upstream', $missing->getMessage());
+        $content = null;
+        $origins = [];
+        foreach ($input->origins() as $origin) {
+            [$originRecord, $originContent] = $this->acquireOrigin($input, $origin);
+            $origins[] = $originRecord;
+            $content ??= $originContent;
         }
 
-        $observedSha256 = hash('sha256', $content);
-        $observedByteSize = strlen($content);
-        if ($observedSha256 !== $input->sha256 || $observedByteSize !== $input->byteSize) {
-            return $this->unavailable($input, $now, 'hash_mismatch', "Upstream file has SHA-256 {$observedSha256} and {$observedByteSize} bytes, expected {$input->sha256} and {$input->byteSize} bytes", [
-                'observed_sha256' => $observedSha256,
-                'observed_byte_size' => $observedByteSize,
-            ]);
+        if ($content === null) {
+            return $this->unavailable($input, $now, $origins);
         }
 
         $record = $this->record($input, 'available') + [
             'retrieved_at' => $now,
-            'sha256' => $observedSha256,
-            'byte_size' => $observedByteSize,
+            'sha256' => $input->sha256,
+            'byte_size' => $input->byteSize,
             'license' => $input->license,
+            'origins' => $origins,
         ];
 
         $this->write($filePath, $content);
@@ -69,6 +71,12 @@ final class Acquirer
         return $cacheDirectory.'/files/'.$input->source->id.'/'.$input->path;
     }
 
+    public static function assertReadableRecord(array $record, string $subject): void
+    {
+        $schema = ($record['schema'] ?? null) === self::SINGLE_ORIGIN_RECORD_SCHEMA ? self::SINGLE_ORIGIN_RECORD_SCHEMA : self::RECORD_SCHEMA;
+        (new SchemaValidator)->assertValid($record, $schema, $subject);
+    }
+
     private function verifiedCachedRecord(Input $input, string $filePath, string $recordPath): ?array
     {
         if (! is_file($filePath) || ! is_file($recordPath)) {
@@ -80,7 +88,12 @@ final class Acquirer
             return null;
         }
 
-        $expectedRecord = $this->record($input, 'available') + ['retrieved_at' => $record['retrieved_at'], 'sha256' => $input->sha256, 'byte_size' => $input->byteSize, 'license' => $input->license];
+        $recordedOriginIdentities = array_map(static fn (array $origin): array => array_intersect_key($origin, self::ORIGIN_IDENTITY), $record['origins']);
+        if ($recordedOriginIdentities !== array_map(self::originIdentity(...), $input->origins())) {
+            return null;
+        }
+
+        $expectedRecord = $this->record($input, 'available') + ['retrieved_at' => $record['retrieved_at'], 'sha256' => $input->sha256, 'byte_size' => $input->byteSize, 'license' => $input->license, 'origins' => $record['origins']];
         if ($record !== $expectedRecord) {
             return null;
         }
@@ -97,29 +110,75 @@ final class Acquirer
         return [
             'schema' => self::RECORD_SCHEMA,
             'source_id' => $input->id(),
-            'source' => [
-                'id' => $input->source->id,
-                'url' => $input->source->url,
-                'revision' => $input->source->revision,
-                'license' => $input->source->license,
-            ],
-            'path' => $input->path,
-            'file_url' => $input->fileUrl(),
+        ] + self::originIdentity(new Origin($input->source, $input->path)) + [
             'status' => $status,
         ];
     }
 
     /**
-     * @param  array{observed_sha256?: string, observed_byte_size?: int}  $observed
+     * @return array{source: array, path: string, file_url: string}
      */
-    private function unavailable(Input $input, string $attemptedAt, string $reason, string $message, array $observed = []): array
+    private static function originIdentity(Origin $origin): array
     {
+        return [
+            'source' => [
+                'id' => $origin->source->id,
+                'url' => $origin->source->url,
+                'revision' => $origin->source->revision,
+                'license' => $origin->source->license,
+            ],
+            'path' => $origin->path,
+            'file_url' => $origin->fileUrl(),
+        ];
+    }
+
+    /**
+     * @return array{0: array, 1: ?string}
+     */
+    private function acquireOrigin(Input $input, Origin $origin): array
+    {
+        $identity = self::originIdentity($origin);
+        try {
+            $content = $this->fetcher->fetch($origin->fileUrl());
+        } catch (UpstreamFileMissing $missing) {
+            return [$identity + ['status' => 'unavailable', 'reason' => 'missing_upstream', 'message' => $missing->getMessage()], null];
+        }
+
+        $observedSha256 = hash('sha256', $content);
+        $observedByteSize = strlen($content);
+        if ($observedSha256 !== $input->sha256 || $observedByteSize !== $input->byteSize) {
+            return [$identity + [
+                'status' => 'unavailable',
+                'reason' => 'hash_mismatch',
+                'observed_sha256' => $observedSha256,
+                'observed_byte_size' => $observedByteSize,
+                'message' => "Upstream file has SHA-256 {$observedSha256} and {$observedByteSize} bytes, expected {$input->sha256} and {$input->byteSize} bytes",
+            ], null];
+        }
+
+        return [$identity + ['status' => 'available'], $content];
+    }
+
+    /**
+     * @param  list<array>  $origins
+     */
+    private function unavailable(Input $input, string $attemptedAt, array $origins): array
+    {
+        $changedOrigins = array_values(array_filter($origins, static fn (array $origin): bool => $origin['reason'] === 'hash_mismatch'));
+        $observed = $changedOrigins === [] ? [] : [
+            'observed_sha256' => $changedOrigins[0]['observed_sha256'],
+            'observed_byte_size' => $changedOrigins[0]['observed_byte_size'],
+        ];
+        $messages = count($origins) === 1
+            ? [$origins[0]['message']]
+            : array_map(static fn (array $origin): string => "{$origin['source']['id']}:{$origin['path']}: {$origin['message']}", $origins);
+
         return $this->record($input, 'unavailable') + [
             'attempted_at' => $attemptedAt,
-            'reason' => $reason,
+            'reason' => $changedOrigins === [] ? 'missing_upstream' : 'hash_mismatch',
             'expected_sha256' => $input->sha256,
             'expected_byte_size' => $input->byteSize,
-        ] + $observed + ['message' => $message];
+        ] + $observed + ['message' => implode('; ', $messages), 'origins' => $origins];
     }
 
     private function now(): string

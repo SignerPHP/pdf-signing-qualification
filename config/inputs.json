@@ -1,5 +1,5 @@
 {
-    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/sources.schema.json",
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v3/sources.schema.json",
     "selection": "failure_enriched",
     "sources": [
         {
@@ -37,7 +37,8 @@
             "byte_size": 16902,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "hybrid",
@@ -52,7 +53,8 @@
             "byte_size": 17031,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "hybrid",
@@ -67,7 +69,8 @@
             "byte_size": 16642,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "hybrid",
@@ -82,7 +85,8 @@
             "byte_size": 68846,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -97,7 +101,8 @@
             "byte_size": 135790,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -113,7 +118,8 @@
             "byte_size": 8985,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -128,7 +134,8 @@
             "byte_size": 16474,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -142,7 +149,8 @@
             "byte_size": 13670,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -156,7 +164,8 @@
             "byte_size": 1423,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -170,7 +179,8 @@
             "byte_size": 1113,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -184,7 +194,8 @@
             "byte_size": 764,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -198,7 +209,8 @@
             "byte_size": 751,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "none",
@@ -212,7 +224,8 @@
             "byte_size": 284,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "none",
@@ -226,7 +239,8 @@
             "byte_size": 5,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "none",
@@ -240,7 +254,8 @@
             "byte_size": 807,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -254,7 +269,8 @@
             "byte_size": 16527,
             "license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -269,7 +285,8 @@
             "byte_size": 9573,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic"
@@ -282,7 +299,8 @@
             "byte_size": 5858,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -296,7 +314,8 @@
             "byte_size": 8581,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream"
@@ -309,7 +328,8 @@
             "byte_size": 5923,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic",
@@ -323,7 +343,8 @@
             "byte_size": 9577,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "classic"
@@ -336,7 +357,8 @@
             "byte_size": 6658,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -351,7 +373,8 @@
             "byte_size": 23383,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -366,7 +389,8 @@
             "byte_size": 40438,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -380,7 +404,8 @@
             "byte_size": 6706,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -394,7 +419,8 @@
             "byte_size": 11516,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",
@@ -409,7 +435,8 @@
             "byte_size": 7207,
             "license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "strata": [
                 "stream",

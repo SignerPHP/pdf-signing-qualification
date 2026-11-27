@@ -43,7 +43,7 @@ final class AcquireInputsCommandTest extends TestCase
             'path' => $path,
             'sha256' => hash('sha256', $content),
             'byte_size' => strlen($content),
-            'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://example.org/evidence'],
+            'license' => ['expression' => 'NOASSERTION', 'evidence_url' => 'https://example.org/evidence', 'redistribution_restrictions' => []],
             'strata' => ['classic'],
         ];
     }

@@ -177,7 +177,7 @@ final class RunFixture
         foreach ($this->strata as $sourceId => $strata) {
             [$source, $path] = explode(':', $sourceId, 2);
             $sources[$source] = ['id' => $source, 'url' => "https://example.org/{$source}", 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)], 'file_url' => "https://example.org/{$source}/{revision}/{path}", 'license' => $license];
-            $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $license, 'strata' => $strata];
+            $inputs[] = ['source' => $source, 'path' => $path, 'sha256' => hash('sha256', 'input'), 'byte_size' => 5, 'license' => $license + ['redistribution_restrictions' => []], 'strata' => $strata];
         }
 
         return ['schema' => SourceConfiguration::SCHEMA, 'selection' => $this->selection, 'sources' => array_values($sources), 'inputs' => $inputs];

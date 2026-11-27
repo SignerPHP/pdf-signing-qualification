@@ -48,7 +48,7 @@ final class AttemptRunner
     public function run(string $runId, array $scenario, SigningImplementation $implementation, array $acquisition, ?string $inputPath, bool $rejectionExpected = false): AttemptResult
     {
         Scenarios::assertValid($scenario);
-        (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, 'acquisition record');
+        Acquirer::assertReadableRecord($acquisition, 'acquisition record');
 
         $record = [
             'schema' => self::ATTEMPT_SCHEMA,

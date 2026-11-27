@@ -73,13 +73,15 @@ final class MainPanelTest extends TestCase
         $planSources = self::planSources();
         $outsideThePlan = [];
         foreach (self::inputs() as $input) {
-            $planSource = $planSources[$input->source->id] ?? null;
-            if ($planSource === null
-                || $input->source != $planSource->source
-                || ! $planSource->isIncluded($input->path)
-                || $planSource->exclusionIndex($input->path) !== null
-                || $input->license !== $planSource->documentLicense) {
-                $outsideThePlan[] = $input->id();
+            foreach ($input->origins() as $origin) {
+                $planSource = $planSources[$origin->source->id] ?? null;
+                if ($planSource === null
+                    || $origin->source != $planSource->source
+                    || ! $planSource->isIncluded($origin->path)
+                    || $planSource->exclusionIndex($origin->path) !== null
+                    || $input->license !== $planSource->documentLicense) {
+                    $outsideThePlan[] = $origin->id();
+                }
             }
         }
 
@@ -158,6 +160,13 @@ final class MainPanelTest extends TestCase
         $pool = self::pool();
 
         self::assertStringContainsString("{$pool['selected']} inputs drawn from a pool of {$pool['candidates']} candidates", self::document());
+    }
+
+    public function test_document_states_the_candidates_found_at_more_than_one_origin(): void
+    {
+        $repeated = self::pool()['repeated'];
+
+        self::assertStringContainsString("{$repeated['candidates']} candidates were found at more than one origin, {$repeated['across_sources']} of them in more than one source", self::document());
     }
 
     public function test_document_gives_every_rejected_source_and_exclusion(): void

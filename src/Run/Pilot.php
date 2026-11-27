@@ -147,7 +147,7 @@ final class Pilot
             if (! is_array($acquisition)) {
                 throw new RuntimeException("Invalid acquisition record {$position}: it is not an object");
             }
-            (new SchemaValidator)->assertValid($acquisition, Acquirer::RECORD_SCHEMA, "acquisition record {$position}");
+            Acquirer::assertReadableRecord($acquisition, "acquisition record {$position}");
             $sourceId = $acquisition['source_id'];
             if (isset($recordsBySourceId[$sourceId])) {
                 throw new RuntimeException("The input {$sourceId} has more than one acquisition record");

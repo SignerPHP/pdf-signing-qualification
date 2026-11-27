@@ -11,6 +11,8 @@ Only inputs whose own license is established as free are selected, like this pro
 - **qpdf.** The repository is Apache-2.0. Debian's [`debian/copyright`](https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/) for qpdf 12.4.2-1 records every file as Apache-2.0 except `appimage/qpdf.appdata.xml` (Expat), the embedded `qtest/` framework (Artistic-2.0) and some crypto sources, none of which is a PDF. The test PDFs under `qpdf/qtest/qpdf/` are therefore recorded as `Apache-2.0` with that file as evidence. The selected files were added by qpdf maintainers, except `digitally-signed.pdf`, which a contributor added in a commit to the repository. `short-O-U.pdf` was not selected, because the test suite says it derives from a file sent privately.
 - **veraPDF corpus.** The corpus README states that the work is licensed under CC BY 4.0. The veraPDF test suite files below are recorded as `CC-BY-4.0` with that README as evidence. The Isartor files in the same repository come from another publisher and none were selected.
 
+Neither evidence sets a restriction on redistributing the documents beyond the license, so every input records an empty list of `redistribution_restrictions`. None of the selected files is found at another path of its source or of the other source at the pinned revisions, so no input has a further origin.
+
 The pdf.js files suggested in the issue were not selected: the PDFs in its `test/pdfs` come from bug reports and other projects, and none of them has an established license.
 
 ## Strata

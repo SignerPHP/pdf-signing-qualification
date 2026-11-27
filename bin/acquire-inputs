@@ -29,6 +29,13 @@ foreach (SourceConfiguration::fromFile($configurationPath) as $input) {
     if ($record['status'] === 'unavailable') {
         $unavailableCount++;
         fwrite(STDERR, "{$input->id()}: {$record['reason']}: {$record['message']}\n");
+
+        continue;
+    }
+    foreach ($record['origins'] as $origin) {
+        if ($origin['status'] === 'unavailable') {
+            fwrite(STDERR, "{$input->id()}: origin {$origin['source']['id']}:{$origin['path']}: {$origin['reason']}: {$origin['message']}\n");
+        }
     }
 }
 

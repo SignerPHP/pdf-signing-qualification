@@ -38,7 +38,7 @@ final class PadesStructureValidator extends ToolValidator
     {
         return [
             'id' => 'qpdf-pades-structure',
-            'description' => 'From qpdf\'s JSON listing of the output, leaving out the signature dictionaries of the input (same /ByteRange and /Contents): the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp other than one the input holds with the same value; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario adds none to /Perms /DocMDP; every added dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
+            'description' => 'From qpdf\'s JSON listing of the output, leaving out the signature dictionaries of the input (same /ByteRange and /Contents): the catalog has no /DocMDP or /DocTimeStamp entry and /Perms no /DocTimeStamp other than one the input holds with the same value, every reference in it resolved; a certification scenario registers a signature dictionary as /Perms /DocMDP whose DocMDP transform has the scenario\'s permission level /P (2 when absent), and an approval scenario adds none to /Perms /DocMDP; every added dictionary with /SubFilter /ETSI.RFC3161 has /Type /DocTimeStamp and is the /V of a field of /AcroForm /Fields; there is at least one when the scenario adds a document timestamp and none otherwise. A listing qpdf had to recover is inconclusive',
             'parameters' => [
                 'listing' => ['qpdf', ...QpdfObjects::ARGUMENTS],
                 'certification_level' => $this->certificationLevel,
@@ -102,7 +102,7 @@ final class PadesStructureValidator extends ToolValidator
             }
             if (! array_key_exists($key, $inputEntries)) {
                 $problems[] = "{$holder} has a {$key} entry";
-            } elseif ($document->resolve($outputEntries[$key]) !== $inputDocument?->resolve($inputEntries[$key])) {
+            } elseif ($document->resolveNested($outputEntries[$key]) !== $inputDocument?->resolveNested($inputEntries[$key])) {
                 $problems[] = "{$holder} {$key} entry differs from the input's";
             } else {
                 $inheritedEntries[] = "{$holder} {$key}";

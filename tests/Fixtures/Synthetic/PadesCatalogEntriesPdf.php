@@ -16,22 +16,23 @@ final class PadesCatalogEntriesPdf
 
     public static function input(string $directory, string $name, string $catalogEntries): string
     {
-        $objects = SyntheticPdf::onePage($catalogEntries) + [4 => '<< /Type /Example /Origin (input) >>'];
+        $objects = SyntheticPdf::onePage($catalogEntries) + [4 => '<< /Type /Example /Child 6 0 R >>', 6 => '<< /Origin (input) >>'];
 
         return SyntheticPdf::write($directory, "{$name}.pdf", SyntheticPdf::classic($objects));
     }
 
-    public static function update(string $directory, string $name, string $inputPath, string $catalogEntries, bool $changeEntryValue = false): string
+    public static function update(string $directory, string $name, string $inputPath, string $catalogEntries, ?int $changedObject = null): string
     {
         $input = file_get_contents($inputPath);
         if ($input === false) {
             throw new RuntimeException("Unable to read {$inputPath}");
         }
         $objects = [1 => SyntheticPdf::onePage($catalogEntries)[1]];
-        if ($changeEntryValue) {
-            $objects[4] = '<< /Type /Example /Origin (update) >>';
-        }
         $objects[5] = '<< /Origin (update) >>';
+        if ($changedObject !== null) {
+            $objects[$changedObject] = '<< /Type /Example /Origin (update) >>';
+        }
+        ksort($objects);
 
         return SyntheticPdf::write($directory, "{$name}.pdf", SyntheticPdf::appendUpdate($input, $objects));
     }

@@ -157,12 +157,21 @@ final class PadesStructureValidatorsTest extends TestCase
         self::assertSame([], $observation['evidence']['details']['inherited_entries']);
     }
 
-    #[DataProvider('catalogEntries')]
-    public function test_entry_whose_value_changed_is_invalid(string $entry, string $catalogEntries): void
+    public static function changedEntries(): iterable
     {
-        $name = md5($entry);
+        foreach (PadesCatalogEntriesPdf::ENTRIES as $entry => $catalogEntries) {
+            yield "{$entry}, object it points to" => [$entry, $catalogEntries, 4];
+            yield "{$entry}, object nested in its value" => [$entry, $catalogEntries, 6];
+        }
+        yield 'direct value with a reference to a changed object' => ['the catalog /DocMDP', '/DocMDP << /Signature 4 0 R >>', 4];
+    }
+
+    #[DataProvider('changedEntries')]
+    public function test_entry_whose_value_changed_is_invalid(string $entry, string $catalogEntries, int $changedObject): void
+    {
+        $name = md5($entry.$catalogEntries.$changedObject);
         $input = PadesCatalogEntriesPdf::input(self::$directory, "{$name}-original", $catalogEntries);
-        $output = PadesCatalogEntriesPdf::update(self::$directory, "{$name}-changed", $input, $catalogEntries, changeEntryValue: true);
+        $output = PadesCatalogEntriesPdf::update(self::$directory, "{$name}-changed", $input, $catalogEntries, $changedObject);
 
         $observation = self::observeDocument($output, $input);
 

@@ -1,6 +1,6 @@
 # Main panel
 
-The main qualification panel, declared in [`config/main-panel/inputs.json`](../config/main-panel/inputs.json): 106 inputs drawn from a pool of 3404 candidates, 49 from the [qpdf](https://github.com/qpdf/qpdf) test suite, 34 from the [veraPDF corpus](https://github.com/veraPDF/veraPDF-corpus) and 23 from the [pyHanko](https://github.com/MatthiasValvekens/pyHanko) test data. It is separate from the failure-enriched [pilot sample](pilot-sample.md), which stays as it is in `config/inputs.json`, and from the [regression cases](regressions.md), which are replayed on their own inputs and never counted with it.
+The main qualification panel, declared in [`config/main-panel/inputs.json`](../config/main-panel/inputs.json): 106 inputs drawn from a pool of 3373 candidates, 49 from the [qpdf](https://github.com/qpdf/qpdf) test suite, 34 from the [veraPDF corpus](https://github.com/veraPDF/veraPDF-corpus) and 23 from the [pyHanko](https://github.com/MatthiasValvekens/pyHanko) test data. It is separate from the failure-enriched [pilot sample](pilot-sample.md), which stays as it is in `config/inputs.json`, and from the [regression cases](regressions.md), which are replayed on their own inputs and never counted with it.
 
 `bin/pilot --panel=main` runs it.
 
@@ -16,11 +16,14 @@ The main qualification panel, declared in [`config/main-panel/inputs.json`](../c
 `composer select-panel`, in the `app` service, turns the plan into the panel and is reproducible: run again at the same revisions and with the same qpdf, it writes the same `inputs.json` and [`pool.json`](../config/main-panel/pool.json).
 
 1. It lists every regular file of each source at its pinned commit through the Git trees API, so a symbolic link is never a candidate, and keeps the paths that match an include pattern and no exclusion. A file whose path the sources schema cannot express as an input path is counted as unaddressable and is not a candidate.
-2. It downloads each candidate into `var/cache/candidates/` and refuses one whose bytes do not match the Git object id of the listing.
-3. It records the strata of each candidate with qpdf 11.3.0 from the project container, as described below. A file on which qpdf crashes, does not finish within 120 seconds or ends with an exit code other than 0, 2 or 3 is recorded as an analyzer failure with its reason, and a file that gets no stratum is counted as unclassified; neither is a candidate.
-4. It orders the candidates by the SHA-256 of `main-panel-1:<source>:<path>` and takes each one while any of its strata holds fewer than 12 inputs. A stratum with 12 candidates or fewer is therefore taken whole.
+2. It downloads each file into `var/cache/candidates/` and refuses one whose bytes do not match the Git object id of the listing.
+3. It records the strata of each file with qpdf 11.3.0 from the project container, as described below. A file on which qpdf crashes, does not finish within 120 seconds or ends with an exit code other than 0, 2 or 3 is recorded as an analyzer failure with its reason, and a file that gets no stratum is counted as unclassified; neither is a candidate.
+4. Files with the same bytes form one candidate with several origins, so a document found at several paths is drawn and counted once. The candidate takes the place in the draw order of the first of its files by the SHA-256 of `main-panel-1:<source>:<path>`, the input is declared at that file, and the others are its further origins, which `acquire` verifies too.
+5. It orders the candidates by that SHA-256 and takes each one while any of its strata holds fewer than 12 inputs. A stratum with 12 candidates or fewer is therefore taken whole.
 
-`pool.json` records the SHA-256 of the plan it was built from, the qpdf version, the candidates and the drawn inputs per source and stratum, the files each exclusion left out, and the unaddressable, unclassified and analyzer-failure files. `bin/select-panel` writes `inputs.json` and `pool.json` in full before it replaces either, so a failed write leaves the previous pair in place.
+`pool.json` records the SHA-256 of the plan it was built from, the qpdf version, the candidates and the drawn inputs per source and stratum, the candidates found at more than one origin, the files of each source that are further origins of a candidate, the files each exclusion left out, and the unaddressable, unclassified and analyzer-failure files.
+
+20 candidates were found at more than one origin, 0 of them in more than one source: 51 qpdf files hold 20 contents, such as `minimal.pdf`, which the qpdf test suite keeps at ten paths. Up to version 1 of the pool, each of those files was a candidate of its own, so the pool counted 3404 candidates; it now counts 3373, and the strata of the pool lose the 31 repeats. The panel is the same 106 inputs: in each repeated content, at most one file had been drawn, and it was the first of its content in the draw order, so it stays the origin the input is declared at. Two inputs of the panel have a further origin: `qpdf:qpdf/qtest/qpdf/c-check-warn-in.pdf` is also `qpdf:libtests/qtest/logger/warning.pdf`, and `qpdf:qpdf/qtest/qpdf/object-stream.pdf` is also `qpdf:qpdf/qtest/qpdf/good16.pdf`. `bin/select-panel` writes `inputs.json` and `pool.json` in full before it replaces either, so a failed write leaves the previous pair in place.
 
 ## Strata
 
@@ -28,16 +31,16 @@ The strata are those of the sources schema. The classifier gives the 27 pilot in
 
 | Stratum | Meaning | Pool | Panel |
 | ------- | ------- | ---: | ----: |
-| `classic` | Cross-reference table only | 2806 | 55 |
-| `stream` | Cross-reference streams only | 571 | 33 |
+| `classic` | Cross-reference table only | 2781 | 55 |
+| `stream` | Cross-reference streams only | 566 | 33 |
 | `hybrid` | Cross-reference table whose trailer points to a cross-reference stream | 6 | 6 |
-| `none` | No usable cross-reference section | 21 | 12 |
-| `objstm` | Object streams | 155 | 23 |
+| `none` | No usable cross-reference section | 20 | 12 |
+| `objstm` | Object streams | 150 | 23 |
 | `encrypted` | Standard security handler | 45 | 14 |
-| `incremental` | More than one revision, not counting the first-page section of a linearized file | 251 | 26 |
+| `incremental` | More than one revision, not counting the first-page section of a linearized file | 250 | 26 |
 | `signed` | At least one signature dictionary with a `/ByteRange` | 43 | 17 |
-| `malformed` | qpdf reports damage, an invalid cross-reference entry or stream, or no header | 57 | 19 |
-| `forms` | A form field, as qpdf lists them from the page annotations, that is not a signature field | 148 | 15 |
+| `malformed` | qpdf reports damage, an invalid cross-reference entry or stream, or no header | 56 | 19 |
+| `forms` | A form field, as qpdf lists them from the page annotations, that is not a signature field | 146 | 15 |
 | `legacy` | Header version below 1.3 | 5 | 5 |
 | `large` | At least 2 MiB or 1000 pages | 13 | 12 |
 | `timestamped` | A document timestamp or a signature timestamp token | 5 | 5 |
@@ -45,11 +48,11 @@ The strata are those of the sources schema. The classifier gives the 27 pilot in
 
 ## Sources and licenses
 
-Every candidate carries the license of its source's documents with the evidence for it, and a test refuses any license outside the free licenses the project accepts.
+Every candidate carries the license of its source's documents with the evidence for it, and a test refuses any license outside the free licenses the project accepts. The license also states the restrictions on redistributing the documents that its expression does not carry: none of the three sources sets any beyond its license, so the list is empty for each.
 
 | Source | Revision | Document license | Evidence | Pool | Panel |
 | ------ | -------- | ---------------- | -------- | ---: | ----: |
-| qpdf | `4eba95899886e851cc41d76886483b347612f2a8` | Apache-2.0 | Debian's [`debian/copyright`](https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/), as for the pilot sample | 675 | 49 |
+| qpdf | `4eba95899886e851cc41d76886483b347612f2a8` | Apache-2.0 | Debian's [`debian/copyright`](https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/), as for the pilot sample | 644 | 49 |
 | veraPDF corpus | `bb75f4f0073d9350dfd058c0162a367e6fadf25e` | CC-BY-4.0 | The corpus [README](https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md) | 2599 | 34 |
 | pyHanko | `0a9f7977343f4cc9d5926314b5a2d180028e58a0` | MIT | The repository [LICENSE](https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE), for files the maintainer wrote | 130 | 23 |
 

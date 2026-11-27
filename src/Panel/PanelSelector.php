@@ -11,7 +11,7 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class PanelSelector
 {
-    public const string POOL_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/panel-pool.schema.json';
+    public const string POOL_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/panel-pool.schema.json';
 
     private const array REGULAR_FILE_MODES = ['100644', '100755'];
 
@@ -54,11 +54,10 @@ final class PanelSelector
                 }
                 $candidates[$sourceId.':'.$file['path']] = [$planSource, $file];
             }
-            $poolSources[$sourceId] = ['id' => $sourceId, 'candidates' => 0, 'selected' => 0, 'excluded' => $excluded, 'unaddressable' => $unaddressable, 'unclassified' => 0, 'analyzer_failures' => []];
+            $poolSources[$sourceId] = ['id' => $sourceId, 'candidates' => 0, 'selected' => 0, 'repeats' => 0, 'excluded' => $excluded, 'unaddressable' => $unaddressable, 'unclassified' => 0, 'analyzer_failures' => []];
         }
 
-        $strataById = [];
-        $describedById = [];
+        $classifiedFiles = [];
         $classified = 0;
         foreach ($candidates as $id => [$planSource, $file]) {
             $sourceId = $planSource->source->id;
@@ -79,17 +78,55 @@ final class PanelSelector
 
                 continue;
             }
-            $poolSources[$sourceId]['candidates']++;
-            $strataById[$id] = $strata;
-            $describedById[$id] = [
-                'source' => $sourceId,
-                'path' => $file['path'],
-                'sha256' => $cached['sha256'],
-                'byte_size' => $cached['byte_size'],
-                'license' => $planSource->documentLicense,
-                'strata' => $strata,
+            $classifiedFiles[$id] = ['source' => $sourceId, 'path' => $file['path'], 'cached' => $cached, 'license' => $planSource->documentLicense, 'strata' => $strata];
+        }
+
+        $originIdsBySha256 = [];
+        foreach ($classifiedFiles as $id => $classifiedFile) {
+            $originIdsBySha256[$classifiedFile['cached']['sha256']][] = (string) $id;
+        }
+
+        $strataById = [];
+        $describedById = [];
+        $repeatedCandidates = 0;
+        $repeatedAcrossSources = 0;
+        foreach ($originIdsBySha256 as $originIds) {
+            $declaredId = QuotaSampler::firstInDrawOrder($originIds, $plan->seed);
+            $declared = $classifiedFiles[$declaredId];
+            $furtherOrigins = [];
+            foreach ($originIds as $originId) {
+                if ($originId !== $declaredId) {
+                    $furtherOrigins[] = ['source' => $classifiedFiles[$originId]['source'], 'path' => $classifiedFiles[$originId]['path']];
+                    $poolSources[$classifiedFiles[$originId]['source']]['repeats']++;
+                }
+            }
+            $poolSources[$declared['source']]['candidates']++;
+            if ($furtherOrigins !== []) {
+                $repeatedCandidates++;
+                if (array_diff(array_column($furtherOrigins, 'source'), [$declared['source']]) !== []) {
+                    $repeatedAcrossSources++;
+                }
+            }
+            $restrictions = [];
+            foreach ($originIds as $originId) {
+                foreach ($classifiedFiles[$originId]['license']['redistribution_restrictions'] as $restriction) {
+                    if (! in_array($restriction, $restrictions, true)) {
+                        $restrictions[] = $restriction;
+                    }
+                }
+            }
+            $strataById[$declaredId] = $declared['strata'];
+            $describedById[$declaredId] = [
+                'source' => $declared['source'],
+                'path' => $declared['path'],
+                ...($furtherOrigins === [] ? [] : ['further_origins' => $furtherOrigins]),
+                'sha256' => $declared['cached']['sha256'],
+                'byte_size' => $declared['cached']['byte_size'],
+                'license' => array_replace($declared['license'], ['redistribution_restrictions' => $restrictions]),
+                'strata' => $declared['strata'],
             ];
         }
+        $describedById = array_replace(array_intersect_key($classifiedFiles, $describedById), $describedById);
 
         $selectedIds = QuotaSampler::sample($strataById, $plan->seed, $plan->quotaPerStratum);
         $selectedInputs = array_values(array_intersect_key($describedById, array_flip($selectedIds)));
@@ -117,6 +154,7 @@ final class PanelSelector
             'analyzer' => ['name' => 'qpdf', 'version' => $analyzerVersion],
             'candidates' => count($strataById),
             'selected' => count($selectedInputs),
+            'repeated' => ['candidates' => $repeatedCandidates, 'across_sources' => $repeatedAcrossSources],
             'sources' => array_values($poolSources),
             'strata' => array_map(static fn (string $stratum): array => [
                 'stratum' => $stratum,

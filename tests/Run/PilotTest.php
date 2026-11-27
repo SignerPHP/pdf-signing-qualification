@@ -65,7 +65,7 @@ final class PilotTest extends TestCase
             'schema' => SourceConfiguration::SCHEMA,
             'selection' => 'failure_enriched',
             'sources' => [['id' => 'local', 'url' => 'https://example.org/repository', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)], 'file_url' => 'https://example.org/{revision}/{path}', 'license' => $license]],
-            'inputs' => [['source' => 'local', 'path' => 'unsigned.pdf', 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content), 'license' => $license, 'strata' => ['classic']]],
+            'inputs' => [['source' => 'local', 'path' => 'unsigned.pdf', 'sha256' => hash('sha256', $content), 'byte_size' => strlen($content), 'license' => $license + ['redistribution_restrictions' => []], 'strata' => ['classic']]],
         ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         $inputs = SourceConfiguration::fromFile($configurationPath);

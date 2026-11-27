@@ -53,7 +53,7 @@ final class PanelSelectorTest extends TestCase
                 'file_url' => 'https://example.test/raw/{revision}/{path}',
                 'license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.test/LICENSE'],
                 'listing_url' => 'https://example.test/tree/{revision}',
-                'document_license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.test/README'],
+                'document_license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.test/README', 'redistribution_restrictions' => []],
                 'include' => ['tests/*.pdf'],
                 'exclude' => [['pattern' => '*/reported-*', 'reason' => 'Attached to a bug report']],
             ]],
@@ -125,7 +125,8 @@ final class PanelSelectorTest extends TestCase
         self::assertGreaterThanOrEqual(1, count($inputs));
         self::assertLessThanOrEqual(2, count($inputs));
         foreach ($inputs as $input) {
-            self::assertSame(['expression' => 'MIT', 'evidence_url' => 'https://example.test/README'], $input->license);
+            self::assertSame(['expression' => 'MIT', 'evidence_url' => 'https://example.test/README', 'redistribution_restrictions' => []], $input->license);
+            self::assertSame([], $input->furtherOrigins);
             self::assertSame(hash('sha256', self::files()[$input->path]), $input->sha256);
             self::assertSame(strlen(self::files()[$input->path]), $input->byteSize);
         }
@@ -134,11 +135,56 @@ final class PanelSelectorTest extends TestCase
         self::assertSame([], (new SchemaValidator)->errors($pool, PanelSelector::POOL_SCHEMA));
         self::assertSame(3, $pool['candidates']);
         self::assertSame(count($inputs), $pool['selected']);
-        self::assertSame([['id' => 'fixture', 'candidates' => 3, 'selected' => count($inputs), 'excluded' => [['pattern' => '*/reported-*', 'reason' => 'Attached to a bug report', 'files' => 1]], 'unaddressable' => 1, 'unclassified' => 1, 'analyzer_failures' => [['path' => 'tests/crashes-qpdf.pdf', 'reason' => 'qpdf was terminated by signal 11']]]], $pool['sources']);
+        self::assertSame(['candidates' => 0, 'across_sources' => 0], $pool['repeated']);
+        self::assertSame([['id' => 'fixture', 'candidates' => 3, 'selected' => count($inputs), 'repeats' => 0, 'excluded' => [['pattern' => '*/reported-*', 'reason' => 'Attached to a bug report', 'files' => 1]], 'unaddressable' => 1, 'unclassified' => 1, 'analyzer_failures' => [['path' => 'tests/crashes-qpdf.pdf', 'reason' => 'qpdf was terminated by signal 11']]]], $pool['sources']);
         self::assertContains(['stratum' => 'classic', 'candidates' => 3, 'selected' => count($inputs)], $pool['strata']);
         self::assertContains(['stratum' => 'legacy', 'candidates' => 1, 'selected' => 1], $pool['strata']);
         self::assertContains(['stratum' => 'forms', 'candidates' => 0, 'selected' => 0], $pool['strata']);
         self::assertSame(hash('sha256', (string) json_encode(self::plan())), $pool['plan_sha256']);
+    }
+
+    public function test_files_with_the_same_bytes_are_one_candidate_with_several_origins(): void
+    {
+        $files = self::files();
+        $fixtureFiles = [...$files, 'tests/classic-a-copy.pdf' => $files['tests/classic-a.pdf']];
+        $mirrorFiles = ['copies/classic-a.pdf' => $files['tests/classic-a.pdf'], 'copies/unique.pdf' => SyntheticPdf::classic(SyntheticPdf::onePage(), '1.6')];
+        $fixtureFetcher = self::fetcher($fixtureFiles);
+        $mirrorFetcher = self::fetcher($mirrorFiles);
+        $responses = [];
+        foreach ($fixtureFiles as $path => $content) {
+            $responses['https://example.test/raw/'.self::REVISION.'/'.$path] = $content;
+        }
+        foreach ($mirrorFiles as $path => $content) {
+            $responses['https://example.test/mirror/'.self::REVISION.'/'.$path] = $content;
+        }
+        $responses[self::LISTING_URL] = $fixtureFetcher->fetch(self::LISTING_URL);
+        $responses['https://example.test/mirror-tree/'.self::REVISION] = $mirrorFetcher->fetch(self::LISTING_URL);
+        $plan = self::plan(['quota_per_stratum' => 10]);
+        $mirrorRestriction = ['description' => 'Only within test suites of PDF software', 'evidence_url' => 'https://example.test/mirror/TERMS'];
+        $plan['sources'][] = [...$plan['sources'][0], 'id' => 'mirror', 'file_url' => 'https://example.test/mirror/{revision}/{path}', 'listing_url' => 'https://example.test/mirror-tree/{revision}', 'document_license' => ['expression' => 'MIT', 'evidence_url' => 'https://example.test/README', 'redistribution_restrictions' => [$mirrorRestriction]], 'include' => ['copies/*.pdf']];
+
+        $selection = $this->select(new InMemoryFetcher($responses), $plan);
+
+        $origins = ['fixture:tests/classic-a.pdf', 'fixture:tests/classic-a-copy.pdf', 'mirror:copies/classic-a.pdf'];
+        $drawOrder = array_map(static fn (string $origin): string => hash('sha256', "test:{$origin}"), $origins);
+        asort($drawOrder);
+        $declaredOrigin = $origins[array_key_first($drawOrder)];
+        $furtherOrigins = array_values(array_diff($origins, [$declaredOrigin]));
+        $inputs = SourceConfiguration::fromArray($selection['inputs']);
+        $repeatedInputs = array_values(array_filter($inputs, static fn ($input): bool => $input->sha256 === hash('sha256', $files['tests/classic-a.pdf'])));
+        self::assertCount(1, $repeatedInputs);
+        self::assertSame($declaredOrigin, $repeatedInputs[0]->id());
+        self::assertSame($furtherOrigins, array_map(static fn ($origin): string => $origin->id(), $repeatedInputs[0]->furtherOrigins));
+        self::assertSame([$mirrorRestriction], $repeatedInputs[0]->license['redistribution_restrictions'] ?? null);
+
+        $pool = $selection['pool'];
+        self::assertSame([], (new SchemaValidator)->errors($pool, PanelSelector::POOL_SCHEMA));
+        self::assertSame(4, $pool['candidates']);
+        self::assertSame(4, $pool['selected']);
+        self::assertSame(['candidates' => 1, 'across_sources' => 1], $pool['repeated']);
+        self::assertSame(4, array_sum(array_column($pool['sources'], 'candidates')));
+        self::assertSame(2, array_sum(array_column($pool['sources'], 'repeats')));
+        self::assertContains(['stratum' => 'classic', 'candidates' => 4, 'selected' => 4], $pool['strata']);
     }
 
     public function test_selection_is_reproduced_from_the_cache(): void

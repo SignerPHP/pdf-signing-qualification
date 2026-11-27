@@ -57,4 +57,4 @@ try {
     exit(2);
 }
 
-fwrite(STDERR, "Selected {$selection['pool']['selected']} of {$selection['pool']['candidates']} candidates into {$outputDirectory}\n");
+fwrite(STDERR, "Selected {$selection['pool']['selected']} of {$selection['pool']['candidates']} candidates into {$outputDirectory}; {$selection['pool']['repeated']['candidates']} candidates were found at more than one origin, {$selection['pool']['repeated']['across_sources']} of them in more than one source\n");

@@ -1,5 +1,5 @@
 {
-    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-selection.schema.json",
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/panel-selection.schema.json",
     "seed": "main-panel-1",
     "quota_per_stratum": 12,
     "large": {
@@ -22,7 +22,8 @@
             "listing_url": "https://api.github.com/repos/qpdf/qpdf/git/trees/{revision}?recursive=1",
             "document_license": {
                 "expression": "Apache-2.0",
-                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/"
+                "evidence_url": "https://sources.debian.org/src/qpdf/12.4.2-1/debian/copyright/",
+                "redistribution_restrictions": []
             },
             "include": ["*.pdf"],
             "exclude": [
@@ -55,7 +56,8 @@
             "listing_url": "https://api.github.com/repos/veraPDF/veraPDF-corpus/git/trees/{revision}?recursive=1",
             "document_license": {
                 "expression": "CC-BY-4.0",
-                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md"
+                "evidence_url": "https://github.com/veraPDF/veraPDF-corpus/blob/bb75f4f0073d9350dfd058c0162a367e6fadf25e/README.md",
+                "redistribution_restrictions": []
             },
             "include": ["*.pdf"],
             "exclude": [
@@ -84,7 +86,8 @@
             "listing_url": "https://api.github.com/repos/MatthiasValvekens/pyHanko/git/trees/{revision}?recursive=1",
             "document_license": {
                 "expression": "MIT",
-                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE"
+                "evidence_url": "https://github.com/MatthiasValvekens/pyHanko/blob/0a9f7977343f4cc9d5926314b5a2d180028e58a0/LICENSE",
+                "redistribution_restrictions": []
             },
             "include": ["internal/common-test-utils/src/pyhanko_testing_commons/test_data/data/pdf/*.pdf"],
             "exclude": [

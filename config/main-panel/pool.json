@@ -1,17 +1,22 @@
 {
-    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v1/panel-pool.schema.json",
-    "plan_sha256": "885df5fed8bdbf1830f9391fa6daac29b59daf533d046c0a8f26926f09795df3",
+    "schema": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/panel-pool.schema.json",
+    "plan_sha256": "1f840c270c23a55490d0b4692600c8b690a2f3600fc0a222379ef9353b9f29b5",
     "analyzer": {
         "name": "qpdf",
         "version": "11.3.0"
     },
-    "candidates": 3404,
+    "candidates": 3373,
     "selected": 106,
+    "repeated": {
+        "candidates": 20,
+        "across_sources": 0
+    },
     "sources": [
         {
             "id": "qpdf",
-            "candidates": 675,
+            "candidates": 644,
             "selected": 49,
+            "repeats": 31,
             "excluded": [
                 {
                     "pattern": "qpdf/qtest/qpdf/short-O-U.pdf",
@@ -42,6 +47,7 @@
             "id": "verapdf-corpus",
             "candidates": 2599,
             "selected": 34,
+            "repeats": 0,
             "excluded": [
                 {
                     "pattern": "Isartor test files/*",
@@ -62,6 +68,7 @@
             "id": "pyhanko",
             "candidates": 130,
             "selected": 23,
+            "repeats": 0,
             "excluded": [
                 {
                     "pattern": "*/safedocs/*",
@@ -92,12 +99,12 @@
     "strata": [
         {
             "stratum": "classic",
-            "candidates": 2806,
+            "candidates": 2781,
             "selected": 55
         },
         {
             "stratum": "stream",
-            "candidates": 571,
+            "candidates": 566,
             "selected": 33
         },
         {
@@ -107,12 +114,12 @@
         },
         {
             "stratum": "none",
-            "candidates": 21,
+            "candidates": 20,
             "selected": 12
         },
         {
             "stratum": "objstm",
-            "candidates": 155,
+            "candidates": 150,
             "selected": 23
         },
         {
@@ -122,7 +129,7 @@
         },
         {
             "stratum": "incremental",
-            "candidates": 251,
+            "candidates": 250,
             "selected": 26
         },
         {
@@ -132,12 +139,12 @@
         },
         {
             "stratum": "malformed",
-            "candidates": 57,
+            "candidates": 56,
             "selected": 19
         },
         {
             "stratum": "forms",
-            "candidates": 148,
+            "candidates": 146,
             "selected": 15
         },
         {

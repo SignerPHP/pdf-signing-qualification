@@ -1,0 +1,280 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SignerPHP\PdfSigningQualification\Tests\Schema;
+
+use PHPUnit\Framework\Attributes\DataProvider;
+
+final class SourcesV3SchemaTest extends SchemaTestCase
+{
+    protected static function schemaPath(): string
+    {
+        return 'v3/sources.schema.json';
+    }
+
+    protected static function validDocument(): array
+    {
+        return [
+            'schema' => self::schemaId(),
+            'selection' => 'failure_enriched',
+            'sources' => [
+                [
+                    'id' => 'pdfjs',
+                    'url' => 'https://github.com/mozilla/pdf.js',
+                    'revision' => ['kind' => 'commit', 'value' => '4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b'],
+                    'file_url' => 'https://raw.githubusercontent.com/mozilla/pdf.js/{revision}/{path}',
+                    'license' => [
+                        'expression' => 'Apache-2.0',
+                        'evidence_url' => 'https://github.com/mozilla/pdf.js/blob/4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b/LICENSE',
+                    ],
+                ],
+            ],
+            'inputs' => [
+                [
+                    'source' => 'pdfjs',
+                    'path' => 'test/pdfs/issue17069.pdf',
+                    'sha256' => '3b4c1f0a9e6d2b7c8f5e4a3d2c1b0a9f8e7d6c5b4a39281706f5e4d3c2b1a0f9',
+                    'byte_size' => 18_423,
+                    'license' => [
+                        'expression' => 'NOASSERTION',
+                        'evidence_url' => 'https://github.com/mozilla/pdf.js/issues/17069',
+                        'redistribution_restrictions' => [],
+                    ],
+                    'strata' => ['stream', 'objstm', 'incremental'],
+                ],
+            ],
+        ];
+    }
+
+    public static function validConfigurations(): iterable
+    {
+        yield 'no inputs selected yet' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'] = [];
+            $configuration['inputs'] = [];
+
+            return $configuration;
+        })];
+        yield 'compound SPDX expression' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['expression'] = '(MIT OR Apache-2.0) AND GPL-2.0-or-later WITH Classpath-exception-2.0';
+
+            return $configuration;
+        })];
+        yield 'released version as revision' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['revision'] = ['kind' => 'version', 'value' => 'v4.0.379'];
+
+            return $configuration;
+        })];
+        yield 'representative selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'representative';
+
+            return $configuration;
+        })];
+        yield 'stratified selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'stratified';
+
+            return $configuration;
+        })];
+        yield 'every stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['classic', 'stream', 'hybrid', 'none', 'objstm', 'encrypted', 'incremental', 'signed', 'malformed', 'forms', 'legacy', 'large', 'timestamped', 'revocation'];
+
+            return $configuration;
+        })];
+        yield 'path with spaces inside its segments' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
+        yield 'further origins of the same bytes' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [['source' => 'pdfjs', 'path' => 'test/pdfs/copy-of-issue17069.pdf'], ['source' => 'mirror', 'path' => 'issue17069.pdf']];
+
+            return $configuration;
+        })];
+        yield 'redistribution restriction the license expression does not carry' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['redistribution_restrictions'] = [['description' => 'Only within test suites of PDF software', 'evidence_url' => 'https://example.org/terms']];
+
+            return $configuration;
+        })];
+    }
+
+    #[DataProvider('validConfigurations')]
+    public function test_valid_configuration_is_accepted(array $configuration): void
+    {
+        self::assertValid($configuration);
+    }
+
+    public static function invalidConfigurations(): iterable
+    {
+        foreach (['id', 'url', 'revision', 'file_url', 'license'] as $field) {
+            yield "source without {$field}" => [self::mutate(function (array $configuration) use ($field): array {
+                unset($configuration['sources'][0][$field]);
+
+                return $configuration;
+            })];
+        }
+        yield 'configuration without selection' => [self::mutate(function (array $configuration): array {
+            unset($configuration['selection']);
+
+            return $configuration;
+        })];
+        yield 'unknown selection' => [self::mutate(function (array $configuration): array {
+            $configuration['selection'] = 'random';
+
+            return $configuration;
+        })];
+        yield 'input without any stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = [];
+
+            return $configuration;
+        })];
+        yield 'stratum repeated' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['stream', 'stream'];
+
+            return $configuration;
+        })];
+        yield 'unknown stratum' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['strata'] = ['broken'];
+
+            return $configuration;
+        })];
+        foreach (['source', 'path', 'sha256', 'byte_size', 'license', 'strata'] as $field) {
+            yield "input without {$field}" => [self::mutate(function (array $configuration) use ($field): array {
+                unset($configuration['inputs'][0][$field]);
+
+                return $configuration;
+            })];
+        }
+        yield 'branch name as revision' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['revision'] = ['kind' => 'commit', 'value' => 'master'];
+
+            return $configuration;
+        })];
+        yield 'plain HTTP upstream' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['url'] = 'http://github.com/mozilla/pdf.js';
+
+            return $configuration;
+        })];
+        yield 'file URL without revision placeholder' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['file_url'] = 'https://raw.githubusercontent.com/mozilla/pdf.js/master/{path}';
+
+            return $configuration;
+        })];
+        yield 'file URL without path placeholder' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['file_url'] = 'https://raw.githubusercontent.com/mozilla/pdf.js/{revision}/test.pdf';
+
+            return $configuration;
+        })];
+        yield 'absolute path' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = '/etc/passwd';
+
+            return $configuration;
+        })];
+        yield 'path leaving the source' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'test/../../secret.pdf';
+
+            return $configuration;
+        })];
+        yield 'path segment starting with a space' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/ 7.16 Security/7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
+        yield 'path segment ending with a space' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = 'PDF_UA-1/7.16 Security /7.16-t01-fail-a.pdf';
+
+            return $configuration;
+        })];
+        yield 'path with a tab' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = "PDF_UA-1/7.16\tSecurity/7.16-t01-fail-a.pdf";
+
+            return $configuration;
+        })];
+        yield 'abbreviated hash' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['sha256'] = '3b4c1f0a';
+
+            return $configuration;
+        })];
+        yield 'negative byte size' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['byte_size'] = -1;
+
+            return $configuration;
+        })];
+        yield 'free text license' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['expression'] = 'same as the repository';
+
+            return $configuration;
+        })];
+        yield 'empty license' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['expression'] = '';
+
+            return $configuration;
+        })];
+        yield 'license without evidence' => [self::mutate(function (array $configuration): array {
+            unset($configuration['inputs'][0]['license']['evidence_url']);
+
+            return $configuration;
+        })];
+        yield 'source identifier longer than 64 characters' => [self::mutate(function (array $configuration): array {
+            $configuration['sources'][0]['id'] = str_repeat('s', 65);
+            $configuration['inputs'][0]['source'] = str_repeat('s', 65);
+
+            return $configuration;
+        })];
+        yield 'path longer than 447 characters' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['path'] = str_repeat('p', 444).'.pdf';
+
+            return $configuration;
+        })];
+        yield 'document license without its redistribution restrictions' => [self::mutate(function (array $configuration): array {
+            unset($configuration['inputs'][0]['license']['redistribution_restrictions']);
+
+            return $configuration;
+        })];
+        yield 'redistribution restriction without evidence' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['redistribution_restrictions'] = [['description' => 'Only within test suites of PDF software']];
+
+            return $configuration;
+        })];
+        yield 'redistribution restriction as free text' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['license']['redistribution_restrictions'] = ['none'];
+
+            return $configuration;
+        })];
+        yield 'empty list of further origins' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [];
+
+            return $configuration;
+        })];
+        yield 'further origin repeated' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror', 'path' => 'a.pdf'], ['source' => 'mirror', 'path' => 'a.pdf']];
+
+            return $configuration;
+        })];
+        yield 'further origin without path' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror']];
+
+            return $configuration;
+        })];
+        yield 'further origin with its own hash' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror', 'path' => 'a.pdf', 'sha256' => str_repeat('a', 64)]];
+
+            return $configuration;
+        })];
+        yield 'further origin leaving the source' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['further_origins'] = [['source' => 'mirror', 'path' => '../a.pdf']];
+
+            return $configuration;
+        })];
+        yield 'unknown input field' => [self::mutate(function (array $configuration): array {
+            $configuration['inputs'][0]['fallback_url'] = 'https://example.org/other.pdf';
+
+            return $configuration;
+        })];
+    }
+
+    #[DataProvider('invalidConfigurations')]
+    public function test_invalid_configuration_is_rejected(array $configuration): void
+    {
+        self::assertInvalid($configuration);
+    }
+}

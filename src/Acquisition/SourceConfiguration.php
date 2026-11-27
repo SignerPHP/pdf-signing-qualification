@@ -9,7 +9,9 @@ use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 
 final class SourceConfiguration
 {
-    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
+    public const string SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v3/sources.schema.json';
+
+    public const string PREVIOUS_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/sources.schema.json';
 
     /**
      * @return list<string>
@@ -17,7 +19,7 @@ final class SourceConfiguration
     public static function strata(): array
     {
         /** @var array{'$defs': array{stratum: array{oneOf: list<array{const: string}>}}} $schema */
-        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v2/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
+        $schema = json_decode((string) file_get_contents(SchemaValidator::SCHEMA_DIRECTORY.'v3/sources.schema.json'), true, flags: JSON_THROW_ON_ERROR);
 
         return array_values(array_column($schema['$defs']['stratum']['oneOf'], 'const'));
     }
@@ -51,6 +53,21 @@ final class SourceConfiguration
     /**
      * @return list<Input>
      */
+    public static function fromRecordedJson(string $contents): array
+    {
+        $document = json_decode($contents, flags: JSON_THROW_ON_ERROR);
+        $schema = is_object($document) && ($document->schema ?? null) === self::PREVIOUS_SCHEMA ? self::PREVIOUS_SCHEMA : self::SCHEMA;
+        self::assertFollowsSchema($document, $schema);
+
+        /** @var array $configuration */
+        $configuration = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+
+        return self::bind($configuration);
+    }
+
+    /**
+     * @return list<Input>
+     */
     public static function fromArray(array $configuration): array
     {
         self::assertFollowsSchema($configuration);
@@ -58,10 +75,10 @@ final class SourceConfiguration
         return self::bind($configuration);
     }
 
-    private static function assertFollowsSchema(mixed $configuration): void
+    private static function assertFollowsSchema(mixed $configuration, string $schema = self::SCHEMA): void
     {
         $errors = is_array($configuration) || is_object($configuration)
-            ? (new SchemaValidator)->errors($configuration, self::SCHEMA)
+            ? (new SchemaValidator)->errors($configuration, $schema)
             : ['/: The source configuration is not a JSON object'];
         if ($errors !== []) {
             throw new InvalidArgumentException("The source configuration does not follow its schema:\n".implode("\n", $errors));
@@ -83,12 +100,26 @@ final class SourceConfiguration
         }
 
         $inputs = [];
+        $originIds = [];
         foreach ($configuration['inputs'] as $declaration) {
             $source = $sources[$declaration['source']]
                 ?? throw new InvalidArgumentException("Input {$declaration['path']} refers to the undeclared source {$declaration['source']}");
-            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license'], $declaration['strata']);
+            $furtherOrigins = [];
+            foreach ($declaration['further_origins'] ?? [] as $origin) {
+                $furtherOrigins[] = new Origin(
+                    $sources[$origin['source']] ?? throw new InvalidArgumentException("A further origin of input {$declaration['source']}:{$declaration['path']} refers to the undeclared source {$origin['source']}"),
+                    $origin['path'],
+                );
+            }
+            $input = new Input($source, $declaration['path'], $declaration['sha256'], $declaration['byte_size'], $declaration['license'], $declaration['strata'], $furtherOrigins);
             if (isset($inputs[$input->id()])) {
                 throw new InvalidArgumentException("Input {$input->id()} is declared more than once");
+            }
+            foreach ($input->origins() as $origin) {
+                if (isset($originIds[$origin->id()])) {
+                    throw new InvalidArgumentException("Origin {$origin->id()} is declared more than once");
+                }
+                $originIds[$origin->id()] = true;
             }
             $inputs[$input->id()] = $input;
         }

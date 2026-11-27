@@ -27,7 +27,7 @@ try {
     $first = [RunRecords::fromDirectory($firstDirectory), RunRecords::fromDirectory($firstRepeatedDirectory)];
     $second = [RunRecords::fromDirectory($secondDirectory), RunRecords::fromDirectory($secondRepeatedDirectory)];
     $configuration = RunReport::sourceConfiguration(rtrim($firstDirectory, '/'), $first[0]);
-    SourceConfiguration::fromJson($configuration);
+    SourceConfiguration::fromRecordedJson($configuration);
     $selection = RunReport::selectionOf($configuration);
     $comparison = DifferentialComparison::compare($first, $second, $selection);
     (new SchemaValidator)->assertValid($comparison, DifferentialComparison::SCHEMA, 'differential comparison');

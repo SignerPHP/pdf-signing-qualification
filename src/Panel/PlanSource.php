@@ -9,7 +9,7 @@ use SignerPHP\PdfSigningQualification\Acquisition\Source;
 final readonly class PlanSource
 {
     /**
-     * @param  array{expression: string, evidence_url: string}  $documentLicense
+     * @param  array{expression: string, evidence_url: string, redistribution_restrictions: list<array{description: string, evidence_url: string}>}  $documentLicense
      * @param  list<string>  $include
      * @param  list<array{pattern: string, reason: string}>  $exclude
      */

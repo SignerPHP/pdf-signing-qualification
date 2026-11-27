@@ -32,7 +32,7 @@ final class SyntheticInput
     public static function record(string $sourceId, string $source, string $path, string $generator): array
     {
         return [
-            'schema' => Acquirer::RECORD_SCHEMA,
+            'schema' => Acquirer::SINGLE_ORIGIN_RECORD_SCHEMA,
             'source_id' => $sourceId,
             'source' => ['id' => $source, 'url' => self::REPOSITORY_URL, 'revision' => ['kind' => 'version', 'value' => '1'], 'license' => self::license()],
             'path' => $path,

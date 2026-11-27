@@ -59,7 +59,7 @@ final class PadesStructureValidator extends ToolValidator
 
     protected function judgeOutput(ValidationSubject $subject, string $outputPath): Judgement
     {
-        $result = $this->runner->run(QpdfObjects::command($outputPath), $this->timeoutSeconds);
+        $result = $this->runner->run(QpdfObjects::command($outputPath), $this->timeoutSeconds, new CommandAccess([$outputPath]));
         if ($result->timedOut) {
             return $this->timedOut($result);
         }

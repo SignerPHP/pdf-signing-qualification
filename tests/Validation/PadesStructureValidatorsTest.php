@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\DocumentTimestampImprintValidator;
@@ -122,7 +123,7 @@ final class PadesStructureValidatorsTest extends TestCase
         {
             public function __construct(private readonly string $listing) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match (true) {
                     in_array('--version', $command, true) => new CommandResult(0, "qpdf version 11.3.0\n"),

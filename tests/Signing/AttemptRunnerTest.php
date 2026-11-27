@@ -22,6 +22,7 @@ use SignerPHP\PdfSigningQualification\Signing\TestCredential;
 use SignerPHP\PdfSigningQualification\Tests\Validation\FakeCommandRunner;
 use SignerPHP\PdfSigningQualification\Tests\Validation\ProcessStatus;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
@@ -621,9 +622,9 @@ final class AttemptRunnerTest extends TestCase
     {
         return new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
-                return $command[0] === 'rm' ? new CommandResult(1, 'rm: refused') : (new ProcessRunner)->run($command, $timeoutSeconds);
+                return $command[0] === 'rm' ? new CommandResult(1, 'rm: refused') : (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
     }
@@ -799,9 +800,9 @@ final class AttemptRunnerTest extends TestCase
     {
         $commandRunner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
-                return $command[0] === 'setsid' ? new CommandResult(1, 'measurement process crashed') : (new ProcessRunner)->run($command, $timeoutSeconds);
+                return $command[0] === 'setsid' ? new CommandResult(1, 'measurement process crashed') : (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
 

@@ -19,9 +19,9 @@ final class AddedSignatures
     }
 
     /**
-     * @return list<string>|null
+     * @return list<list<int>>|null
      */
-    public static function inputFields(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
+    public static function inputByteRanges(CommandRunner $runner, ?string $inputPath, float $timeoutSeconds): ?array
     {
         if ($inputPath === null) {
             return [];
@@ -31,22 +31,21 @@ final class AddedSignatures
             return null;
         }
 
-        $fields = [];
+        $byteRanges = [];
         foreach ($listing->signatures as $signature) {
-            if ($signature['field'] !== null) {
-                $fields[$signature['field']] = true;
+            if ($signature['byte_range'] !== null) {
+                $byteRanges[] = $signature['byte_range'];
             }
         }
 
-        return array_map(strval(...), array_keys($fields));
+        return $byteRanges;
     }
 
     /**
-     * @param  list<string>  $fields
-     * @param  list<string>  $inputFields
+     * @param  list<list<int>>  $inputByteRanges
      */
-    public static function isPrior(array $fields, array $inputFields): bool
+    public static function isPrior(mixed $byteRange, array $inputByteRanges): bool
     {
-        return array_intersect($fields, $inputFields) !== [];
+        return is_array($byteRange) && in_array($byteRange, $inputByteRanges, true);
     }
 }

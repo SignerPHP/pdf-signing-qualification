@@ -88,34 +88,31 @@ final class PadesProfileValidatorsTest extends TestCase
         self::assertSame(['/opt/java/bin/java', ...EuDssValidator::JAVA_OPTIONS, '-jar', EuDssValidator::JAR, '/pki/root.der', self::$output], $runner->commands[0]);
     }
 
-    public function test_signature_of_a_field_signed_in_the_input_is_prior_and_not_judged(): void
+    public function test_dss_signature_with_the_byte_range_of_an_input_signature_is_prior_and_not_judged(): void
     {
-        $prior = ['id' => 'S-0', 'fields' => ['Signature1'], 'indication' => 'INDETERMINATE', 'sub_indication' => 'NO_CERTIFICATE_CHAIN_FOUND', 'format' => 'PKCS7-B'];
-        $added = ['id' => 'S-1', 'fields' => ['Signature2'], 'indication' => 'TOTAL_PASSED', 'sub_indication' => null, 'format' => 'PAdES-BASELINE-LTA'];
-        $listing = json_encode(['qpdf' => [['jsonversion' => 2], [
-            'trailer' => ['value' => ['/Root' => '1 0 R']],
-            'obj:1 0 R' => ['value' => ['/AcroForm' => ['/Fields' => ['2 0 R']]]],
-            'obj:2 0 R' => ['value' => ['/FT' => '/Sig', '/T' => 'u:Signature1', '/V' => '3 0 R']],
-            'obj:3 0 R' => ['value' => ['/Type' => '/Sig', '/ByteRange' => [0, 1, 2, 3], '/Contents' => 'b:00']],
-        ]]], JSON_THROW_ON_ERROR);
-        $runner = new class(AddedSignatures::REPORT_PREFIX.json_encode(['signatures' => [$prior, $added], 'timestamps' => []], JSON_THROW_ON_ERROR), $listing) implements CommandRunner
-        {
-            public function __construct(private readonly string $report, private readonly string $listing) {}
-
-            public function run(array $command, float $timeoutSeconds): CommandResult
-            {
-                return match (true) {
-                    in_array('--version', $command, true) => new CommandResult(0, "dss-validator 6.2\n"),
-                    $command[0] === 'qpdf' => new CommandResult(0, $this->listing),
-                    default => new CommandResult(0, $this->report),
-                };
-            }
-        };
+        $prior = ['id' => 'S-0', 'fields' => ['Signature1 as another decoder reads it'], 'byte_range' => [0, 1, 2, 3], 'indication' => 'INDETERMINATE', 'sub_indication' => 'NO_CERTIFICATE_CHAIN_FOUND', 'format' => 'PKCS7-B'];
+        $added = ['id' => 'S-1', 'fields' => ['Signature1'], 'byte_range' => [0, 10, 20, 30], 'indication' => 'TOTAL_PASSED', 'sub_indication' => null, 'format' => 'PAdES-BASELINE-LTA'];
+        $runner = self::runnerWithInputListing("dss-validator 6.2\n", ['signatures' => [$prior, $added], 'timestamps' => []]);
 
         $observation = (new EuDssValidator($runner, self::clock(), self::LTA, '/pki/root.der', self::ARTIFACT))->observe(new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output, '/input.pdf'));
 
         self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']);
         self::assertSame(['S-0'], array_column($observation['evidence']['details']['prior_signatures'], 'id'));
+        self::assertSame([[0, 10, 20, 30]], array_column($observation['evidence']['details']['signatures'], 'byte_range'));
+    }
+
+    public function test_demoiselle_signature_with_the_byte_range_of_an_input_signature_is_prior_and_not_judged(): void
+    {
+        $check = ['invalid_signature' => false, 'policy' => '2.16.76.1.7.1.12.1.3', 'signer' => 'Signer A', 'timestamp' => true, 'errors' => [], 'warnings' => []];
+        $prior = ['field' => 'Signature1 as another decoder reads it', 'byte_range' => [0, 1, 2, 3], 'sub_filter' => 'adbe.pkcs7.detached', 'error' => 'java.lang.RuntimeException: not ICP-Brasil'];
+        $added = ['field' => 'Signature1', 'byte_range' => [0, 10, 20, 30], 'sub_filter' => 'ETSI.CAdES.detached', 'checks' => [$check]];
+        $runner = self::runnerWithInputListing("demoiselle-signer 4.4.0\n", ['signatures' => [$prior, $added]]);
+
+        $observation = (new DemoiselleValidator($runner, self::clock(), 1))->observe(new ValidationSubject(self::ATTEMPT_ID, self::ARTIFACT, self::$output, '/input.pdf'));
+
+        self::assertSame('valid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame([$prior], $observation['evidence']['details']['prior_signatures']);
+        self::assertSame([$added], $observation['evidence']['details']['signatures']);
     }
 
     public function test_policy_does_not_change_with_the_root_of_the_run(): void
@@ -188,6 +185,30 @@ final class PadesProfileValidatorsTest extends TestCase
         $this->expectExceptionMessage('test PKI');
 
         ValidationPanel::installed(self::clock(), ['id' => 'pades-baseline-lta', 'signing' => self::LTA]);
+    }
+
+    private static function runnerWithInputListing(string $version, array $report): CommandRunner
+    {
+        $listing = json_encode(['qpdf' => [['jsonversion' => 2], [
+            'trailer' => ['value' => ['/Root' => '1 0 R']],
+            'obj:1 0 R' => ['value' => ['/AcroForm' => ['/Fields' => ['2 0 R']]]],
+            'obj:2 0 R' => ['value' => ['/FT' => '/Sig', '/T' => 'u:Signature1', '/V' => '3 0 R']],
+            'obj:3 0 R' => ['value' => ['/Type' => '/Sig', '/ByteRange' => [0, 1, 2, 3], '/Contents' => 'b:00']],
+        ]]], JSON_THROW_ON_ERROR);
+
+        return new class($version, AddedSignatures::REPORT_PREFIX.json_encode($report, JSON_THROW_ON_ERROR), $listing) implements CommandRunner
+        {
+            public function __construct(private readonly string $version, private readonly string $report, private readonly string $listing) {}
+
+            public function run(array $command, float $timeoutSeconds): CommandResult
+            {
+                return match (true) {
+                    in_array('--version', $command, true) => new CommandResult(0, $this->version),
+                    $command[0] === 'qpdf' => new CommandResult(0, $this->listing),
+                    default => new CommandResult(0, $this->report),
+                };
+            }
+        };
     }
 
     private static function observe(ToolValidator $validator): array

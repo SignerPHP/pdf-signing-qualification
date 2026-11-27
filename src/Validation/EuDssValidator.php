@@ -55,7 +55,7 @@ final class EuDssValidator extends ToolValidator
     {
         return [
             'id' => 'eu-dss-default-policy-test-pki',
-            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation, and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature one of whose fields holds a signature in the input, as qpdf lists it, is prior and only recorded. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
+            'description' => 'EU DSS validation under its default policy, trusting only the root certificate of the run\'s test PKI, which is generated for each run and recorded in the details of each observation, and fetching missing certificates, CRLs and OCSP responses from the test PKI through the URLs the certificates carry. Only the signatures the implementation added are judged: a signature whose /ByteRange, as DSS reports it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. Valid when the output holds one added signature per signer, every one TOTAL_PASSED and detected at the expected format; a missing or extra signature, TOTAL_FAILED or another format is invalid; INDETERMINATE, with nothing invalid, is inconclusive',
             'parameters' => [
                 'expected_format' => self::expectedFormat($this->signing),
                 'expected_signatures' => $this->expectedSignatures(),
@@ -87,7 +87,7 @@ final class EuDssValidator extends ToolValidator
         if ($report === null) {
             return new Judgement('inconclusive', 'DSS '.$result->describe().' without a report the analyzer can read', $result->exitCode, $result->output, ['trusted_root' => $this->trustedRoot]);
         }
-        $inputFields = AddedSignatures::inputFields($this->runner, $subject->inputPath, $this->timeoutSeconds);
+        $inputByteRanges = AddedSignatures::inputByteRanges($this->runner, $subject->inputPath, $this->timeoutSeconds);
 
         $added = [];
         $prior = [];
@@ -96,12 +96,13 @@ final class EuDssValidator extends ToolValidator
             $summary = [
                 'id' => $signature['id'] ?? null,
                 'fields' => $fields,
+                'byte_range' => $signature['byte_range'] ?? null,
                 'indication' => $signature['indication'] ?? null,
                 'sub_indication' => $signature['sub_indication'] ?? null,
                 'format' => $signature['format'] ?? null,
                 'signed_by' => $signature['signed_by'] ?? null,
             ];
-            if ($inputFields !== null && AddedSignatures::isPrior($fields, $inputFields)) {
+            if ($inputByteRanges !== null && AddedSignatures::isPrior($signature['byte_range'] ?? null, $inputByteRanges)) {
                 $prior[] = $summary;
             } else {
                 $added[] = $summary;
@@ -114,7 +115,7 @@ final class EuDssValidator extends ToolValidator
             'prior_signatures' => $prior,
             'timestamps' => is_array($report['timestamps'] ?? null) ? $report['timestamps'] : [],
         ];
-        if ($inputFields === null && count($added) !== $this->expectedSignatures()) {
+        if ($inputByteRanges === null && count($added) !== $this->expectedSignatures()) {
             return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so the '.count($added).' signature(s) DSS reports cannot be told apart from those of the input', $result->exitCode, $result->output, $details);
         }
         $expectedFormat = self::expectedFormat($this->signing);

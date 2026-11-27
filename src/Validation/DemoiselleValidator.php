@@ -44,7 +44,7 @@ final class DemoiselleValidator extends ToolValidator
     {
         return [
             'id' => 'demoiselle-icp-brasil-ad-rt-test-pki',
-            'description' => 'Demoiselle Signer\'s PAdES check of the signature of every signature field other than a document timestamp, located with PDFBox. Only the signatures the implementation added are judged: one whose field holds a signature in the input, as qpdf lists it, is prior and only recorded. Valid when there is one added signature per signer and each is checked without an exception, is not reported invalid, commits to a policy identifier of the ICP-Brasil PAdES AD-RT arc and has no error other than the untrusted chain that a certificate of the test PKI always gives; anything else is invalid; a signature Demoiselle could not check, with nothing invalid, and a report the analyzer cannot read are inconclusive. Warnings are recorded and do not change the verdict',
+            'description' => 'Demoiselle Signer\'s PAdES check of the signature of every signature field other than a document timestamp, located with PDFBox. Only the signatures the implementation added are judged: one whose /ByteRange, as PDFBox reads it, is the /ByteRange of a signature of the input, as qpdf lists it, is prior and only recorded; field names are recorded, not compared. Valid when there is one added signature per signer and each is checked without an exception, is not reported invalid, commits to a policy identifier of the ICP-Brasil PAdES AD-RT arc and has no error other than the untrusted chain that a certificate of the test PKI always gives; anything else is invalid; a signature Demoiselle could not check, with nothing invalid, and a report the analyzer cannot read are inconclusive. Warnings are recorded and do not change the verdict',
             'parameters' => [
                 'policy_arc' => self::AD_RT_ARC,
                 'tolerated_errors' => [self::UNTRUSTED_CHAIN_PATTERN],
@@ -75,18 +75,18 @@ final class DemoiselleValidator extends ToolValidator
         if ($report === null) {
             return new Judgement('inconclusive', 'Demoiselle '.$result->describe().' without a report the analyzer can read', $result->exitCode, $result->output);
         }
-        $inputFields = AddedSignatures::inputFields($this->runner, $subject->inputPath, $this->timeoutSeconds);
+        $inputByteRanges = AddedSignatures::inputByteRanges($this->runner, $subject->inputPath, $this->timeoutSeconds);
 
         $signatures = [];
         $prior = [];
         foreach (array_filter($report['signatures'], is_array(...)) as $signature) {
-            if ($inputFields !== null && is_string($signature['field'] ?? null) && AddedSignatures::isPrior([$signature['field']], $inputFields)) {
+            if ($inputByteRanges !== null && AddedSignatures::isPrior($signature['byte_range'] ?? null, $inputByteRanges)) {
                 $prior[] = $signature;
             } else {
                 $signatures[] = $signature;
             }
         }
-        if ($inputFields === null && count($signatures) !== $this->expectedSignatures) {
+        if ($inputByteRanges === null && count($signatures) !== $this->expectedSignatures) {
             return new Judgement('inconclusive', 'qpdf cannot list the signatures of the input, so the '.count($signatures).' signature(s) Demoiselle reports cannot be told apart from those of the input', $result->exitCode, $result->output, ['signatures' => $signatures]);
         }
         $problems = [];

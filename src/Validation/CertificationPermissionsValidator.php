@@ -10,6 +10,8 @@ final class CertificationPermissionsValidator extends ComparisonValidator
 
     private const string DOCUMENT_TIMESTAMP_TYPE = '/DocTimeStamp';
 
+    private const string PARAMETERS_NOT_A_DICTIONARY = 'parameters not a dictionary';
+
     public function analyzerId(): string
     {
         return 'qpdf-certification-permissions';
@@ -24,7 +26,7 @@ final class CertificationPermissionsValidator extends ComparisonValidator
     {
         return [
             'id' => 'qpdf-certification-permissions',
-            'description' => 'From qpdf\'s JSON listing of the input and of the output: an input whose catalog has no /Perms /DocMDP is not applicable; otherwise the permission level /P of the DocMDP transform in the /Reference of that signature (2 when /TransformParams or /P is absent) judges the signatures the output adds, those with a /ByteRange and /Contents the input does not hold, each classified from its own dictionary: a certification signature has a DocMDP transform or is registered as /Perms /DocMDP, a document timestamp has /Type /DocTimeStamp, and any other is an approval signature. Under /P 1 any added approval or certification signature is invalid; under /P 2 and /P 3 an approval signature is permitted and a certification signature is not, because a document has only one; a document timestamp is permitted at every level, because ETSI EN 319 142-1 clause 5.4.3 has DocMDP restrictions ignore it. The output must still register the certification of the input as /Perms /DocMDP. A problem with the added signatures is inconclusive instead of invalid when qpdf had to recover the input, and a missing /Perms /DocMDP when qpdf had to recover the output, because the listing may miss what it looks for; with no problem, a listing qpdf had to recover is inconclusive. A certification without a DocMDP transform, a level other than 1, 2 or 3, an added signature whose dictionary cannot be read and a document qpdf cannot read are inconclusive. Other changes of the added revision and field locks (/FieldMDP) are not judged',
+            'description' => 'From qpdf\'s JSON listing of the input and of the output: an input whose catalog has no /Perms /DocMDP is not applicable; otherwise the permission level /P of the DocMDP transform in the /Reference of that signature (2 when /TransformParams or /P is absent) judges the signatures the output adds, those with a /ByteRange and /Contents the input does not hold, each classified from its own dictionary: a certification signature has a DocMDP transform or is registered as /Perms /DocMDP, a document timestamp has /Type /DocTimeStamp, and any other is an approval signature. Under /P 1 any added approval or certification signature is invalid; under /P 2 and /P 3 an approval signature is permitted and a certification signature is not, because a document has only one; a document timestamp is permitted at every level, because ETSI EN 319 142-1 clause 5.4.3 has DocMDP restrictions ignore it. The output must still register the certification of the input as /Perms /DocMDP. A problem with the added signatures is inconclusive instead of invalid when qpdf had to recover the input, and a missing /Perms /DocMDP when qpdf had to recover the output, because the listing may miss what it looks for; with no problem, a listing qpdf had to recover is inconclusive. A certification without a DocMDP transform, /TransformParams that is not a dictionary, a level other than 1, 2 or 3, an added signature whose dictionary cannot be read and a document qpdf cannot read are inconclusive. Other changes of the added revision and field locks (/FieldMDP) are not judged',
             'parameters' => [
                 'listing' => ['qpdf', ...QpdfObjects::ARGUMENTS],
                 'permission_levels' => self::PERMISSION_LEVELS,
@@ -68,6 +70,9 @@ final class CertificationPermissionsValidator extends ComparisonValidator
         $permission = self::permission($input, $certification);
         if ($permission === null) {
             return new Judgement('inconclusive', 'The certification signature of the input has no DocMDP transform in /Reference, so its permissions cannot be read', $inputResult->exitCode, '');
+        }
+        if ($permission === self::PARAMETERS_NOT_A_DICTIONARY) {
+            return new Judgement('inconclusive', 'The DocMDP transform parameters of the input are not a dictionary, so its permission level cannot be read', $inputResult->exitCode, '');
         }
         if (! in_array($permission, self::PERMISSION_LEVELS, true)) {
             return new Judgement('inconclusive', 'The DocMDP transform parameters of the input do not give a permission level of 1, 2 or 3: '.json_encode($permission), $inputResult->exitCode, '');
@@ -193,7 +198,11 @@ final class CertificationPermissionsValidator extends ComparisonValidator
                 return 2;
             }
 
-            return is_array($parameters) ? $document->resolve($parameters['/P'] ?? null) ?? 2 : $parameters;
+            if (! is_array($parameters) || ($parameters !== [] && array_is_list($parameters))) {
+                return self::PARAMETERS_NOT_A_DICTIONARY;
+            }
+
+            return $document->resolve($parameters['/P'] ?? null) ?? 2;
         }
 
         return null;

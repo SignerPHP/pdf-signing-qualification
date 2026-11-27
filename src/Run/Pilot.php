@@ -24,7 +24,12 @@ use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
 final class Pilot
 {
-    public const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v1/run.schema.json';
+    public const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
+
+    public const array READABLE_RUN_SCHEMAS = [
+        SchemaValidator::SCHEMA_PREFIX.'v1/run.schema.json',
+        self::RUN_SCHEMA,
+    ];
 
     /**
      * @param  Closure(): DateTimeImmutable  $clock

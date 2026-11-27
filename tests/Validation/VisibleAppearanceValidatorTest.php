@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
@@ -158,11 +159,11 @@ final class VisibleAppearanceValidatorTest extends TestCase
         $outputPath = SyntheticVisibleSignature::sign(self::$inputPath, self::$directory, 'render-failure');
         $runner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return $command[0] === 'pdftoppm' && ! in_array('-v', $command, true)
                     ? new CommandResult(99, 'Syntax Error: broken page')
-                    : (new ProcessRunner)->run($command, $timeoutSeconds);
+                    : (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
 
@@ -177,11 +178,11 @@ final class VisibleAppearanceValidatorTest extends TestCase
         $outputPath = SyntheticVisibleSignature::sign(self::$inputPath, self::$directory, 'render-timeout');
         $runner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return $command[0] === 'pdftoppm' && ! in_array('-v', $command, true)
                     ? new CommandResult(null, '', true)
-                    : (new ProcessRunner)->run($command, $timeoutSeconds);
+                    : (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
 
@@ -199,13 +200,13 @@ final class VisibleAppearanceValidatorTest extends TestCase
             /** @var list<array{string, float}> */
             public array $commands = [];
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 if (! in_array('-v', $command, true)) {
                     $this->commands[] = [$command[0].' '.basename((string) end($command)), $timeoutSeconds];
                 }
 
-                return (new ProcessRunner)->run($command, $timeoutSeconds);
+                return (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
 

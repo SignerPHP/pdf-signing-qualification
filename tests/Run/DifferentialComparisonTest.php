@@ -305,6 +305,15 @@ final class DifferentialComparisonTest extends TestCase
             'other limits' => [static function (array $first, array $second): void {
                 $second[1]->run['environment']['resource_limits']['timeout_seconds'] = 60;
             }, 'resource limits'],
+            'another CPU time limit' => [static function (array $first, array $second): void {
+                $second[1]->run['environment']['resource_limits']['cpu_time_seconds'] = 60;
+            }, 'resource limits'],
+            'another process limit' => [static function (array $first, array $second): void {
+                $first[0]->run['environment']['resource_limits']['processes'] = 256;
+            }, 'resource limits'],
+            'a version 1 run without the new limits' => [static function (array $first, array $second): void {
+                $second[0]->versionOne();
+            }, 'resource limits'],
             'a confinement on one side only' => [static function (array $first, array $second): void {
                 $second[1]->run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
             }, 'confinement'],

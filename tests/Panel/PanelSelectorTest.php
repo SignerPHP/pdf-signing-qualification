@@ -14,6 +14,7 @@ use SignerPHP\PdfSigningQualification\Panel\StrataClassifier;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Tests\Acquisition\InMemoryFetcher;
 use SignerPHP\PdfSigningQualification\Tests\Fixtures\Synthetic\SyntheticPdf;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
@@ -100,13 +101,13 @@ final class PanelSelectorTest extends TestCase
     {
         $runner = new class implements CommandRunner
         {
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 if (str_contains((string) file_get_contents((string) end($command)), '/Crash true')) {
                     return new CommandResult(null, '', terminationSignal: 11);
                 }
 
-                return (new ProcessRunner)->run($command, $timeoutSeconds);
+                return (new ProcessRunner)->run($command, $timeoutSeconds, $access);
             }
         };
         $selector = new PanelSelector($fetcher, new StrataClassifier($runner, 10_000_000, 1000), $this->cacheDirectory, static function (string $message): void {});

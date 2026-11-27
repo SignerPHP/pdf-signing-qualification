@@ -38,7 +38,10 @@ final readonly class RunRecords
 
         $validator = new SchemaValidator;
         $run = self::readJson($directory.'/run.json');
-        $validator->assertValid($run, Pilot::RUN_SCHEMA, "run record in {$directory}");
+        if (! in_array($run['schema'] ?? null, Pilot::READABLE_RUN_SCHEMAS, true)) {
+            throw new RuntimeException("The run record in {$directory} must name one of the run schemas: ".implode(', ', Pilot::READABLE_RUN_SCHEMAS));
+        }
+        $validator->assertValid($run, $run['schema'], "run record in {$directory}");
 
         $attempts = array_values(self::readJson($directory.'/attempts.json'));
         $attemptsById = [];

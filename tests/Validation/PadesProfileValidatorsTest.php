@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\AddedSignatures;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
 use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\DemoiselleValidator;
@@ -102,7 +103,7 @@ final class PadesProfileValidatorsTest extends TestCase
         {
             public function __construct(private readonly string $report, private readonly string $listing) {}
 
-            public function run(array $command, float $timeoutSeconds): CommandResult
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
             {
                 return match (true) {
                     in_array('--version', $command, true) => new CommandResult(0, "dss-validator 6.2\n"),

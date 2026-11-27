@@ -10,6 +10,7 @@ import time
 PR_SET_CHILD_SUBREAPER = 36
 PR_SET_NO_NEW_PRIVS = 38
 ORPHAN_REAPING_MILLISECONDS = 50
+CLOCK_TICKS_PER_SECOND = os.sysconf('SC_CLK_TCK')
 
 LANDLOCK_CREATE_RULESET = 444
 LANDLOCK_ADD_RULE = 445
@@ -99,8 +100,8 @@ def allow(library, ruleset, path, access):
         os.close(descriptor)
 
 
-def processes_to_stop(own_id, group_id):
-    processes = []
+def attempt_processes(own_id, group_id):
+    statistics = {}
     for entry in os.listdir('/proc'):
         if not entry.isdigit() or int(entry) == own_id:
             continue
@@ -109,17 +110,47 @@ def processes_to_stop(own_id, group_id):
                 stat = stat_file.read()
         except OSError:
             continue
-        fields = stat[stat.rindex(')') + 2:].split()
-        if int(fields[1]) == own_id or int(fields[2]) == group_id:
-            processes.append(int(entry))
-    return processes
+        statistics[int(entry)] = stat[stat.rindex(')') + 2:].split()
+    children = {}
+    for process_id, fields in statistics.items():
+        children.setdefault(int(fields[1]), []).append(process_id)
+    members = {process_id for process_id, fields in statistics.items() if int(fields[2]) == group_id}
+    pending = [own_id, *members]
+    while pending:
+        for child_id in children.get(pending.pop(), []):
+            if child_id not in members:
+                members.add(child_id)
+                pending.append(child_id)
+    return {process_id: statistics[process_id] for process_id in members}
+
+
+def attempt_usage(own_id, group_id):
+    processes = attempt_processes(own_id, group_id)
+    ticks = sum(int(fields[11]) + int(fields[12]) + int(fields[13]) + int(fields[14]) for fields in processes.values())
+    tasks = sum(max(1, int(fields[17])) for fields in processes.values())
+    reaped = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return reaped.ru_utime + reaped.ru_stime + ticks / CLOCK_TICKS_PER_SECOND, tasks
+
+
+def exceeded_limit(limits):
+    cpu_time_seconds, process_count = limits
+    if cpu_time_seconds is None and process_count is None:
+        return None
+    own_id = os.getpid()
+    group_id = os.getpgrp()
+    used_seconds, tasks = attempt_usage(own_id, group_id)
+    if process_count is not None and tasks > process_count:
+        return 'processes'
+    if cpu_time_seconds is not None and used_seconds > cpu_time_seconds and attempt_usage(own_id, group_id)[0] > cpu_time_seconds:
+        return 'cpu_time'
+    return None
 
 
 def stop_and_reap_remaining():
     own_id = os.getpid()
     group_id = os.getpgrp()
     while True:
-        for process_id in processes_to_stop(own_id, group_id):
+        for process_id in attempt_processes(own_id, group_id):
             try:
                 os.kill(process_id, signal.SIGKILL)
             except ProcessLookupError:
@@ -166,21 +197,24 @@ def read_confinement_error(error_descriptor):
     return message.decode('utf-8', errors='replace') or None
 
 
-def wait_for_child(child_id, timeout_seconds, started_at):
+def wait_for_child(child_id, timeout_seconds, started_at, limits):
     child_descriptor = os.pidfd_open(child_id)
     poller = select.poll()
     poller.register(child_descriptor, select.POLLIN)
     deadline = started_at + timeout_seconds
     try:
         while True:
+            limit = exceeded_limit(limits)
+            remaining_seconds = deadline - time.monotonic()
+            if limit is not None:
+                return None, 'timed_out' if remaining_seconds <= 0 else limit
             reaped_id, status, _ = os.wait4(-1, os.WNOHANG)
             while reaped_id != 0:
                 if reaped_id == child_id:
-                    return status
+                    return status, None
                 reaped_id, status, _ = os.wait4(-1, os.WNOHANG)
-            remaining_seconds = deadline - time.monotonic()
             if remaining_seconds <= 0:
-                return None
+                return None, 'timed_out'
             poller.poll(max(1, min(ORPHAN_REAPING_MILLISECONDS, int(remaining_seconds * 1000))))
     finally:
         os.close(child_descriptor)
@@ -191,13 +225,21 @@ def parse_arguments(arguments):
         return None
     readable_paths = []
     writable_paths = []
+    cpu_time_seconds = None
+    process_count = None
     position = 2
-    while position + 1 < len(arguments) and arguments[position] in ('--read', '--write'):
-        (readable_paths if arguments[position] == '--read' else writable_paths).append(arguments[position + 1])
+    while position + 1 < len(arguments) and arguments[position] in ('--read', '--write', '--cpu-time', '--processes'):
+        option, value = arguments[position], arguments[position + 1]
+        if option == '--cpu-time':
+            cpu_time_seconds = float(value)
+        elif option == '--processes':
+            process_count = int(value)
+        else:
+            (readable_paths if option == '--read' else writable_paths).append(value)
         position += 2
     if position + 1 >= len(arguments) or arguments[position] != '--':
         return None
-    return float(arguments[0]), arguments[1], readable_paths, writable_paths, arguments[position + 1:]
+    return float(arguments[0]), arguments[1], (cpu_time_seconds, process_count), readable_paths, writable_paths, arguments[position + 1:]
 
 
 def main():
@@ -212,10 +254,10 @@ def main():
 
     arguments = parse_arguments(sys.argv[1:])
     if arguments is None:
-        sys.stderr.write('Usage: measure-process-tree.py <timeout-seconds> <measurement-path> [--read <path>]... [--write <path>]... -- <command> [argument...]\n')
+        sys.stderr.write('Usage: measure-process-tree.py <timeout-seconds> <measurement-path> [--cpu-time <seconds>] [--processes <count>] [--read <path>]... [--write <path>]... -- <command> [argument...]\n')
         sys.stderr.write('       measure-process-tree.py --landlock-abi\n')
         return 2
-    timeout_seconds, measurement_path, readable_paths, writable_paths, command = arguments
+    timeout_seconds, measurement_path, limits, readable_paths, writable_paths, command = arguments
     measurement_descriptor = open_measurement(measurement_path)
 
     if library.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0:
@@ -243,22 +285,23 @@ def main():
             os._exit(127)
 
     os.close(error_writer)
-    child_status = wait_for_child(child_id, timeout_seconds, started_at)
+    child_status, stopped_by = wait_for_child(child_id, timeout_seconds, started_at, limits)
     finished_at = time.monotonic()
-    timed_out = child_status is None
+    timed_out = stopped_by == 'timed_out'
 
     stop_and_reap_remaining()
     usage = resource.getrusage(resource.RUSAGE_CHILDREN)
     write_measurement(measurement_descriptor, {
         'confinement_error': read_confinement_error(error_reader),
         'timed_out': timed_out,
+        'limit_exceeded': None if timed_out else stopped_by,
         'wall_time_seconds': finished_at - started_at,
         'cpu_user_seconds': usage.ru_utime,
         'cpu_system_seconds': usage.ru_stime,
         'peak_resident_kibibytes': usage.ru_maxrss,
     })
 
-    if timed_out:
+    if child_status is None:
         os.kill(os.getpid(), signal.SIGKILL)
     if os.WIFSIGNALED(child_status):
         signal_number = os.WTERMSIG(child_status)

@@ -1,0 +1,171 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/run.schema.json",
+    "title": "Run, version 2",
+    "description": "One execution of a scenario by one implementation over every declared input, with the environment and the exact revisions of the implementation and analyzers it used.",
+    "type": "object",
+    "required": ["schema", "id", "scenario_id", "started_at", "finished_at", "environment", "implementation", "analyzers", "source_configuration"],
+    "additionalProperties": false,
+    "properties": {
+        "schema": { "const": "https://github.com/SignerPHP/pdf-signing-qualification/blob/main/schemas/v2/run.schema.json" },
+        "id": { "$ref": "../v1/common.schema.json#/$defs/identifier" },
+        "scenario_id": { "$ref": "../v1/common.schema.json#/$defs/scenarioId" },
+        "started_at": { "$ref": "../v1/common.schema.json#/$defs/utcTimestamp" },
+        "finished_at": { "$ref": "../v1/common.schema.json#/$defs/utcTimestamp" },
+        "environment": {
+            "type": "object",
+            "required": ["os", "container_image", "php_version", "resource_limits"],
+            "additionalProperties": false,
+            "properties": {
+                "os": {
+                    "type": "object",
+                    "required": ["name", "kernel", "architecture"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+                        "kernel": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+                        "architecture": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                    }
+                },
+                "container_image": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["status", "id"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "available" },
+                                "id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "required": ["status", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "unavailable" },
+                                "reason": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
+                    ]
+                },
+                "cpu_model": {
+                    "description": "The CPU model the run read from the host, or why it could not be read.",
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["status", "name"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "available" },
+                                "name": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "required": ["status", "reason"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "status": { "const": "unavailable" },
+                                "reason": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                            }
+                        }
+                    ]
+                },
+                "php_version": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+                "confinement": {
+                    "description": "How the filesystem access of each attempt was confined. Besides these paths, an attempt may read the credentials it signs with and read and write its own work directory, and nothing else. A run without it predates the confinement.",
+                    "type": "object",
+                    "required": ["mechanism", "landlock_abi", "readable_directories", "writable_paths"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "mechanism": { "const": "landlock" },
+                        "landlock_abi": { "type": "integer", "minimum": 3 },
+                        "readable_directories": {
+                            "type": "array",
+                            "uniqueItems": true,
+                            "items": { "type": "string", "pattern": "^/" }
+                        },
+                        "writable_paths": {
+                            "type": "array",
+                            "uniqueItems": true,
+                            "items": { "type": "string", "pattern": "^/" }
+                        }
+                    }
+                },
+                "resource_limits": {
+                    "description": "The limits applied to each attempt. The CPU time and the processes are counted over the attempt's whole process tree, threads included as the kernel counts them, and the measuring process stops the tree when either is exceeded.",
+                    "type": "object",
+                    "required": ["timeout_seconds", "cpu_time_seconds", "address_space_bytes", "file_size_bytes", "storage_bytes", "open_files", "processes"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "timeout_seconds": { "type": "number", "exclusiveMinimum": 0 },
+                        "cpu_time_seconds": { "type": "number", "exclusiveMinimum": 0 },
+                        "address_space_bytes": { "type": "integer", "minimum": 1 },
+                        "file_size_bytes": { "type": "integer", "minimum": 1 },
+                        "storage_bytes": { "type": "integer", "minimum": 1 },
+                        "open_files": { "type": "integer", "minimum": 1 },
+                        "processes": { "type": "integer", "minimum": 1 }
+                    }
+                }
+            }
+        },
+        "implementation": { "$ref": "#/$defs/tool" },
+        "implementation_runtime": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+                "java_version": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+                "java_options": {
+                    "type": "array",
+                    "items": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                },
+                "environment_variables": {
+                    "type": "array",
+                    "items": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                },
+                "engine": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" },
+                "wrapper": { "$ref": "#/$defs/tool" }
+            }
+        },
+        "implementation_compatibility": {
+            "description": "Whether the adapter's command applies to the installed revision, checked before any attempt. An incompatible revision is still run, so every attempt records what happened.",
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["status"],
+                    "additionalProperties": false,
+                    "properties": { "status": { "enum": ["compatible", "not_checked"] } }
+                },
+                {
+                    "type": "object",
+                    "required": ["status", "reason"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "status": { "const": "incompatible" },
+                        "reason": { "$ref": "../v1/common.schema.json#/$defs/nonEmptyString" }
+                    }
+                }
+            ]
+        },
+        "analyzers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/tool" }
+        },
+        "source_configuration": { "$ref": "../v1/common.schema.json#/$defs/artifact" },
+        "expected_rejections": { "$ref": "../v1/common.schema.json#/$defs/artifact" }
+    },
+    "$defs": {
+        "tool": {
+            "type": "object",
+            "required": ["id", "revision"],
+            "additionalProperties": false,
+            "properties": {
+                "id": { "$ref": "../v1/common.schema.json#/$defs/identifier" },
+                "revision": { "$ref": "../v1/common.schema.json#/$defs/revision" }
+            }
+        }
+    }
+}

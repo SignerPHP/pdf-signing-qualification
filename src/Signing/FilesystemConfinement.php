@@ -52,16 +52,17 @@ final class FilesystemConfinement
     }
 
     /**
-     * @param  list<string>  $credentialPaths
+     * @param  list<string>  $readablePaths
+     * @param  list<string>  $writablePaths
      * @return list<string>
      */
-    public function arguments(string $attemptDirectory, array $credentialPaths): array
+    public function arguments(string $workDirectory, array $readablePaths, array $writablePaths = []): array
     {
         $arguments = [];
-        foreach ([...$this->existing($this->readableDirectories), ...$credentialPaths] as $path) {
+        foreach ([...$this->existing($this->readableDirectories), ...$readablePaths] as $path) {
             array_push($arguments, '--read', $path);
         }
-        foreach ([...$this->existing($this->writablePaths), $attemptDirectory] as $path) {
+        foreach ([...$this->existing($this->writablePaths), $workDirectory, ...$writablePaths] as $path) {
             array_push($arguments, '--write', $path);
         }
 

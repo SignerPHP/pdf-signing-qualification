@@ -10,7 +10,7 @@ final class RunSchemaTest extends SchemaTestCase
 {
     protected static function schemaPath(): string
     {
-        return 'v1/run.schema.json';
+        return 'v2/run.schema.json';
     }
 
     protected static function validDocument(): array
@@ -25,6 +25,15 @@ final class RunSchemaTest extends SchemaTestCase
                 'os' => ['name' => 'Debian GNU/Linux 12 (bookworm)', 'kernel' => '6.8.0', 'architecture' => 'x86_64'],
                 'container_image' => ['status' => 'available', 'id' => 'sha256:'.str_repeat('c', 64)],
                 'php_version' => '8.4.27',
+                'resource_limits' => [
+                    'timeout_seconds' => 120.0,
+                    'cpu_time_seconds' => 240.0,
+                    'address_space_bytes' => 1_073_741_824,
+                    'file_size_bytes' => 268_435_456,
+                    'storage_bytes' => 536_870_912,
+                    'open_files' => 256,
+                    'processes' => 128,
+                ],
             ],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('f', 40)]],
             'analyzers' => [
@@ -93,16 +102,9 @@ final class RunSchemaTest extends SchemaTestCase
         }));
     }
 
-    public function test_resource_limits_and_implementation_runtime_are_accepted(): void
+    public function test_implementation_runtime_is_accepted(): void
     {
         self::assertValid(self::mutate(function (array $run): array {
-            $run['environment']['resource_limits'] = [
-                'timeout_seconds' => 120.0,
-                'address_space_bytes' => 1_073_741_824,
-                'file_size_bytes' => 268_435_456,
-                'storage_bytes' => 536_870_912,
-                'open_files' => 256,
-            ];
             $run['implementation_runtime'] = [
                 'java_version' => '21.0.13+9-LTS',
                 'java_options' => ['-Xmx512m'],
@@ -147,7 +149,42 @@ final class RunSchemaTest extends SchemaTestCase
             return $run;
         })];
         yield 'resource limits without the address space' => [self::mutate(function (array $run): array {
-            $run['environment']['resource_limits'] = ['timeout_seconds' => 120.0, 'file_size_bytes' => 1, 'storage_bytes' => 1, 'open_files' => 1];
+            unset($run['environment']['resource_limits']['address_space_bytes']);
+
+            return $run;
+        })];
+        yield 'no resource limits' => [self::mutate(function (array $run): array {
+            unset($run['environment']['resource_limits']);
+
+            return $run;
+        })];
+        yield 'resource limits without the CPU time' => [self::mutate(function (array $run): array {
+            unset($run['environment']['resource_limits']['cpu_time_seconds']);
+
+            return $run;
+        })];
+        yield 'resource limits without the processes' => [self::mutate(function (array $run): array {
+            unset($run['environment']['resource_limits']['processes']);
+
+            return $run;
+        })];
+        yield 'no CPU time' => [self::mutate(function (array $run): array {
+            $run['environment']['resource_limits']['cpu_time_seconds'] = 0;
+
+            return $run;
+        })];
+        yield 'no process' => [self::mutate(function (array $run): array {
+            $run['environment']['resource_limits']['processes'] = 0;
+
+            return $run;
+        })];
+        yield 'fractional process count' => [self::mutate(function (array $run): array {
+            $run['environment']['resource_limits']['processes'] = 1.5;
+
+            return $run;
+        })];
+        yield 'version 1 identifier' => [self::mutate(function (array $run): array {
+            $run['schema'] = self::SCHEMA_PREFIX.'v1/run.schema.json';
 
             return $run;
         })];

@@ -384,7 +384,35 @@ final class ComparisonValidatorsTest extends TestCase
         $observation = $validator->observe(self::subject('unsigned', 'signature after a DSS revision with a first range over it'));
 
         self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
-        self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'valid'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+        self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'inconclusive'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+    }
+
+    public function test_established_findings_stand_when_the_revision_chain_stops_early(): void
+    {
+        $withDss = SyntheticSignedPdf::appendRevision(self::$fixtures['appended to signed'], self::$directory, 'appended-to-signed-dss-before-third', [1 => self::APPENDED_CATALOG_START.' /DSS 11 0 R >>', 11 => '<< /Type /DSS /Certs [12 0 R] >>', 12 => "<< /Length 4 >>\nstream\ncert\nendstream"], 13);
+        $signedThrice = SyntheticSignedPdf::appendSignature($withDss, self::$directory, 'appended-to-signed-third-signature', fieldName: '(Signature3)', trailerSize: 15, firstObject: 13);
+        $output = SyntheticSignedPdf::rewriteFirstByteRange($signedThrice, self::$directory, 'second-range-over-dss', static fn (int $firstLength, int $secondOffset): string => sprintf('/ByteRange [0 %d %d %d]', $firstLength, $secondOffset, (int) filesize($withDss) - $secondOffset), 1);
+        $unreadable = 'revision-'.filesize(self::$fixtures['signed']).'.pdf';
+        $runner = new class($unreadable) implements CommandRunner
+        {
+            public function __construct(private readonly string $unreadableName) {}
+
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
+            {
+                if (basename((string) end($command)) === $this->unreadableName) {
+                    return new CommandResult(2, 'qpdf: damaged');
+                }
+
+                return (new ProcessRunner)->run($command, $timeoutSeconds, $access);
+            }
+        };
+        $validator = new SignatureCoverageValidator($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-07T12:00:03Z'));
+
+        $observation = $validator->observe(self::subjectOf('unsigned', $output));
+
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'invalid', 'Signature3' => 'inconclusive'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+        self::assertStringContainsString('Signature2: the byte range ends at the end of the revision ending at byte '.filesize($withDss).', but its own dictionary is in an earlier revision', $observation['evidence']['summary']);
     }
 
     public function test_coverage_names_the_revision_each_range_ends_at(): void

@@ -43,32 +43,32 @@ On Docker Desktop for macOS the attempts do not start: its kernel creates down f
 
 ## Results on the pilot sample
 
-One run of `bin/pilot --scenario=<id>` for each of the nine scenarios above, over the [pilot sample](pilot-sample.md) (`config/inputs.json`), made one after the other on 27 November 2026 on a Linux host, without any Compose override. As the sample page says, the sample is failure-enriched: its inputs were chosen for their edge cases, so no count below is a compatibility rate.
+One run of `bin/pilot --scenario=<id>` for each of the nine scenarios above, over the [pilot sample](pilot-sample.md) (`config/inputs.json`), made one after the other on 28 November 2026 on a Linux host, without any Compose override, after [#75](https://github.com/SignerPHP/pdf-signing-qualification/issues/75) changed the policy of `qpdf-byte-range` and [#76](https://github.com/SignerPHP/pdf-signing-qualification/issues/76) made each run record the revision of this repository. They replace the runs of release [`results-20261127-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261127-1), made on 27 November 2026 at commit `2009492ea440916e6e58dc5e9a45b48e45c141e9` with image `sha256:558e74f8bd68d8691e3475874e5adef0de851790c83aff302c4926513490c9ca` and the policy `qpdf-byte-range-whole-file`, whose bundles stay in that release. Every execution outcome, every baseline and every verdict of the other analyzers is the same in both sets of runs, and so is the summary of every observation once run identifiers and generated field names are set aside; only `qpdf-byte-range` changed, as described under its finding. As the sample page says, the sample is failure-enriched: its inputs were chosen for their edge cases, so no count below is a compatibility rate.
 
 ### Revisions and environment
 
 | Item | Value |
 | ---- | ----- |
-| This repository | Commit `2009492ea440916e6e58dc5e9a45b48e45c141e9`, with a clean working tree, whose code is that of `main` at `909bdec5e3ae6baf591d5512f1e67b1668f777b6`, since it changes only documents; the records do not hold it, and the image below is what links them to it |
+| This repository | Commit `b64a385d30ac38b1fe9adef65f2fb983a3afe786`, the head of `main` when the runs were made, with a clean working tree, as the `harness` of each `run.json` records |
 | Implementation | `pdf-signer` at commit `f27e4064be107b8a662f370a9acdcecd786da9f7` (`v0.3.0`), the pinned revision |
 | Analyzers | `pyhanko` 0.38.0, `pdfsig` 22.12.0, `openssl-cms` 3.0.22, `qpdf` 11.3.0, `cmp` 3.8, `qpdf-prior-signatures`, `qpdf-byte-range`, `qpdf-certification-permissions` and `qpdf-pades-structure` 11.3.0, and `eu-dss` 6.2 under every scenario; `document-timestamp-imprint` 11.3.0 under `pades-baseline-lta` and `icp-brasil-ad-rt`; `demoiselle-signer` 4.4.0 under `icp-brasil-ad-rt` |
 | Source configuration | `config/inputs.json` with SHA-256 `805dd8296a3c8c7ab406911eba1672e1d8f14ca8dd37ce8fc8418449d9bcecef` |
 | Expected rejections | `config/expected-rejections.json` with SHA-256 `c5745bfb527b6a495a428cc80345a1a2fb69079613bba0062145e3a28bea6e81`; it declares none for these scenarios, and `pades-revoked-signer` itself expects every attempt to be rejected |
-| Environment | Debian GNU/Linux 12 (bookworm), PHP 8.4.27, x86_64, host kernel 7.3.5, Landlock ABI 11 |
-| Image | `sha256:558e74f8bd68d8691e3475874e5adef0de851790c83aff302c4926513490c9ca`, the same for the nine runs and for the [differential baseline](differential-baseline.md) |
-| Records | One bundle per run, attached to release [`results-20261127-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261127-1) and listed below |
+| Environment | Debian GNU/Linux 12 (bookworm), PHP 8.4.27, x86_64, host kernel 7.3.6, Landlock ABI 11 |
+| Image | `sha256:b653a08efba79b80191975170a263aebaf7ddd91783b5e1c138a3ec95c5abf4c`, built from that commit, the same for the nine runs and for the [differential baseline](differential-baseline.md) |
+| Records | One bundle per run, attached to release [`results-20261128-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261128-1) and listed below; the bundles of the runs they replace stay in [`results-20261127-1`](https://github.com/SignerPHP/pdf-signing-qualification/releases/tag/results-20261127-1) |
 
 | Scenario | Bundle | SHA-256 |
 | -------- | ------ | ------- |
-| `pades-baseline-b` | `run-20261127T225941Z.tar.xz` | `3b7730db36a2de056a3efa8cbb6783bbe64817b45cfd3da620222b27b418561c` |
-| `pades-baseline-t` | `run-20261127T230101Z.tar.xz` | `efab2ee0ba4986fe298155602e7075fc9e3317af3f614f05ab2c6e5a9bb44896` |
-| `pades-baseline-lt` | `run-20261127T230226Z.tar.xz` | `2904153953d24799e0c316852c86bc2bc426e5ee7d79ddbcc400fe5dfa3ce6c9` |
-| `pades-baseline-lta` | `run-20261127T230355Z.tar.xz` | `678c62aef060b635048a869bc9e4afc8bf2f2a21379c35ec00192877a8081765` |
-| `pades-certification-docmdp-2` | `run-20261127T230528Z.tar.xz` | `2d226669eb05a59c84195af961bb8ea93171536a461d11b2b2af1f60ab7b4e3f` |
-| `pades-two-approval-signatures` | `run-20261127T230647Z.tar.xz` | `7e78b7dc80524d5a650726a6f6e06d3013dbb987065600f915786e2f73f0e706` |
-| `pades-certification-then-approval` | `run-20261127T230811Z.tar.xz` | `6e6a2e2b1c60464623d762744023b402e53ab323e371886d1f17d04ff9b03953` |
-| `icp-brasil-ad-rt` | `run-20261127T230937Z.tar.xz` | `9af8cc14c87421e74535d1459101a7efed6ecdbbf8fa63f4a1c78a9bc65b2178` |
-| `pades-revoked-signer` | `run-20261127T231130Z.tar.xz` | `6b09e99c74769e554038dc62e08262f2f1152472b00888ca47f70ba442fc59d1` |
+| `pades-baseline-b` | `run-20261128T133415Z.tar.xz` | `ade93b9cc894f1b057b6369d311d861a63a7f75b9034d5160953e09a65ec5e7b` |
+| `pades-baseline-t` | `run-20261128T133534Z.tar.xz` | `8c2be0aeb29b4f043cbe119443d53aa7516d1e803521d3723564ae8d659b0f04` |
+| `pades-baseline-lt` | `run-20261128T133658Z.tar.xz` | `0217d2da0c5a6a9cf57d44cb72635bd8e54bd7ee3a8662858addd0b41d579a26` |
+| `pades-baseline-lta` | `run-20261128T133826Z.tar.xz` | `7aee8080245537f77c74e0a05ea9aef0a942f466888e3300b5dfa32d8a755442` |
+| `pades-certification-docmdp-2` | `run-20261128T134001Z.tar.xz` | `77e097d50d5ecccc9aaf5064c5772b0bcf7617d4fecc05944e1dfb4330a6522d` |
+| `pades-two-approval-signatures` | `run-20261128T134119Z.tar.xz` | `68d4e3877c7b193cb6cede887914df3f55fd141ef5294350d302c43ee7f48696` |
+| `pades-certification-then-approval` | `run-20261128T134243Z.tar.xz` | `1c32b233ee12c59cd077370908ddcde9e84041fb10fce4038af0f0f8130a6d21` |
+| `icp-brasil-ad-rt` | `run-20261128T134409Z.tar.xz` | `6152abd2a146ef532cb18022e1e9658b7b9c0cc56e791ceb55c931895f87ee6a` |
+| `pades-revoked-signer` | `run-20261128T134602Z.tar.xz` | `bfe7d627edf5f4035aa5fd559b75eb48a3f6948b7d3f4189c78728cb68923cd9` |
 
 ### Executions
 
@@ -95,14 +95,14 @@ The others, as `valid` / `invalid` / `inconclusive` of 23 outputs, with no `not_
 | Scenario | `pyhanko` | `openssl-cms` | `qpdf-byte-range` | `eu-dss` | `qpdf-pades-structure` | `document-timestamp-imprint` | `demoiselle-signer` |
 | -------- | --------- | ------------- | ----------------- | -------- | ---------------------- | ---------------------------- | ------------------- |
 | `pades-baseline-b` | 6 / 1 / 16 | 19 / 3 / 1 | 22 / 0 / 1 | 0 / 20 / 3 | 13 / 0 / 10 | – | – |
-| `pades-baseline-t` | 0 / 1 / 22 | 0 / 22 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
-| `pades-baseline-lt` | 0 / 1 / 22 | 0 / 22 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
-| `pades-baseline-lta` | 0 / 1 / 22 | 0 / 22 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | 0 / 14 / 9 | – |
+| `pades-baseline-t` | 0 / 1 / 22 | 0 / 22 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
+| `pades-baseline-lt` | 0 / 1 / 22 | 0 / 22 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
+| `pades-baseline-lta` | 0 / 1 / 22 | 0 / 22 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | 0 / 14 / 9 | – |
 | `pades-certification-docmdp-2` | 6 / 1 / 16 | 19 / 3 / 1 | 22 / 0 / 1 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
-| `pades-two-approval-signatures` | 5 / 4 / 14 | 19 / 3 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 13 / 0 / 10 | – | – |
-| `pades-certification-then-approval` | 5 / 4 / 14 | 19 / 3 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
-| `icp-brasil-ad-rt` | 0 / 1 / 22 | 0 / 22 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | 0 / 14 / 9 | 0 / 19 / 4 |
-| `pades-revoked-signer` | 0 / 1 / 22 | 0 / 22 / 1 | 0 / 14 / 9 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
+| `pades-two-approval-signatures` | 5 / 4 / 14 | 19 / 3 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 13 / 0 / 10 | – | – |
+| `pades-certification-then-approval` | 5 / 4 / 14 | 19 / 3 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
+| `icp-brasil-ad-rt` | 0 / 1 / 22 | 0 / 22 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | 0 / 14 / 9 | 0 / 19 / 4 |
+| `pades-revoked-signer` | 0 / 1 / 22 | 0 / 22 / 1 | 13 / 0 / 10 | 0 / 20 / 3 | 0 / 14 / 9 | – | – |
 
 No output is `valid` for `eu-dss` under any scenario.
 
@@ -116,7 +116,7 @@ The baseline, each analyzer's verdict on the 27 inputs before signing, is the sa
 - **`pyhanko`**: under the five scenarios whose outputs hold a document timestamp it judges no output `valid`, because those timestamps are dictionaries of type `/Sig` outside the form, which pyHanko does not report, so they are not judged.
 - **`demoiselle-signer`**: under `icp-brasil-ad-rt` every signature Demoiselle checks commits to no signature policy, so none is AD-RT and 19 of 23 outputs are `invalid`. It is `inconclusive` on `minimal-signed-restricted.pdf`, `nontrivial-crypt-filter.pdf` and `V4-aes.pdf`, where it ends without a report, and on veraPDF `6-1-11-t01-pass-a`, which qpdf cannot list.
 - **`pades-revoked-signer`**: the revision signs with the revoked certificate instead of refusing it, and DSS reports the added signature `INDETERMINATE/REVOKED_NO_POE`, with format `PDF-NOT-ETSI`, on 20 outputs: the 19 `invalid` outputs other than `minimal-signed-restricted.pdf`, where it finds none, and the `inconclusive` output of veraPDF `6-1-11-t01-pass-a`.
-- **`qpdf-byte-range`**: its policy in these runs, `qpdf-byte-range-whole-file`, required the range of every added signature to reach the last byte of the output, which only one added signature can do. When the output adds a second signature or a document timestamp after the first, the earlier one leaves out the later revision, so `qpdf-byte-range` judged the same 14 of 23 outputs `invalid` under every scenario where the output holds more than one added dictionary. Under LTA, AD-RT and the two scenarios with two signers this followed from the policy, not from a defect of the output; under T, LT and the revoked signer the later dictionary is the document timestamp those scenarios do not call for. That policy has since been replaced by `qpdf-byte-range-revisions`, which judges each of several added signatures against the end of its own revision ([#75](https://github.com/SignerPHP/pdf-signing-qualification/issues/75)); the verdicts above stay as the analyzer gave them in these runs. Its `inconclusive` verdicts are 9 under those scenarios, on inputs qpdf had to recover or cannot read, and 1 under baseline B and `pades-certification-docmdp-2`, on `nontrivial-crypt-filter.pdf`.
+- **`qpdf-byte-range`**: under its policy `qpdf-byte-range-revisions`, each of several added signatures must cover the revision that first holds its dictionary, and a revision without a signature after it may only update the DSS. Under the seven scenarios whose outputs add more than one dictionary (a second signature, or one or two document timestamps), 13 of 23 outputs are `valid`: each range ends at the end of its own revision, and the revisions without a signature that `pdf-signer` writes, after the document timestamp under LT and the revoked signer and between the two timestamps under LTA and AD-RT, change only the `/DSS` entry of the catalog and the objects of the DSS. Under T, LT and the revoked signer the later dictionary is the document timestamp those scenarios do not call for; this analyzer judges the coverage of the bytes whatever the scenario, and `qpdf-pades-structure` reports the extra timestamp. The 10 `inconclusive` verdicts are the 8 outputs whose input qpdf had to recover, judged by the rule for one signature, under which every range must reach the end of the output, because a signature the recovery lost from the input's listing would count as added; `nontrivial-crypt-filter.pdf`, whose input qpdf cannot read; and `leading-junk.pdf`, whose output qpdf has to recover, so its revisions cannot be read. Under baseline B and `pades-certification-docmdp-2`, where the output adds one signature, the verdicts are the same as in `results-20261127-1`: 22 `valid` and `nontrivial-crypt-filter.pdf` `inconclusive`. In the runs of `results-20261127-1`, under the policy `qpdf-byte-range-whole-file`, which required every added range to reach the last byte of the output, the seven scenarios gave 0 / 14 / 9: the 13 outputs now `valid` and `leading-junk.pdf` were `invalid`.
 
 These runs judge the pinned revision. Pull requests merged into `pdf-signer` and `pdf-core` after it address the document timestamps, the `/Perms /DocMDP` registration, the signature policy and the refusal of a revoked certificate; once a later revision is pinned, `bin/replay` between the two under these scenarios shows what they fix.
 
@@ -124,7 +124,7 @@ The analyzers of the basic scenarios also run here. In the runs made for [#61](h
 
 ### Audit of the bundles
 
-Each bundle is a `tar.xz` archive of the run directory without `outputs/`, built as the bundles of the differential baseline are. They list no `.pdf` file and no `outputs/` path, and hold only JSON and Markdown records. The test PKI is generated in the scratch directory under `/sandbox` and removed at the end of the run, so no key, keystore, password or certificate file of it is in the run directory, and the records identify its root and signer certificates by SHA-256 only. Searched over the extracted records: no PEM block, no `%PDF-` content, no host name, user name, home directory or host path, and no private address. The only absolute paths are `/dev/null`, `/usr/lib` and `/opt` inside the image, and the relative paths are those of the inputs and outputs in the mount, `var/cache/inputs/files/...` and `var/runs/<run>/outputs/<sha256>.pdf`, inside the messages of qpdf. The word `password` appears only in messages of the validators: qpdf's `invalid password` and `User password = ` with an empty value, `Supplied password is user password` or `owner password`, for an encrypted input or output, and pyHanko's prompt for one. The e-mail addresses belong to the test certificates of the upstream inputs (`example.org`, `verapdf.org`, `adobe.com`), and the long hexadecimal strings are the `/Contents` of the signatures those inputs already hold.
+Each bundle is a `tar.xz` archive of the run directory without `outputs/`, built as the bundles of the differential baseline are and audited in the same way. They list no `.pdf` file and no `outputs/` path, and hold only JSON and Markdown records. The test PKI is generated in the scratch directory under `/sandbox` and removed at the end of the run, so no key, keystore, password or certificate file of it is in the run directory, and the records identify its root and signer certificates by SHA-256 only. Searched over the extracted records: no PEM block, no `%PDF-` content, no host name, user name, home directory or host path, and no private address. The `harness` of each `run.json` holds only the commit and the state of the working tree, `clean`, and no path. The only absolute paths are `/dev/null`, `/usr/lib` and `/opt` inside the image, and the system directories of the confinement record, and the relative paths are those of the inputs and outputs in the mount, `var/cache/inputs/files/...` and `var/runs/<run>/outputs/<sha256>.pdf`, inside the messages of qpdf. The word `password` appears only in messages of the validators: qpdf's `invalid password` and `User password = ` with an empty value, `Supplied password is user password` or `owner password`, for an encrypted input or output, and pyHanko's prompt for one. The e-mail addresses belong to the test certificates of the upstream inputs (`example.org`, `verapdf.org`, `adobe.com`), and the long hexadecimal strings are the `/Contents` of the signatures those inputs already hold.
 
 ## Positive control
 

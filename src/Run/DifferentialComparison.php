@@ -195,6 +195,7 @@ final class DifferentialComparison
             'runs' => array_map(static function (RunRecords $records): array {
                 $run = [
                     'run_id' => $records->run['id'],
+                    'harness' => $records->run['harness'] ?? null,
                     'container_image' => $records->run['environment']['container_image'],
                 ];
                 if (isset($records->run['implementation_runtime'])) {

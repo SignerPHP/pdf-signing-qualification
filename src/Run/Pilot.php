@@ -24,10 +24,11 @@ use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
 final class Pilot
 {
-    public const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
+    public const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v3/run.schema.json';
 
     public const array READABLE_RUN_SCHEMAS = [
         SchemaValidator::SCHEMA_PREFIX.'v1/run.schema.json',
+        SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json',
         self::RUN_SCHEMA,
     ];
 
@@ -51,7 +52,7 @@ final class Pilot
      * @param  list<RegressionCase>  $regressionCases
      * @return array{run: array, baselines: list<array>, attempts: list<array>, measurements: list<array>, observations: list<array>, regressions: ?array}
      */
-    public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $sourceConfiguration, array $regressionCases = []): array
+    public function run(string $runId, array $scenario, array $inputs, array $acquisitions, array $environment, array $harness, array $sourceConfiguration, array $regressionCases = []): array
     {
         if ($regressionCases !== [] && $this->regressionReplay === null) {
             throw new RuntimeException('The run has regression cases but nothing to replay them with');
@@ -65,6 +66,7 @@ final class Pilot
             'started_at' => $this->now(),
             'finished_at' => null,
             'environment' => $environment,
+            'harness' => $harness,
             'implementation' => ['id' => $this->implementation->id(), 'revision' => $this->implementation->revision()],
             'analyzers' => $this->panel->analyzers(),
             'source_configuration' => $sourceConfiguration,

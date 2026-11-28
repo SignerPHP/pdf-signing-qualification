@@ -136,6 +136,7 @@
                 "subject": {
                     "enum": [
                         "scenario",
+                        "harness",
                         "implementation",
                         "implementation_runtime",
                         "implementation_compatibility",

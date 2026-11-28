@@ -378,6 +378,7 @@ final class PerformanceAnalysis
                 'implementation_id' => $planned['implementation_id'],
                 'role' => $planned['role'],
                 'run_id' => $records->run['id'],
+                'harness' => $records->run['harness'] ?? null,
                 'started_at' => $records->run['started_at'],
                 'finished_at' => $records->run['finished_at'],
                 'medians' => $runMedians,

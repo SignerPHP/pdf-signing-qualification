@@ -311,6 +311,21 @@ final class RunComparisonTest extends TestCase
         );
     }
 
+    public function test_harness_that_neither_run_records_or_could_read_is_never_taken_as_shared(): void
+    {
+        $unavailable = ['status' => 'unavailable', 'reason' => 'Unable to read the commit of the checkout /app: git rev-parse exited with code 128'];
+        $cases = [
+            [null, (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->versionTwo(), (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->versionTwo()],
+            [$unavailable, (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->harness($unavailable), (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->harness($unavailable)],
+        ];
+        foreach ($cases as [$harness, $reference, $candidate]) {
+            self::assertSame([['subject' => 'harness', 'reference' => $harness, 'candidate' => $harness]], self::compare($reference, $candidate)['differences']);
+        }
+
+        $shared = (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']);
+        self::assertSame([], self::compare($shared, (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']))['differences']);
+    }
+
     public function test_differences_in_implementation_analyzers_policies_and_configuration_are_stated(): void
     {
         $reference = (new RunFixture('run-20261107T120000Z', ['pdfsig' => '22.12.0', 'qpdf' => '11.3.0', 'pyhanko' => '0.38.0']))
@@ -327,10 +342,12 @@ final class RunComparisonTest extends TestCase
         $candidate->run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
         $candidate->run['implementation_runtime'] = ['engine' => 'OpenPDF'];
         $candidate->compatibility(['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']);
+        $candidate->harness(['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('8', 40)], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]]);
 
         $comparison = self::compare($reference, $candidate);
 
         self::assertSame([
+            ['subject' => 'harness', 'reference' => $reference->run['harness'], 'candidate' => $candidate->run['harness']],
             ['subject' => 'implementation', 'reference' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]], 'candidate' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)]]],
             ['subject' => 'implementation_runtime', 'reference' => null, 'candidate' => ['engine' => 'OpenPDF']],
             ['subject' => 'implementation_compatibility', 'reference' => null, 'candidate' => ['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']],

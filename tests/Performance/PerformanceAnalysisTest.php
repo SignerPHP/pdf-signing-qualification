@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SignerPHP\PdfSigningQualification\Performance\PerformanceAnalysis;
+use SignerPHP\PdfSigningQualification\Performance\PerformanceSummary;
 use SignerPHP\PdfSigningQualification\Performance\Protocol;
 use SignerPHP\PdfSigningQualification\Performance\StudyRecords;
 use SignerPHP\PdfSigningQualification\Tests\Run\RunFixture;
@@ -280,6 +281,42 @@ final class PerformanceAnalysisTest extends TestCase
         $this->expectExceptionMessage('differ in their container image');
 
         PerformanceAnalysis::analyze([$this->study(1, runChanges: $runChanges)]);
+    }
+
+    public function test_runs_from_other_revisions_of_the_harness_are_analyzed_and_each_run_records_its_own(): void
+    {
+        $modified = ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('8', 40)], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]];
+        $runChanges = static function (RunFixture $run, array $planned) use ($modified): void {
+            if ($planned['label'] === '04-'.$planned['implementation_id']) {
+                $run->harness($modified);
+            }
+            if ($planned['label'] === '05-'.$planned['implementation_id']) {
+                $run->versionTwo();
+            }
+        };
+
+        $analysis = PerformanceAnalysis::analyze([$this->study(1, runChanges: $runChanges)]);
+
+        foreach ($analysis['sessions'][0]['runs'] as $run) {
+            $expected = match (substr($run['label'], 0, 3)) {
+                '04-' => $modified,
+                '05-' => null,
+                default => (new RunFixture('run'))->run['harness'],
+            };
+            self::assertSame($expected, $run['harness'], $run['label']);
+        }
+        $markdown = PerformanceSummary::markdown($analysis);
+        self::assertStringContainsString('**The runs do not all come from the same revision of this repository and state of its working tree**', $markdown);
+        self::assertStringContainsString('commit `'.str_repeat('8', 40).'` with files that differ from the commit: `src/Run/Pilot.php` |', $markdown);
+        self::assertStringNotContainsString('Harness: commit', $markdown);
+    }
+
+    public function test_runs_from_one_revision_of_the_harness_state_it_once(): void
+    {
+        $markdown = PerformanceSummary::markdown(PerformanceAnalysis::analyze([$this->study(1)]));
+
+        self::assertStringContainsString('Harness: commit `'.str_repeat('7', 40).'` with a clean working tree.', $markdown);
+        self::assertStringNotContainsString('do not all come from the same revision', $markdown);
     }
 
     public function test_runs_of_one_implementation_at_another_revision_are_refused(): void

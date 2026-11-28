@@ -91,6 +91,8 @@ final class RunReport
             '',
             "Scenario `{$records->run['scenario_id']}`, implementation ".Summary::tool($records->run['implementation']).'. Generated only from the records in the run directory: `run.json`, `attempts.json`, `observations.json` and `'.self::SOURCE_CONFIGURATION_FILE.'`, the copy of the source configuration used by the run.',
             '',
+            'Harness: '.Summary::harness($records->run['harness'] ?? null).'.',
+            '',
             ...self::selection($selection),
             ...($records->regressions === null ? [] : ['The regression cases replayed by the run are a failure-enriched selection of their own, so they are not counted here.', '']),
             '## Coverage by stratum and scenario',

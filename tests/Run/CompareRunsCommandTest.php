@@ -99,8 +99,27 @@ final class CompareRunsCommandTest extends TestCase
 
         self::assertSame(0, $exitCode, $errorOutput);
         $differences = $this->readComparison($this->directory.'/comparison')['differences'];
-        self::assertSame([['subject' => 'resource_limits', 'reference' => $reference->run['environment']['resource_limits'], 'candidate' => (new RunFixture('run-20261107T130000Z'))->run['environment']['resource_limits']]], $differences);
-        self::assertArrayNotHasKey('processes', $differences[0]['reference']);
+        self::assertSame([
+            ['subject' => 'harness', 'reference' => null, 'candidate' => (new RunFixture('run-20261107T130000Z'))->run['harness']],
+            ['subject' => 'resource_limits', 'reference' => $reference->run['environment']['resource_limits'], 'candidate' => (new RunFixture('run-20261107T130000Z'))->run['environment']['resource_limits']],
+        ], $differences);
+        self::assertArrayNotHasKey('processes', $differences[1]['reference']);
+    }
+
+    public function test_a_version_2_run_is_read_and_runs_from_other_revisions_of_the_harness_are_compared_with_the_difference_stated(): void
+    {
+        $candidate = (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])
+            ->harness(['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('8', 40)], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]]);
+        [$referenceDirectory, $candidateDirectory] = $this->writeRuns(
+            (new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid'])->versionTwo(),
+            $candidate,
+        );
+
+        [$exitCode, $output, $errorOutput] = $this->compareRuns($referenceDirectory, $candidateDirectory, $this->directory.'/comparison');
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertSame([['subject' => 'harness', 'reference' => null, 'candidate' => $candidate->run['harness']]], $this->readComparison($this->directory.'/comparison')['differences']);
+        self::assertStringContainsString('| `harness` |  | not recorded | commit `'.str_repeat('8', 40).'` with files that differ from the commit: `src/Run/Pilot.php` |', $output);
     }
 
     public function test_a_new_failure_exits_with_one(): void
@@ -247,7 +266,7 @@ final class CompareRunsCommandTest extends TestCase
     public function test_a_run_record_of_an_unknown_schema_is_refused(): void
     {
         $candidate = (new RunFixture('run-20261107T130000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']);
-        $candidate->run['schema'] = SchemaValidator::SCHEMA_PREFIX.'v3/run.schema.json';
+        $candidate->run['schema'] = SchemaValidator::SCHEMA_PREFIX.'v4/run.schema.json';
         [$reference, $candidate] = $this->writeRuns((new RunFixture('run-20261107T120000Z'))->succeeded(self::INPUT, ['pdfsig' => 'valid', 'qpdf' => 'valid']), $candidate);
 
         [$exitCode, , $errorOutput] = $this->compareRuns($reference, $candidate, $this->directory.'/comparison');

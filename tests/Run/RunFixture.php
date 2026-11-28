@@ -41,7 +41,7 @@ final class RunFixture
     public function __construct(string $runId, array $analyzerVersions = ['pdfsig' => '22.12.0', 'qpdf' => '11.3.0'], string $scenarioId = 'basic-invisible-sha256')
     {
         $this->run = [
-            'schema' => SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json',
+            'schema' => SchemaValidator::SCHEMA_PREFIX.'v3/run.schema.json',
             'id' => $runId,
             'scenario_id' => $scenarioId,
             'started_at' => '2026-11-07T12:00:00Z',
@@ -52,6 +52,7 @@ final class RunFixture
                 'php_version' => '8.4.27',
                 'resource_limits' => ['timeout_seconds' => 120, 'cpu_time_seconds' => 240, 'address_space_bytes' => 1_073_741_824, 'file_size_bytes' => 268_435_456, 'storage_bytes' => 536_870_912, 'open_files' => 256, 'processes' => 128],
             ],
+            'harness' => ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('7', 40)], 'working_tree' => ['status' => 'clean']],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]],
             'analyzers' => array_map(static fn (string $analyzerId, string $version): array => ['id' => $analyzerId, 'revision' => ['kind' => 'version', 'value' => $version]], array_keys($analyzerVersions), $analyzerVersions),
             'source_configuration' => ['sha256' => str_repeat('d', 64), 'byte_size' => 13_321],
@@ -242,8 +243,24 @@ final class RunFixture
 
     public function versionOne(): self
     {
+        $this->versionTwo();
         $this->run['schema'] = self::PREFIX.'run.schema.json';
         unset($this->run['environment']['resource_limits']['cpu_time_seconds'], $this->run['environment']['resource_limits']['processes']);
+
+        return $this;
+    }
+
+    public function versionTwo(): self
+    {
+        $this->run['schema'] = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
+        unset($this->run['harness']);
+
+        return $this;
+    }
+
+    public function harness(array $harness): self
+    {
+        $this->run['harness'] = $harness;
 
         return $this;
     }

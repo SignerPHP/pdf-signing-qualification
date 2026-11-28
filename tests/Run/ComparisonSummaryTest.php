@@ -120,7 +120,7 @@ final class ComparisonSummaryTest extends TestCase
             (new RunFixture('run-20261107T130000Z'))->succeeded('qpdf:good.pdf', self::VALID, 'second')->records(),
         ));
 
-        self::assertStringContainsString("## Differences between the runs\n\nThe two runs have the same scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.\n", $markdown);
+        self::assertStringContainsString("## Differences between the runs\n\nThe two runs have the same harness revision, scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.\n", $markdown);
         self::assertStringNotContainsString('## Regression cases', $markdown);
         self::assertStringContainsString("## New failures\n\nThe candidate run has no failure that the reference run did not have.\n", $markdown);
         self::assertStringNotContainsString('## Fixed', $markdown);

@@ -272,6 +272,24 @@ final class DifferentialComparisonTest extends TestCase
         self::assertSame(1, $comparison['totals']['inputs_by_classification']['agreement']);
     }
 
+    public function test_runs_from_other_revisions_of_the_harness_are_compared_and_each_run_records_its_own(): void
+    {
+        $modified = ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('8', 40)], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]];
+
+        $comparison = self::compare(
+            self::signed(),
+            static fn (RunFixture $run) => self::signed()($run->versionTwo()),
+            static fn (RunFixture $run) => self::signed()($run->harness($modified)),
+            self::signed(),
+        );
+
+        self::assertSame(
+            [(new RunFixture('run'))->run['harness'], $modified, null, (new RunFixture('run'))->run['harness']],
+            array_column([...$comparison['first']['runs'], ...$comparison['second']['runs']], 'harness'),
+        );
+        self::assertSame(1, $comparison['totals']['inputs_by_classification']['agreement']);
+    }
+
     public function test_each_run_reports_its_complete_denominator(): void
     {
         $comparison = self::compare(

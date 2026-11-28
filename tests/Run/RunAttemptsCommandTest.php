@@ -11,16 +11,18 @@ use SignerPHP\PdfSigningQualification\Acquisition\Acquirer;
 use SignerPHP\PdfSigningQualification\Acquisition\SourceConfiguration;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
+use SignerPHP\PdfSigningQualification\Run\HarnessRevision;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Signing\AttemptRunner;
 use SignerPHP\PdfSigningQualification\Tests\Acquisition\InMemoryFetcher;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticSignedPdf;
 use SignerPHP\PdfSigningQualification\Tests\Validation\SyntheticVisibleSignature;
 use SignerPHP\PdfSigningQualification\Validation\CommandLineValidator;
+use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
 
 final class RunAttemptsCommandTest extends TestCase
 {
-    private const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
+    private const string RUN_SCHEMA = SchemaValidator::SCHEMA_PREFIX.'v3/run.schema.json';
 
     private const string PDF_SIGNER_COMMIT = 'f27e4064be107b8a662f370a9acdcecd786da9f7';
 
@@ -173,6 +175,7 @@ final class RunAttemptsCommandTest extends TestCase
         self::assertSame(['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => self::PDF_SIGNER_COMMIT]], $run['implementation']);
         self::assertSame(self::ANALYZER_IDS, array_column($run['analyzers'], 'id'));
         self::assertSame(['status' => 'available', 'id' => self::IMAGE_ID], $run['environment']['container_image']);
+        self::assertSame(HarnessRevision::describe(new ProcessRunner, dirname(__DIR__, 2)), $run['harness']);
         self::assertSame(PHP_VERSION, $run['environment']['php_version']);
         self::assertSame(['sha256' => hash_file('sha256', $this->configurationPath), 'byte_size' => filesize($this->configurationPath)], $run['source_configuration']);
         self::assertFileEquals($this->configurationPath, "{$this->directory}/runs/run-20261031T120000Z/inputs.json");

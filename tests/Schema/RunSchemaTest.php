@@ -10,7 +10,7 @@ final class RunSchemaTest extends SchemaTestCase
 {
     protected static function schemaPath(): string
     {
-        return 'v2/run.schema.json';
+        return 'v3/run.schema.json';
     }
 
     protected static function validDocument(): array
@@ -35,6 +35,7 @@ final class RunSchemaTest extends SchemaTestCase
                     'processes' => 128,
                 ],
             ],
+            'harness' => ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('7', 40)], 'working_tree' => ['status' => 'clean']],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('f', 40)]],
             'analyzers' => [
                 ['id' => 'pyhanko', 'revision' => ['kind' => 'version', 'value' => '0.29.1']],
@@ -74,6 +75,20 @@ final class RunSchemaTest extends SchemaTestCase
         }));
         self::assertInvalid(self::mutate(function (array $run): array {
             $run['implementation_compatibility'] = ['status' => 'compatible', 'reason' => 'Listed every option'];
+
+            return $run;
+        }));
+    }
+
+    public function test_harness_with_changed_tracked_files_or_unread_with_its_reason_is_accepted(): void
+    {
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['harness']['working_tree'] = ['status' => 'modified', 'paths' => ['src/Run/Pilot.php', 'tests/Run/PilotTest.php']];
+
+            return $run;
+        }));
+        self::assertValid(self::mutate(function (array $run): array {
+            $run['harness'] = ['status' => 'unavailable', 'reason' => 'Unable to read the commit of the checkout /app: git rev-parse exited with code 128, because it is not a Git checkout or its Git directory is not in the container'];
 
             return $run;
         }));
@@ -185,6 +200,46 @@ final class RunSchemaTest extends SchemaTestCase
         })];
         yield 'version 1 identifier' => [self::mutate(function (array $run): array {
             $run['schema'] = self::SCHEMA_PREFIX.'v1/run.schema.json';
+
+            return $run;
+        })];
+        yield 'version 2 identifier' => [self::mutate(function (array $run): array {
+            $run['schema'] = self::SCHEMA_PREFIX.'v2/run.schema.json';
+
+            return $run;
+        })];
+        yield 'missing harness' => [self::mutate(function (array $run): array {
+            unset($run['harness']);
+
+            return $run;
+        })];
+        yield 'harness at a branch name' => [self::mutate(function (array $run): array {
+            $run['harness']['revision'] = ['kind' => 'commit', 'value' => 'main'];
+
+            return $run;
+        })];
+        yield 'harness at a version' => [self::mutate(function (array $run): array {
+            $run['harness']['revision'] = ['kind' => 'version', 'value' => '1.0.0'];
+
+            return $run;
+        })];
+        yield 'harness without the state of its working tree' => [self::mutate(function (array $run): array {
+            unset($run['harness']['working_tree']);
+
+            return $run;
+        })];
+        yield 'modified working tree without its paths' => [self::mutate(function (array $run): array {
+            $run['harness']['working_tree'] = ['status' => 'modified', 'paths' => []];
+
+            return $run;
+        })];
+        yield 'clean working tree with paths' => [self::mutate(function (array $run): array {
+            $run['harness']['working_tree'] = ['status' => 'clean', 'paths' => ['src/Run/Pilot.php']];
+
+            return $run;
+        })];
+        yield 'unavailable harness without reason' => [self::mutate(function (array $run): array {
+            $run['harness'] = ['status' => 'unavailable'];
 
             return $run;
         })];

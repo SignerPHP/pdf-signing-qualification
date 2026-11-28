@@ -51,6 +51,9 @@ final class ComparisonValidatorsTest extends TestCase
         $appendedToSigned = SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-to-signed');
         $dssSigned = SyntheticSignedPdf::appendRevision($signed, self::$directory, 'signed-dss-revision', [1 => self::SIGNED_CATALOG_START.self::DSS_ENTRIES.' >>'] + self::DSS_OBJECTS, 11);
         $signatureAfterDss = SyntheticSignedPdf::appendSignature($dssSigned, self::$directory, 'signature-after-dss-revision', trailerSize: 11);
+        $pagesInObjectStream = SyntheticSignedPdf::appendObjectStreamRevision($signed, self::$directory, 'signed-pages-in-object-stream', 9, [2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'], 11);
+        $twiceSignedObjectStream = SyntheticSignedPdf::appendSignature(SyntheticSignedPdf::appendSignature($pagesInObjectStream, self::$directory, 'object-stream-signed-once', trailerSize: 13, firstObject: 11), self::$directory, 'object-stream-signed-twice', trailerSize: 15, firstObject: 13);
+        $shiftedGap = SyntheticSignedPdf::shiftLastByteRangeGap($appendedToSigned, self::$directory);
         $leadingBytes = self::$directory.'/leading-bytes.pdf';
         file_put_contents($leadingBytes, "leading junk\n\n".file_get_contents($unsigned));
 
@@ -63,7 +66,11 @@ final class ComparisonValidatorsTest extends TestCase
             'appended to tampered' => SyntheticSignedPdf::appendSignature(SyntheticSignedPdf::tamperSignedRange($signed, self::$directory), self::$directory, 'appended-to-tampered'),
             'appended without the prior field' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-without-prior-field', keepPriorFields: false),
             'appended with bytes after the range' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-with-trailing-bytes', unsignedSuffix: "% unsigned\n"),
-            'appended with a shifted gap' => SyntheticSignedPdf::shiftLastByteRangeGap($appendedToSigned, self::$directory),
+            'appended with a shifted gap' => $shiftedGap,
+            'object stream signed twice' => $twiceSignedObjectStream,
+            'object stream signed twice and rewritten' => SyntheticSignedPdf::appendObjectStreamRevision($twiceSignedObjectStream, self::$directory, 'object-stream-rewritten', 9, [2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 /Rotate 90 >>'], 17),
+            'object stream input' => $pagesInObjectStream,
+            'appended with a shifted gap and a document information dictionary' => SyntheticSignedPdf::appendRevision($shiftedGap, self::$directory, 'shifted-gap-information', [9 => '<< /Producer (Synthetic) >>'], 10, ' /Info 9 0 R'),
             'document timestamp appended to signed' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'timestamp-appended-to-signed', signatureType: '/DocTimeStamp'),
             'appended to signed with a DSS revision' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-dss-revision', [1 => self::APPENDED_CATALOG_START.self::DSS_ENTRIES.' >>'] + self::DSS_OBJECTS, 11),
             'certification appended to signed with a DSS revision' => SyntheticSignedPdf::appendRevision(SyntheticSignedPdf::appendSignature($signed, self::$directory, 'certification-appended-to-signed', certification: true), self::$directory, 'certification-appended-to-signed-dss-revision', [1 => self::APPENDED_CATALOG_START.' /Perms << /DocMDP 8 0 R >>'.self::DSS_ENTRIES.' >>'] + self::DSS_OBJECTS, 11),
@@ -71,6 +78,9 @@ final class ComparisonValidatorsTest extends TestCase
             'appended to signed with a rewritten page tree' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-page-tree', [2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>']),
             'appended to signed with a DSS and a content change' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-dss-content-change', [1 => self::APPENDED_CATALOG_START.self::DSS_ENTRIES.' >>', 4 => "<< /Length 43 >>\nstream\nBT /F1 12 Tf 20 100 Td (Changed text) Tj ET\nendstream"] + self::DSS_OBJECTS, 11),
             'appended to signed with a document information dictionary' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-information', [9 => '<< /Producer (Synthetic) >>'], 10, ' /Info 9 0 R'),
+            'appended to signed with an information dictionary it already holds' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-existing-information', [], 9, ' /Info 2 0 R'),
+            'appended to signed with a catalog change undone' => SyntheticSignedPdf::appendRevision(SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-full-screen', [1 => self::APPENDED_CATALOG_START.' /PageMode /FullScreen >>']), self::$directory, 'appended-to-signed-full-screen-undone', [1 => self::APPENDED_CATALOG_START.' >>']),
+            'signature after a DSS revision followed by bytes' => SyntheticSignedPdf::appendSignature($dssSigned, self::$directory, 'signature-after-dss-revision-and-bytes', unsignedPrefix: "% unsigned\n", trailerSize: 11),
             'appended to signed with an orphan object' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-orphan', [9 => '<< /Orphan true >>'], 10),
             'signature after a DSS revision' => $signatureAfterDss,
             'signature after a DSS revision with a first range over it' => SyntheticSignedPdf::rewriteFirstByteRange($signatureAfterDss, self::$directory, 'first-range-over-the-dss-revision', static fn (int $firstLength, int $secondOffset): string => sprintf('/ByteRange [0 %d %d %d]', $firstLength, $secondOffset, (int) filesize($dssSigned) - $secondOffset)),
@@ -278,6 +288,10 @@ final class ComparisonValidatorsTest extends TestCase
         yield 'page tree rewritten after the last signature' => ['appended to signed with a rewritten page tree', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
         yield 'DSS and content changed after the last signature' => ['appended to signed with a DSS and a content change', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
         yield 'document information added after the last signature' => ['appended to signed with a document information dictionary', 'inconclusive', ['Signature1' => 'valid', 'Signature2' => 'inconclusive']];
+        yield 'document information switched to an object the output already holds' => ['appended to signed with an information dictionary it already holds', 'inconclusive', ['Signature1' => 'valid', 'Signature2' => 'inconclusive']];
+        yield 'catalog changed and restored in two unsigned revisions' => ['appended to signed with a catalog change undone', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
+        yield 'bytes after a DSS revision before the next signature' => ['signature after a DSS revision followed by bytes', 'invalid', ['Signature1' => 'invalid', 'Signature2' => 'valid']];
+        yield 'shifted gap followed by a document information dictionary' => ['appended with a shifted gap and a document information dictionary', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
         yield 'orphan object added after the last signature' => ['appended to signed with an orphan object', 'inconclusive', ['Signature1' => 'valid', 'Signature2' => 'inconclusive']];
         yield 'bytes after the last revision' => ['appended with bytes after the range', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
         yield 'bytes between the revisions' => ['appended to signed with bytes between the revisions', 'invalid', ['Signature1' => 'invalid', 'Signature2' => 'valid']];
@@ -297,6 +311,19 @@ final class ComparisonValidatorsTest extends TestCase
         self::assertSame([], (new SchemaValidator)->errors($observation, ToolValidator::OBSERVATION_SCHEMA));
         self::assertSame($verdict, $observation['verdict'], $observation['evidence']['summary']);
         self::assertSame($outcomes, array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+    }
+
+    public function test_object_stream_rewritten_after_the_last_signature_changes_its_members(): void
+    {
+        $validator = self::validator(SignatureCoverageValidator::class);
+        $input = self::$fixtures['object stream input'];
+        $subject = static fn (string $output): ValidationSubject => new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($input), self::$fixtures[$output], $input);
+
+        $signedTwice = $validator->observe($subject('object stream signed twice'));
+        self::assertSame('valid', $signedTwice['verdict'], $signedTwice['evidence']['summary']);
+        $observation = $validator->observe($subject('object stream signed twice and rewritten'));
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertStringContainsString('change 2 0 R, which the document uses outside the DSS', $observation['evidence']['summary']);
     }
 
     public function test_coverage_names_the_revision_each_range_ends_at(): void
@@ -319,7 +346,7 @@ final class ComparisonValidatorsTest extends TestCase
         yield 'earlier range short of its revision' => ['appended to signed with a first range short of its revision', 'Signature1: the byte range ends at byte {signed size - 2}, which is not the end of a revision followed by an incremental update or by the end of the file'];
         yield 'earlier range over the next revision' => ['appended to signed with a first range over the next revision', 'Signature1: the byte range ends at the end of the revision ending at byte {appended size}, but its own dictionary is in an earlier revision'];
         yield 'content changed after the last signature' => ['appended to signed with a content change', 'Signature2: the revisions after its own up to byte {content change size}, which add no signature, change 4 0 R, which the document uses outside the DSS'];
-        yield 'document information added after the last signature' => ['appended to signed with a document information dictionary', 'Signature2: the revisions after its own up to byte {information size}, which add no signature, change 9 0 R of the document information dictionary, which ETSI EN 319 142-1 does not exempt'];
+        yield 'document information added after the last signature' => ['appended to signed with a document information dictionary', 'Signature2: the revisions after its own up to byte {information size}, which add no signature, change the /Info of the trailer, which ETSI EN 319 142-1 does not exempt, change 9 0 R of the document information dictionary, which ETSI EN 319 142-1 does not exempt'];
     }
 
     #[DataProvider('severalSignatureProblems')]

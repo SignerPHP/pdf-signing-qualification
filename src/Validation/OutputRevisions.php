@@ -24,6 +24,9 @@ final class OutputRevisions
      * @param  list<array{end: int, marker_end: int, startxref: int, objects: ?QpdfObjects, path: ?string, followed_by_update: bool}>  $revisions
      * @param  array{outcome: string, problem: string, before: int}|null  $chainProblem
      */
+    /** @var array<string, array<string, string>|null> */
+    private array $crossReferences = [];
+
     private function __construct(
         private readonly CommandRunner $runner,
         private readonly float $timeoutSeconds,
@@ -156,15 +159,42 @@ final class OutputRevisions
      */
     public function judgeUnsigned(int $beforeIndex, int $afterIndex): array
     {
+        $outcomes = [];
+        $problems = [];
+        $objects = [];
+        for ($index = $beforeIndex + 1; $index <= $afterIndex; $index++) {
+            $pair = $this->judgePair($index - 1, $index);
+            if (! $this->revisions[$index]['followed_by_update']) {
+                $pair['outcome'] = 'invalid';
+                $pair['problems'][] = "are followed, after the revision ending at byte {$this->revisions[$index]['end']}, by bytes that begin neither an object nor a cross-reference table";
+            }
+            $outcomes[] = $pair['outcome'];
+            $problems = [...$problems, ...$pair['problems']];
+            $objects = [...$objects, ...$pair['objects']];
+        }
+        $outcome = match (true) {
+            in_array('invalid', $outcomes, true) => 'invalid',
+            in_array('inconclusive', $outcomes, true) => 'inconclusive',
+            default => 'valid',
+        };
+
+        return ['outcome' => $outcome, 'problems' => array_values(array_unique($problems)), 'objects' => array_values(array_unique($objects))];
+    }
+
+    /**
+     * @return array{outcome: string, problems: list<string>, objects: list<string>}
+     */
+    private function judgePair(int $beforeIndex, int $afterIndex): array
+    {
         $before = $this->revisions[$beforeIndex];
         $after = $this->revisions[$afterIndex];
         if ($before['objects'] === null || $after['objects'] === null || $before['path'] === null || $after['path'] === null) {
-            return ['outcome' => 'inconclusive', 'problems' => ['cannot be compared with the revision before them'], 'objects' => []];
+            return ['outcome' => 'inconclusive', 'problems' => ["cannot be compared with the revision before the one ending at byte {$after['end']}"], 'objects' => []];
         }
         $beforeEntries = $this->crossReference($before['path']);
         $afterEntries = $this->crossReference($after['path']);
         if ($beforeEntries === null || $afterEntries === null) {
-            return ['outcome' => 'inconclusive', 'problems' => ['cannot be compared with the revision before them, because qpdf cannot list the cross-reference entries of both'], 'objects' => []];
+            return ['outcome' => 'inconclusive', 'problems' => ["cannot be compared with the revision before the one ending at byte {$after['end']}, because qpdf cannot list the cross-reference entries of both"], 'objects' => []];
         }
 
         $beforeObjects = $before['objects'];
@@ -176,10 +206,7 @@ final class OutputRevisions
             return ['outcome' => 'invalid', 'problems' => ['change the /Root of the trailer'], 'objects' => []];
         }
 
-        $structureOffsets = [];
-        foreach (array_slice($this->revisions, $beforeIndex + 1, $afterIndex - $beforeIndex) as $revision) {
-            $structureOffsets[$revision['startxref']] = true;
-        }
+        $structureOffsets = [$after['startxref'] => true];
 
         $changed = [];
         foreach ($afterEntries as $reference => $entry) {
@@ -187,10 +214,22 @@ final class OutputRevisions
                 $changed[$reference] = $entry;
             }
         }
+        $changedNumbers = array_flip(array_map(static fn (string $reference): string => explode(' ', $reference)[0], array_keys($changed)));
+        foreach ($afterEntries as $reference => $entry) {
+            if (preg_match('/^compressed; stream = (\d+),/', $entry, $match) === 1 && isset($changedNumbers[$match[1]])) {
+                $changed[$reference] = $entry;
+            }
+        }
         $removed = array_keys(array_diff_key($beforeEntries, $afterEntries));
 
         $invalid = [];
         $inconclusive = [];
+        if (($afterTrailer['/Encrypt'] ?? null) !== ($beforeTrailer['/Encrypt'] ?? null)) {
+            $invalid[] = 'change the /Encrypt of the trailer';
+        }
+        if (($afterTrailer['/Info'] ?? null) !== ($beforeTrailer['/Info'] ?? null)) {
+            $inconclusive[] = 'change the /Info of the trailer, which ETSI EN 319 142-1 does not exempt';
+        }
         $afterUse = self::uses($afterObjects, $afterTrailer);
         foreach ($changed as $reference => $entry) {
             if ($reference === $root) {
@@ -281,9 +320,12 @@ final class OutputRevisions
      */
     private function crossReference(string $path): ?array
     {
+        if (array_key_exists($path, $this->crossReferences)) {
+            return $this->crossReferences[$path];
+        }
         $result = $this->runner->run(['qpdf', ...self::XREF_ARGUMENTS, $path], $this->timeoutSeconds, new CommandAccess([$path]));
         if ($result->timedOut || $result->exitCode !== 0) {
-            return null;
+            return $this->crossReferences[$path] = null;
         }
         $entries = [];
         foreach (preg_split('/\R/', $result->output) ?: [] as $line) {
@@ -292,7 +334,7 @@ final class OutputRevisions
             }
         }
 
-        return $entries;
+        return $this->crossReferences[$path] = $entries;
     }
 
     private static function endOfRevision(string $path, int $crossReference, int $limit): ?int

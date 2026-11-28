@@ -24,7 +24,7 @@ final class SignatureCoverageValidator extends ComparisonValidator
     {
         return [
             'id' => 'qpdf-byte-range-revisions',
-            'description' => 'The signatures added by the implementation are the dictionaries with a /ByteRange that qpdf lists in the output and not in the input; the range of each must start at the first byte and leave out exactly the hexadecimal string of its own /Contents. One added signature, or several when qpdf had to recover the input, must end at the last byte of the output. Of several added to an input qpdf lists completely, taken in the order of their range ends, each must end at the end of the revision that holds its own /Contents, after startxref, its offset, %%EOF and an optional end of line, followed by the end of the file or by bytes that begin an object or a cross-reference table; the revisions are those of the /Prev chain from the end of the output, each read completely by qpdf as the document stands at its end. The output must end at the end of a revision. A revision that adds no signature is valid only when, against the revision before it, it changes no object other than the catalog outside /DSS and /Extensions, the objects only the DSS refers to and cross-reference or object streams (ETSI EN 319 142-1, clauses 5.4.2 and 5.6); a change to an object the document uses outside the DSS is invalid, and any other change, such as one to the document information dictionary, is inconclusive',
+            'description' => 'The signatures added by the implementation are the dictionaries with a /ByteRange that qpdf lists in the output and not in the input; the range of each must start at the first byte and leave out exactly the hexadecimal string of its own /Contents. One added signature, or several when qpdf had to recover the input, must end at the last byte of the output. Of several added to an input qpdf lists completely, taken in the order of their range ends, each must end at the end of the revision that holds its own /Contents, after startxref, its offset, %%EOF and an optional end of line, followed by the end of the file or by bytes that begin an object or a cross-reference table; the revisions are those of the /Prev chain from the end of the output, each read completely by qpdf as the document stands at its end. The output must end at the end of a revision. A revision that adds no signature is valid only when, against the revision just before it, it keeps /Root, /Info and /Encrypt in the trailer, is followed by the end of the file, an object or a cross-reference table, and changes no object other than the catalog outside /DSS and /Extensions, the objects only the DSS refers to and cross-reference or object streams, a rewritten object stream changing every object it holds (ETSI EN 319 142-1, clauses 5.4.2 and 5.6); a change to an object the document uses outside the DSS is invalid, and any other change, such as one to the document information dictionary, is inconclusive',
             'parameters' => ['locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS], 'cross_reference_arguments' => ['qpdf', ...OutputRevisions::XREF_ARGUMENTS]],
         ];
     }
@@ -207,11 +207,9 @@ final class SignatureCoverageValidator extends ComparisonValidator
                 }
             }
             foreach ($ranged as $index => $signature) {
-                if ($problems[$index] === []) {
-                    $gap = self::gap($signature, $outputPath);
-                    if ($gap !== null) {
-                        $problems[$index][] = [$gap['outcome'], $gap['problem']];
-                    }
+                $gap = self::gap($signature, $outputPath);
+                if ($gap !== null) {
+                    $problems[$index][] = [$gap['outcome'], $gap['problem']];
                 }
             }
 

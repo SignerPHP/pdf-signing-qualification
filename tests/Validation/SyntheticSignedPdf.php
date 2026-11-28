@@ -74,7 +74,7 @@ final class SyntheticSignedPdf
         return $path;
     }
 
-    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig', string $unsignedPrefix = '', int $trailerSize = 9, bool $certification = false, int $firstObject = 7): string
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig', string $unsignedPrefix = '', int $trailerSize = 9, bool $certification = false, int $firstObject = 7, string $trailerEntries = '', string $catalogEntries = ''): string
     {
         $document = (string) file_get_contents($documentPath);
         if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
@@ -85,8 +85,9 @@ final class SyntheticSignedPdf
         [$certificate, $privateKey] = self::generateCredentials();
         $widget = $firstObject;
         $dictionary = $firstObject + 1;
-        $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? "5 0 R {$widget} 0 R" : "{$widget} 0 R";
-        $permissions = $certification ? " /Perms << /DocMDP {$dictionary} 0 R >>" : '';
+        $priorFields = $keepPriorFields && preg_match_all('/\/Fields \[([^\]]*)\]/', $document, $fieldLists) > 0 ? (preg_split('/\s+(?=\d+ \d+ R)/', trim((string) end($fieldLists[1]))) ?: []) : [];
+        $fields = implode(' ', array_values(array_unique([...array_filter($priorFields, static fn (string $field): bool => $field !== ''), "{$widget} 0 R"])));
+        $permissions = ($certification ? " /Perms << /DocMDP {$dictionary} 0 R >>" : '').$catalogEntries;
         $reference = $certification ? ' /Reference [<< /Type /SigRef /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P 2 /V /1.2 >> /Data 1 0 R >>]' : '';
         $objects = [
             1 => $fieldInForm
@@ -104,7 +105,7 @@ final class SyntheticSignedPdf
         }
         $xrefOffset = strlen($document) + strlen($update);
         $update .= "xref\n0 1\n0000000000 65535 f \n1 1\n".sprintf("%010d 00000 n \n", $offsets[1])."{$widget} 2\n".sprintf("%010d 00000 n \n", $offsets[$widget]).sprintf("%010d 00000 n \n", $offsets[$dictionary]);
-        $update .= "trailer\n<< /Size {$trailerSize} /Root 1 0 R /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+        $update .= "trailer\n<< /Size {$trailerSize} /Root 1 0 R{$trailerEntries} /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
 
         $signedDocument = $document.$update;
         $contentsStart = (int) strpos($signedDocument, '/Contents <', $offsets[$dictionary]) + strlen('/Contents ');

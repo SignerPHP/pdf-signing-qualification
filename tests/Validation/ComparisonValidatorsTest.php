@@ -111,6 +111,13 @@ final class ComparisonValidatorsTest extends TestCase
         return new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($inputPath), $output === null ? null : self::$fixtures[$output], $inputPath);
     }
 
+    private static function subjectOf(string $input, string $outputPath): ValidationSubject
+    {
+        $inputPath = self::$fixtures[$input];
+
+        return new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($inputPath), $outputPath, $inputPath);
+    }
+
     public static function expectedVerdicts(): iterable
     {
         $cases = [
@@ -324,6 +331,34 @@ final class ComparisonValidatorsTest extends TestCase
         $observation = $validator->observe($subject('object stream signed twice and rewritten'));
         self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
         self::assertStringContainsString('change 2 0 R, which the document uses outside the DSS', $observation['evidence']['summary']);
+    }
+
+    public function test_document_information_the_dss_also_refers_to_is_not_exempt(): void
+    {
+        $input = SyntheticSignedPdf::appendRevision(self::$fixtures['signed'], self::$directory, 'signed-information-in-dss', [1 => self::SIGNED_CATALOG_START.' /DSS 9 0 R >>', 9 => '<< /Type /DSS /VRI << /ABCDEF 11 0 R >> >>', 11 => '<< /Producer (First) >>'], 12, ' /Info 11 0 R');
+        $signedOnce = SyntheticSignedPdf::appendSignature($input, self::$directory, 'information-in-dss-signed-once', trailerSize: 14, firstObject: 12, trailerEntries: ' /Info 11 0 R', catalogEntries: ' /DSS 9 0 R');
+        $signedTwice = SyntheticSignedPdf::appendSignature($signedOnce, self::$directory, 'information-in-dss-signed-twice', trailerSize: 16, firstObject: 14, trailerEntries: ' /Info 11 0 R', catalogEntries: ' /DSS 9 0 R');
+        $output = SyntheticSignedPdf::appendRevision($signedTwice, self::$directory, 'information-in-dss-changed', [11 => '<< /Producer (Second) >>'], 16, ' /Info 11 0 R');
+
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($input), $output, $input));
+
+        self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertStringContainsString('change 11 0 R of the document information dictionary', $observation['evidence']['summary']);
+    }
+
+    public function test_signature_whose_range_ends_before_the_revision_of_its_dictionary_is_invalid(): void
+    {
+        $contents = str_repeat('ab', 64);
+        $withString = SyntheticSignedPdf::appendRevision(self::$fixtures['signed'], self::$directory, 'signed-with-matching-string', [9 => "<< /Data <{$contents}> >>"], 10);
+        $document = (string) file_get_contents($withString);
+        $gapStart = (int) strpos($document, "<{$contents}>");
+        $gapEnd = $gapStart + strlen($contents) + 2;
+        $output = SyntheticSignedPdf::appendRevision($withString, self::$directory, 'signature-dictionary-after-its-range', [10 => sprintf('<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 %d %d %d] /Contents <%s> >>', $gapStart, $gapEnd, strlen($document) - $gapEnd, $contents)], 11);
+
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subjectOf('unsigned', $output));
+
+        self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertStringContainsString('10 0 R: the byte range ends at the end of the revision ending at byte '.strlen($document).', which does not hold its own dictionary', $observation['evidence']['summary']);
     }
 
     public function test_coverage_names_the_revision_each_range_ends_at(): void

@@ -27,6 +27,9 @@ final class OutputRevisions
     /** @var array<string, array<string, string>|null> */
     private array $crossReferences = [];
 
+    /** @var array<int, list<array{object: string, field: ?string, type: ?string, sub_filter: ?string, byte_range: ?list<int>, contents: ?string}>> */
+    private array $listings = [];
+
     private function __construct(
         private readonly CommandRunner $runner,
         private readonly float $timeoutSeconds,
@@ -142,12 +145,21 @@ final class OutputRevisions
         return null;
     }
 
-    public function holding(int $offset): ?int
+    /**
+     * @param  array{object: string, field: ?string, type: ?string, sub_filter: ?string, byte_range: ?list<int>, contents: ?string}  $signature
+     */
+    public function firstHolding(array $signature): ?int
     {
+        $key = SignatureListing::key($signature);
         foreach ($this->revisions as $index => $revision) {
-            $start = $index === 0 ? 0 : $this->revisions[$index - 1]['end'];
-            if ($start <= $offset && $offset < $revision['end']) {
-                return $index;
+            if ($revision['objects'] === null) {
+                continue;
+            }
+            $this->listings[$index] ??= SignatureListing::fromResult($revision['objects']->result)->signatures ?? [];
+            foreach ($this->listings[$index] as $listed) {
+                if ($listed['object'] === $signature['object'] && SignatureListing::key($listed) === $key) {
+                    return $index;
+                }
             }
         }
 
@@ -278,14 +290,14 @@ final class OutputRevisions
         if (isset($use['document'][$reference])) {
             return 'document';
         }
+        if (isset($use['information'][$reference])) {
+            return 'information';
+        }
         if (in_array($objects->streamType($reference), self::STRUCTURE_TYPES, true)) {
             return 'structure';
         }
         if (isset($use['validation'][$reference])) {
             return 'validation';
-        }
-        if (isset($use['information'][$reference])) {
-            return 'information';
         }
         if ($entry !== null && preg_match('/^uncompressed; offset = (\d+)$/', $entry, $match) === 1 && isset($structureOffsets[(int) $match[1]])) {
             return 'structure';

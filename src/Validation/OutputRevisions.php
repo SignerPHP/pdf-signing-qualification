@@ -263,15 +263,16 @@ final class OutputRevisions
         $catalog = $objects->catalog() ?? [];
         $root = $trailer['/Root'] ?? null;
         $exempt = array_intersect_key($catalog, array_flip(self::EXEMPT_CATALOG_KEYS));
-        $document = $objects->reachable([...array_values(array_diff_key($catalog, $exempt)), $trailer['/Encrypt'] ?? null]);
+        $boundaries = is_string($root) ? [$root] : [];
+        $document = $objects->reachable([...array_values(array_diff_key($catalog, $exempt)), $trailer['/Encrypt'] ?? null], $boundaries);
         if (is_string($root)) {
             $document[$root] = true;
         }
 
         return [
-            'validation' => $objects->reachable(array_values($exempt)),
+            'validation' => $objects->reachable(array_values($exempt), $boundaries),
             'document' => $document,
-            'information' => $objects->reachable([$trailer['/Info'] ?? null]),
+            'information' => $objects->reachable([$trailer['/Info'] ?? null], $boundaries),
         ];
     }
 

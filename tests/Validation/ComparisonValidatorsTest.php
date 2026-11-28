@@ -66,6 +66,7 @@ final class ComparisonValidatorsTest extends TestCase
             'appended with a shifted gap' => SyntheticSignedPdf::shiftLastByteRangeGap($appendedToSigned, self::$directory),
             'document timestamp appended to signed' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'timestamp-appended-to-signed', signatureType: '/DocTimeStamp'),
             'appended to signed with a DSS revision' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-dss-revision', [1 => self::APPENDED_CATALOG_START.self::DSS_ENTRIES.' >>'] + self::DSS_OBJECTS, 11),
+            'certification appended to signed with a DSS revision' => SyntheticSignedPdf::appendRevision(SyntheticSignedPdf::appendSignature($signed, self::$directory, 'certification-appended-to-signed', certification: true), self::$directory, 'certification-appended-to-signed-dss-revision', [1 => self::APPENDED_CATALOG_START.' /Perms << /DocMDP 8 0 R >>'.self::DSS_ENTRIES.' >>'] + self::DSS_OBJECTS, 11),
             'appended to signed with a content change' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-content-change', [4 => "<< /Length 43 >>\nstream\nBT /F1 12 Tf 20 100 Td (Changed text) Tj ET\nendstream"]),
             'appended to signed with a rewritten page tree' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-page-tree', [2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>']),
             'appended to signed with a DSS and a content change' => SyntheticSignedPdf::appendRevision($appendedToSigned, self::$directory, 'appended-to-signed-dss-content-change', [1 => self::APPENDED_CATALOG_START.self::DSS_ENTRIES.' >>', 4 => "<< /Length 43 >>\nstream\nBT /F1 12 Tf 20 100 Td (Changed text) Tj ET\nendstream"] + self::DSS_OBJECTS, 11),
@@ -270,6 +271,7 @@ final class ComparisonValidatorsTest extends TestCase
         yield 'two approval signatures' => ['appended to signed', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
         yield 'signature followed by a document timestamp' => ['document timestamp appended to signed', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
         yield 'DSS revision after the last signature' => ['appended to signed with a DSS revision', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
+        yield 'DSS revision after a certification whose reference names the catalog' => ['certification appended to signed with a DSS revision', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
         yield 'DSS revision between the signatures' => ['signature after a DSS revision', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
         yield 'blank lines between the revisions' => ['appended to signed with blank lines between the revisions', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
         yield 'content changed after the last signature' => ['appended to signed with a content change', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];

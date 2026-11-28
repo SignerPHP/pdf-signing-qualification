@@ -109,11 +109,12 @@ final class QpdfObjects
 
     /**
      * @param  list<mixed>  $values
+     * @param  list<string>  $boundaries
      * @return array<string, true>
      */
-    public function reachable(array $values): array
+    public function reachable(array $values, array $boundaries = []): array
     {
-        $reached = [];
+        $reached = array_fill_keys($boundaries, true);
         $pending = $values;
         while ($pending !== []) {
             $value = array_pop($pending);
@@ -131,7 +132,7 @@ final class QpdfObjects
             $pending[] = $this->resolve($value);
         }
 
-        return $reached;
+        return array_diff_key($reached, array_fill_keys($boundaries, true));
     }
 
     public function catalog(): ?array

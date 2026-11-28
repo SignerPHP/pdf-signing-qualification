@@ -10,8 +10,6 @@ final class SignatureCoverageValidator extends ComparisonValidator
 {
     private const string PDF_WHITESPACE = "\x00\t\n\x0C\r ";
 
-    private const int REVISION_END_WINDOW = 128;
-
     public function analyzerId(): string
     {
         return 'qpdf-byte-range';
@@ -26,8 +24,8 @@ final class SignatureCoverageValidator extends ComparisonValidator
     {
         return [
             'id' => 'qpdf-byte-range-revisions',
-            'description' => 'The signatures added by the implementation are the dictionaries with a /ByteRange that qpdf lists in the output and not in the input; the range of each must start at the first byte and leave out exactly the hexadecimal string of its own /Contents. One added signature must end at the last byte of the output. Of several, taken in the order of their range ends, each must end at the end of a revision, after startxref, its offset, %%EOF and an optional end of line, followed by the end of the file or by bytes that begin an object or a cross-reference table, and the next one must lie after that end; the output must end at the end of a revision, and revisions that add no signature are allowed between and after them',
-            'parameters' => ['locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS]],
+            'description' => 'The signatures added by the implementation are the dictionaries with a /ByteRange that qpdf lists in the output and not in the input; the range of each must start at the first byte and leave out exactly the hexadecimal string of its own /Contents. One added signature, or several when qpdf had to recover the input, must end at the last byte of the output. Of several added to an input qpdf lists completely, taken in the order of their range ends, each must end at the end of the revision that holds its own /Contents, after startxref, its offset, %%EOF and an optional end of line, followed by the end of the file or by bytes that begin an object or a cross-reference table; the revisions are those of the /Prev chain from the end of the output, each read completely by qpdf as the document stands at its end. The output must end at the end of a revision. A revision that adds no signature is valid only when, against the revision before it, it changes no object other than the catalog outside /DSS and /Extensions, the objects only the DSS refers to and cross-reference or object streams (ETSI EN 319 142-1, clauses 5.4.2 and 5.6); a change to an object the document uses outside the DSS is invalid, and any other change, such as one to the document information dictionary, is inconclusive',
+            'parameters' => ['locator_arguments' => ['qpdf', ...SignatureListing::ARGUMENTS], 'cross_reference_arguments' => ['qpdf', ...OutputRevisions::XREF_ARGUMENTS]],
         ];
     }
 
@@ -74,9 +72,17 @@ final class SignatureCoverageValidator extends ComparisonValidator
         }
 
         $name = static fn (array $signature): string => $signature['field'] ?? $signature['object'];
-        $signatures = count($added) === 1
-            ? [$added[0] + self::check($added[0], $outputPath, $outputSize)]
-            : self::checkRevisions($added, $outputPath, $outputSize, $name);
+        $byRevision = count($added) > 1 && $inputListing->isComplete();
+        $unsignedRevisions = [];
+        if ($byRevision) {
+            $outputObjects = QpdfObjects::fromResult($outputListing->result);
+            if ($outputObjects === null) {
+                throw new RuntimeException("The listing of {$outputPath} could not be read twice the same way");
+            }
+            [$signatures, $unsignedRevisions] = $this->checkRevisions($added, $outputPath, $outputSize, $outputObjects, $name);
+        } else {
+            $signatures = array_map(static fn (array $signature): array => $signature + self::check($signature, $outputPath, $outputSize), $added);
+        }
         if (! $inputListing->isComplete()) {
             $signatures = array_map(static fn (array $signature): array => $signature['outcome'] === 'valid' ? $signature : ['outcome' => 'inconclusive', 'problem' => $signature['problem'].', but qpdf had to recover the input, so this may be a signature of the input'] + $signature, $signatures);
         }
@@ -84,10 +90,13 @@ final class SignatureCoverageValidator extends ComparisonValidator
             'output_byte_size' => $outputSize,
             'signatures' => array_map(static fn (array $signature): array => array_diff_key($signature, ['contents' => true]), $signatures),
         ];
+        if ($byRevision) {
+            $details['unsigned_revisions'] = $unsignedRevisions;
+        }
 
         $problems = array_filter($signatures, static fn (array $signature): bool => $signature['outcome'] !== 'valid');
-        if ($problems === [] && count($signatures) === 1) {
-            return new Judgement('valid', $name($signatures[0]).' covers every byte of the output except its /Contents', $exitCode, '', $details);
+        if ($problems === [] && ! $byRevision) {
+            return new Judgement('valid', implode(', ', array_map($name, $signatures)).' covers every byte of the output except its /Contents', $exitCode, '', $details);
         }
         if ($problems === []) {
             return new Judgement('valid', implode(', ', array_map(static fn (array $signature): string => $name($signature)." covers every byte of the revision ending at byte {$signature['revision_end']} except its /Contents", $signatures)), $exitCode, '', $details);
@@ -102,68 +111,141 @@ final class SignatureCoverageValidator extends ComparisonValidator
     /**
      * @param  list<array{object: string, field: ?string, type: ?string, sub_filter: ?string, byte_range: ?list<int>, contents: ?string}>  $added
      * @param  callable(array): string  $name
-     * @return list<array>
+     * @return array{list<array>, list<array>}
      */
-    private static function checkRevisions(array $added, string $outputPath, int $size, callable $name): array
+    private function checkRevisions(array $added, string $outputPath, int $size, QpdfObjects $outputObjects, callable $name): array
     {
         $rangeEnd = static fn (array $signature): array => $signature['byte_range'] === null ? [PHP_INT_MAX, PHP_INT_MAX] : [$signature['byte_range'][2] + $signature['byte_range'][3], $signature['byte_range'][1]];
         usort($added, static fn (array $first, array $second): int => $rangeEnd($first) <=> $rangeEnd($second));
 
-        $signatures = [];
+        $problems = [];
         foreach ($added as $index => $signature) {
-            $next = $added[$index + 1] ?? null;
-            $outcome = self::rangeShape($signature, $size) ?? self::revisionEnd($signature, $next, $outputPath, $size, $name);
-            if (! isset($outcome['problem'])) {
-                $outcome = (self::gap($signature, $outputPath) ?? ['outcome' => 'valid']) + $outcome;
+            $shape = self::rangeShape($signature, $size);
+            $problems[$index] = $shape === null ? [] : [[$shape['outcome'], $shape['problem']]];
+        }
+        $ranged = array_filter($added, static fn (array $signature, int $index): bool => $problems[$index] === [], ARRAY_FILTER_USE_BOTH);
+        if ($ranged === []) {
+            return [self::withProblems($added, $problems, []), []];
+        }
+
+        $lastIndex = array_key_last($ranged);
+        $lastEnd = $rangeEnd($ranged[$lastIndex])[0];
+        $topEnd = $size;
+        if (OutputRevisions::marker($outputPath, $size) === null) {
+            $problems[array_key_last($added)][] = ['invalid', 'the output does not end at the end of a revision, so the bytes after the revision its range ends at are not complete revisions'];
+            $topEnd = OutputRevisions::marker($outputPath, $lastEnd) === null ? null : $lastEnd;
+        }
+        if ($topEnd === null) {
+            return [self::withProblems($added, $problems, []), []];
+        }
+
+        $earliestContents = min(array_map(static fn (array $signature): int => $signature['byte_range'][1], $ranged));
+        $workDirectory = sys_get_temp_dir().'/qpdf-byte-range-'.bin2hex(random_bytes(8));
+        if (! mkdir($workDirectory, 0700)) {
+            throw new RuntimeException("Unable to create the work directory {$workDirectory}");
+        }
+
+        try {
+            $revisions = OutputRevisions::read($this->runner, $this->timeoutSeconds, $outputPath, $size, $topEnd, $outputObjects, $earliestContents, $workDirectory);
+            $revisionDetails = [];
+            $signedRevisions = [];
+            foreach ($ranged as $index => $signature) {
+                $own = $revisions->holding($signature['byte_range'][1]);
+                if ($own !== null && ! isset($signedRevisions[$own])) {
+                    $signedRevisions[$own] = $index;
+                }
+                [$end] = $rangeEnd($signature);
+                $found = $revisions->endingAt($end);
+                if ($found === null || $found['revision']['objects'] === null) {
+                    $chainProblem = $revisions->chainProblem;
+                    $problems[$index][] = $chainProblem !== null && $end <= $chainProblem['before']
+                        ? [$chainProblem['outcome'], $chainProblem['problem']]
+                        : ['invalid', "the byte range ends at byte {$end}, which is not the end of a revision followed by an incremental update or by the end of the file"];
+
+                    continue;
+                }
+                $revision = $found['revision'];
+                $revisionDetails[$index] = ['revision_end' => $revision['end'], 'revision_startxref' => $revision['startxref']];
+                if (! $revision['followed_by_update']) {
+                    $problems[$index][] = ['invalid', "the byte range ends at byte {$end}, which is not the end of a revision followed by an incremental update or by the end of the file"];
+
+                    continue;
+                }
+                if ($own !== $found['index']) {
+                    $problems[$index][] = ['invalid', "the byte range ends at the end of the revision ending at byte {$revision['end']}, but its own dictionary is in an earlier revision"];
+
+                    continue;
+                }
+                $next = $added[$index + 1] ?? null;
+                if ($next !== null && ($next['byte_range'] === null || $next['byte_range'][1] < $end)) {
+                    $problems[$index][] = ['invalid', $name($next).', the next added signature, is not in the bytes after the revision its range ends at'];
+                }
             }
-            $signatures[] = $signature + $outcome;
-        }
 
-        $last = array_key_last($signatures);
-        if ($signatures[$last]['outcome'] === 'valid' && $signatures[$last]['revision_end'] < $size && self::revisionStartxref($outputPath, $size, $size) === null) {
-            $signatures[$last] = ['outcome' => 'invalid', 'problem' => 'the output does not end at the end of a revision, so the bytes after the revision its range ends at are not complete revisions'] + $signatures[$last];
-        }
+            $unsignedRevisions = [];
+            if ($signedRevisions !== []) {
+                ksort($signedRevisions);
+                $revisionIndexes = array_keys($signedRevisions);
+                $lastRevisionIndex = count($revisions->revisions) - 1;
+                foreach ($revisionIndexes as $position => $revisionIndex) {
+                    $nextSigned = $revisionIndexes[$position + 1] ?? $lastRevisionIndex + 1;
+                    if ($nextSigned - $revisionIndex <= 1) {
+                        continue;
+                    }
+                    $judgement = $revisions->judgeUnsigned($revisionIndex, $nextSigned - 1);
+                    $unsignedRevisions[] = [
+                        'after_revision_end' => $revisions->revisions[$revisionIndex]['end'],
+                        'revision_ends' => array_map(static fn (array $revision): int => $revision['end'], array_slice($revisions->revisions, $revisionIndex + 1, $nextSigned - $revisionIndex - 1)),
+                        'outcome' => $judgement['outcome'],
+                        'changed_objects' => $judgement['objects'],
+                        'problems' => $judgement['problems'],
+                    ];
+                    if ($judgement['outcome'] !== 'valid') {
+                        $lastUnsignedEnd = $revisions->revisions[$nextSigned - 1]['end'];
+                        $problems[$signedRevisions[$revisionIndex]][] = [$judgement['outcome'], "the revisions after its own up to byte {$lastUnsignedEnd}, which add no signature, ".implode(', ', $judgement['problems'])];
+                    }
+                }
+            }
+            foreach ($ranged as $index => $signature) {
+                if ($problems[$index] === []) {
+                    $gap = self::gap($signature, $outputPath);
+                    if ($gap !== null) {
+                        $problems[$index][] = [$gap['outcome'], $gap['problem']];
+                    }
+                }
+            }
 
-        return $signatures;
+            return [self::withProblems($added, $problems, $revisionDetails), $unsignedRevisions];
+        } finally {
+            exec('rm -rf '.escapeshellarg($workDirectory));
+        }
     }
 
     /**
-     * @param  callable(array): string  $name
-     * @return array{outcome: string, problem?: string, revision_end?: int, revision_startxref?: int}
+     * @param  list<array>  $added
+     * @param  array<array-key, list<array{string, string}>>  $problems
+     * @param  array<int, array{revision_end: int, revision_startxref: int}>  $revisionDetails
+     * @return list<array>
      */
-    private static function revisionEnd(array $signature, ?array $next, string $outputPath, int $size, callable $name): array
+    private static function withProblems(array $added, array $problems, array $revisionDetails): array
     {
-        [, , $secondOffset, $secondLength] = $signature['byte_range'];
-        $end = $secondOffset + $secondLength;
-        $startxref = self::revisionStartxref($outputPath, $end, $size);
-        if ($startxref === null) {
-            return ['outcome' => 'invalid', 'problem' => "the byte range ends at byte {$end}, which is not the end of a revision followed by an incremental update or by the end of the file"];
-        }
-
-        $revision = ['revision_end' => $end, 'revision_startxref' => $startxref];
-        if ($next !== null && ($next['byte_range'] === null || $next['byte_range'][1] < $end)) {
-            return ['outcome' => 'invalid', 'problem' => $name($next).', the next added signature, is not in the bytes after the revision its range ends at'] + $revision;
-        }
-
-        return ['outcome' => 'valid'] + $revision;
-    }
-
-    private static function revisionStartxref(string $outputPath, int $end, int $size): ?int
-    {
-        $whitespace = '['.preg_quote(self::PDF_WHITESPACE, '/').']';
-        $tailStart = max(0, $end - self::REVISION_END_WINDOW);
-        $tail = self::readBytes($outputPath, $tailStart, $end - $tailStart);
-        if (preg_match('/startxref'.$whitespace.'+(\d+)'.$whitespace.'+%%EOF(?:\r\n|\r|\n)?\z/', $tail, $match) !== 1) {
-            return null;
-        }
-        if ($end < $size) {
-            $following = self::readBytes($outputPath, $end, min(self::REVISION_END_WINDOW, $size - $end));
-            if (preg_match('/\A'.$whitespace.'*(?:\d+'.$whitespace.'+\d+'.$whitespace.'+obj(?![^'.preg_quote(self::PDF_WHITESPACE.'()<>[]{}/%', '/').'])|xref'.$whitespace.')/', $following) !== 1) {
-                return null;
+        $signatures = [];
+        foreach ($added as $index => $signature) {
+            $found = $problems[$index] ?? [];
+            $outcomes = array_column($found, 0);
+            $outcome = match (true) {
+                in_array('invalid', $outcomes, true) => 'invalid',
+                $outcomes !== [] => 'inconclusive',
+                default => 'valid',
+            };
+            $result = ['outcome' => $outcome];
+            if ($found !== []) {
+                $result['problem'] = implode('; and ', array_column(array_filter($found, static fn (array $problem): bool => $problem[0] === $outcome), 1));
             }
+            $signatures[] = $signature + $result + ($revisionDetails[$index] ?? []);
         }
 
-        return (int) $match[1];
+        return $signatures;
     }
 
     /**

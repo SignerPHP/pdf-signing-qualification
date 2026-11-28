@@ -85,6 +85,55 @@ final class QpdfObjects
         return ['object' => $value, 'value' => $this->expand($object, $expanded)];
     }
 
+    public function trailer(): ?array
+    {
+        $trailer = $this->objects['trailer']['value'] ?? null;
+
+        return is_array($trailer) ? $trailer : null;
+    }
+
+    public function previousCrossReference(): ?int
+    {
+        $previous = $this->resolve($this->trailer()['/Prev'] ?? null);
+
+        return is_int($previous) && $previous >= 0 ? $previous : null;
+    }
+
+    public function streamType(string $reference): ?string
+    {
+        $object = $this->objects['obj:'.$reference] ?? null;
+        $type = is_array($object) ? ($object['stream']['dict']['/Type'] ?? null) : null;
+
+        return is_string($type) ? $type : null;
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     * @return array<string, true>
+     */
+    public function reachable(array $values): array
+    {
+        $reached = [];
+        $pending = $values;
+        while ($pending !== []) {
+            $value = array_pop($pending);
+            if (is_array($value)) {
+                foreach ($value as $item) {
+                    $pending[] = $item;
+                }
+
+                continue;
+            }
+            if (! is_string($value) || preg_match(self::REFERENCE_PATTERN, $value) !== 1 || isset($reached[$value])) {
+                continue;
+            }
+            $reached[$value] = true;
+            $pending[] = $this->resolve($value);
+        }
+
+        return $reached;
+    }
+
     public function catalog(): ?array
     {
         $trailer = $this->objects['trailer']['value'] ?? null;

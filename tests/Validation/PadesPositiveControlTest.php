@@ -82,7 +82,18 @@ final class PadesPositiveControlTest extends TestCase
         self::assertVerdict('valid', new PadesStructureValidator(new ProcessRunner, self::clock(), null, true), $output);
         self::assertVerdict('valid', new DocumentTimestampImprintValidator(new ProcessRunner, self::clock()), $output);
         self::assertVerdict('valid', new OpenSslCmsValidator(new ProcessRunner, self::clock()), $output);
-        self::assertVerdict('valid', new SignatureCoverageValidator(new ProcessRunner, self::clock()), $output);
+    }
+
+    public function test_baseline_lta_output_whose_last_revision_changes_the_document_information_is_inconclusive_for_its_byte_ranges(): void
+    {
+        $output = self::baselineLta();
+
+        $observation = (new SignatureCoverageValidator(new ProcessRunner, self::clock()))->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe(self::$input), $output, self::$input));
+
+        self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertMatchesRegularExpression('/\A[^;]+: the revisions after its own up to byte \d+, which add no signature, change \d+ 0 R of the document information dictionary, which ETSI EN 319 142-1 does not exempt\z/', $observation['evidence']['summary']);
+        self::assertSame(['valid', 'inconclusive'], array_column($observation['evidence']['details']['signatures'], 'outcome'));
+        self::assertSame(['inconclusive'], array_column($observation['evidence']['details']['unsigned_revisions'], 'outcome'));
     }
 
     public function test_document_timestamp_whose_range_was_changed_is_invalid(): void

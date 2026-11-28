@@ -166,6 +166,12 @@ final class SignatureCoverageValidator extends ComparisonValidator
                 }
                 $revision = $found['revision'];
                 $revisionDetails[$index] = ['revision_end' => $revision['end'], 'revision_startxref' => $revision['startxref']];
+                $chainProblem = $revisions->chainProblem;
+                if ($chainProblem !== null && $own !== null && $own === $revisions->earliestRead()) {
+                    $problems[$index][] = [$chainProblem['outcome'], $chainProblem['problem'].', so the revision that first holds its own dictionary cannot be established'];
+
+                    continue;
+                }
                 if (! $revision['followed_by_update']) {
                     $problems[$index][] = ['invalid', "the byte range ends at byte {$end}, which is not the end of a revision followed by an incremental update or by the end of the file"];
 

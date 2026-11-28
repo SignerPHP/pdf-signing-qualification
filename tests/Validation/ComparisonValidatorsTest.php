@@ -11,7 +11,9 @@ use RuntimeException;
 use SignerPHP\PdfSigningQualification\Artifact;
 use SignerPHP\PdfSigningQualification\Schema\SchemaValidator;
 use SignerPHP\PdfSigningQualification\Validation\BaselineSubject;
+use SignerPHP\PdfSigningQualification\Validation\CommandAccess;
 use SignerPHP\PdfSigningQualification\Validation\CommandResult;
+use SignerPHP\PdfSigningQualification\Validation\CommandRunner;
 use SignerPHP\PdfSigningQualification\Validation\ComparisonValidator;
 use SignerPHP\PdfSigningQualification\Validation\InputPreservationValidator;
 use SignerPHP\PdfSigningQualification\Validation\PriorSignaturesValidator;
@@ -359,6 +361,30 @@ final class ComparisonValidatorsTest extends TestCase
 
         self::assertSame('invalid', $observation['verdict'], $observation['evidence']['summary']);
         self::assertStringContainsString('10 0 R: the byte range ends at the end of the revision ending at byte '.strlen($document).', which does not hold its own dictionary', $observation['evidence']['summary']);
+    }
+
+    public function test_first_revision_of_a_dictionary_is_not_inferred_from_a_chain_qpdf_could_not_read_to_its_start(): void
+    {
+        $unreadable = self::$directory.'/revision-'.filesize(self::$fixtures['signed']).'.pdf';
+        $runner = new class($unreadable) implements CommandRunner
+        {
+            public function __construct(private readonly string $unreadableName) {}
+
+            public function run(array $command, float $timeoutSeconds, ?CommandAccess $access = null): CommandResult
+            {
+                if (basename((string) end($command)) === basename($this->unreadableName)) {
+                    return new CommandResult(2, 'qpdf: damaged');
+                }
+
+                return (new ProcessRunner)->run($command, $timeoutSeconds, $access);
+            }
+        };
+        $validator = new SignatureCoverageValidator($runner, static fn (): DateTimeImmutable => new DateTimeImmutable('2026-11-07T12:00:03Z'));
+
+        $observation = $validator->observe(self::subject('unsigned', 'signature after a DSS revision with a first range over it'));
+
+        self::assertSame('inconclusive', $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'valid'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
     }
 
     public function test_coverage_names_the_revision_each_range_ends_at(): void

@@ -166,6 +166,17 @@ final class OutputRevisions
         return null;
     }
 
+    public function earliestRead(): ?int
+    {
+        foreach ($this->revisions as $index => $revision) {
+            if ($revision['objects'] !== null) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return array{outcome: string, problems: list<string>, objects: list<string>}
      */

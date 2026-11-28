@@ -283,7 +283,12 @@ final class RunComparison
         };
 
         $compare('scenario', $reference->run['scenario_id'], $candidate->run['scenario_id']);
-        $compare('harness', $reference->run['harness'] ?? null, $candidate->run['harness'] ?? null);
+        $referenceHarness = $reference->run['harness'] ?? null;
+        $candidateHarness = $candidate->run['harness'] ?? null;
+        if ($referenceHarness === $candidateHarness && ($referenceHarness['status'] ?? null) !== 'available') {
+            $differences[] = ['subject' => 'harness', 'reference' => $referenceHarness, 'candidate' => $candidateHarness];
+        }
+        $compare('harness', $referenceHarness, $candidateHarness);
         $compare('implementation', $reference->run['implementation'], $candidate->run['implementation']);
         $compare('implementation_runtime', $reference->run['implementation_runtime'] ?? null, $candidate->run['implementation_runtime'] ?? null);
         $compare('implementation_compatibility', $reference->run['implementation_compatibility'] ?? null, $candidate->run['implementation_compatibility'] ?? null);

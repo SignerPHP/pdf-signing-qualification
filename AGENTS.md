@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Operational map for humans and AI agents working in this repository. The method itself is defined in the [RFC](https://github.com/SignerPHP/.github/pull/3); read it instead of inferring the method from code.
+Operational map for humans and AI agents working in this repository. The method itself is defined in the [RFC](https://github.com/SignerPHP/.github/pull/3); read it instead of inferring the method from code. How the repository meets each of its requirements, and what was left out or deferred, is mapped in [docs/rfc-conformance.md](docs/rfc-conformance.md).
 
 ## Environment
 
@@ -89,7 +89,7 @@ Commands run as `docker compose run --rm <service> composer <script>`, in `app` 
 | `config/scenarios/` | Versioned scenarios, one per file named by its id, following the version of `scenario.schema.json` it names; see [docs/visible-appearance.md](docs/visible-appearance.md) for the visible one |
 | `config/regressions/` | Regression cases, one per file, following `regression.schema.json`; see [docs/regressions.md](docs/regressions.md) |
 | `docker/` | Files copied into the image, such as the hashed pyHanko requirements, the JSignPdf signing script, the process tree measurement, the test PKI (`test-pki/`) and the Java validators (`validators/`) |
-| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the population and sampling of the [main panel](docs/main-panel.md), the [regression cases](docs/regressions.md), the [replays between revisions](docs/replays.md), the [pilot results](docs/pilot-results.md), the [differential baseline](docs/differential-baseline.md), the [performance protocol](docs/performance-protocol.md) and [results](docs/performance-results.md), and the decision on [how results are published](docs/results-publication.md) and the [visible-appearance scenario](docs/visible-appearance.md) |
+| `docs/` | Project documents, such as the strata and reasons of the [pilot sample](docs/pilot-sample.md), the population and sampling of the [main panel](docs/main-panel.md), the [regression cases](docs/regressions.md), the [replays between revisions](docs/replays.md), the [pilot results](docs/pilot-results.md), the [differential baseline](docs/differential-baseline.md), the [performance protocol](docs/performance-protocol.md) and [results](docs/performance-results.md), the decision on [how results are published](docs/results-publication.md), the [visible-appearance scenario](docs/visible-appearance.md) and how the repository [meets the RFC](docs/rfc-conformance.md) |
 | `src/` | Library code, namespace `SignerPHP\PdfSigningQualification\` |
 | `src/Signing/` | Attempt runner and implementation adapters; an adapter only builds the command of an external process and, optionally, the command that checks it applies to the installed revision, see the schemas README |
 | `src/Regression/` | Loading of the regression cases, the condition check of each case and their replay within a run |

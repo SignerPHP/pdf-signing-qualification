@@ -10,7 +10,7 @@ Unit and golden tests inside a signing library show that it behaves as its autho
 - **Independent verdicts.** Signed outputs are judged by independent validators, not by the implementation's own success result.
 - **Qualification before performance.** Timing is only compared over inputs that every compared implementation signed and that were independently validated.
 
-The method is described in the RFC [Reproducible PDF signing qualification and benchmarking](https://github.com/SignerPHP/.github/pull/3).
+The method is described in the RFC [Reproducible PDF signing qualification and benchmarking](https://github.com/SignerPHP/.github/pull/3). How this repository meets each of its requirements, and what it left out or deferred, is in [docs/rfc-conformance.md](docs/rfc-conformance.md).
 
 ## Any signing solution can be qualified
 

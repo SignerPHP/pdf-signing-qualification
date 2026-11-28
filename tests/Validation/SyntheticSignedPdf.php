@@ -74,21 +74,27 @@ final class SyntheticSignedPdf
         return $path;
     }
 
-    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig'): string
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig', string $unsignedPrefix = '', int $trailerSize = 9, bool $certification = false, int $firstObject = 7, string $trailerEntries = '', string $catalogEntries = ''): string
     {
         $document = (string) file_get_contents($documentPath);
         if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
             throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
         }
+        $document .= $unsignedPrefix;
 
         [$certificate, $privateKey] = self::generateCredentials();
-        $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? '5 0 R 7 0 R' : '7 0 R';
+        $widget = $firstObject;
+        $dictionary = $firstObject + 1;
+        $priorFields = $keepPriorFields && preg_match_all('/\/Fields \[([^\]]*)\]/', $document, $fieldLists) > 0 ? (preg_split('/\s+(?=\d+ \d+ R)/', trim((string) end($fieldLists[1]))) ?: []) : [];
+        $fields = implode(' ', array_values(array_unique([...array_filter($priorFields, static fn (string $field): bool => $field !== ''), "{$widget} 0 R"])));
+        $permissions = ($certification ? " /Perms << /DocMDP {$dictionary} 0 R >>" : '').$catalogEntries;
+        $reference = $certification ? ' /Reference [<< /Type /SigRef /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P 2 /V /1.2 >> /Data 1 0 R >>]' : '';
         $objects = [
             1 => $fieldInForm
-                ? "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >> >>"
-                : "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >> /Fields [{$fields}] >>",
-            7 => "<< /Type /Annot /Subtype /Widget /FT /Sig /T {$fieldName} /Rect [0 0 0 0] /F 132 /P 3 0 R /V 8 0 R >>",
-            8 => "<< /Type {$signatureType} /Filter /Adobe.PPKLite /SubFilter ".($signatureType === '/DocTimeStamp' ? '/ETSI.RFC3161 ' : '/adbe.pkcs7.detached ').self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).'> /M (D:20261107120000Z) >>',
+                ? "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{$fields}] /SigFlags 3 >>{$permissions} >>"
+                : "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >> /Fields [{$fields}]{$permissions} >>",
+            $widget => "<< /Type /Annot /Subtype /Widget /FT /Sig /T {$fieldName} /Rect [0 0 0 0] /F 132 /P 3 0 R /V {$dictionary} 0 R >>",
+            $dictionary => "<< /Type {$signatureType} /Filter /Adobe.PPKLite /SubFilter ".($signatureType === '/DocTimeStamp' ? '/ETSI.RFC3161 ' : '/adbe.pkcs7.detached ').self::BYTE_RANGE_PLACEHOLDER.' /Contents <'.str_repeat('0', self::CONTENTS_HEX_LENGTH).">{$reference} /M (D:20261107120000Z) >>",
         ];
 
         $update = '';
@@ -98,14 +104,14 @@ final class SyntheticSignedPdf
             $update .= "{$number} 0 obj\n{$object}\nendobj\n";
         }
         $xrefOffset = strlen($document) + strlen($update);
-        $update .= "xref\n0 1\n0000000000 65535 f \n1 1\n".sprintf("%010d 00000 n \n", $offsets[1])."7 2\n".sprintf("%010d 00000 n \n", $offsets[7]).sprintf("%010d 00000 n \n", $offsets[8]);
-        $update .= "trailer\n<< /Size 9 /Root 1 0 R /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+        $update .= "xref\n0 1\n0000000000 65535 f \n1 1\n".sprintf("%010d 00000 n \n", $offsets[1])."{$widget} 2\n".sprintf("%010d 00000 n \n", $offsets[$widget]).sprintf("%010d 00000 n \n", $offsets[$dictionary]);
+        $update .= "trailer\n<< /Size {$trailerSize} /Root 1 0 R{$trailerEntries} /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
 
         $signedDocument = $document.$update;
-        $contentsStart = (int) strpos($signedDocument, '/Contents <', $offsets[8]) + strlen('/Contents ');
+        $contentsStart = (int) strpos($signedDocument, '/Contents <', $offsets[$dictionary]) + strlen('/Contents ');
         $contentsEnd = $contentsStart + self::CONTENTS_HEX_LENGTH + 2;
         $byteRange = sprintf('/ByteRange [0 %d %d %d]', $contentsStart, $contentsEnd, strlen($signedDocument) - $contentsEnd);
-        $signedDocument = substr_replace($signedDocument, str_pad($byteRange, strlen(self::BYTE_RANGE_PLACEHOLDER)), (int) strpos($signedDocument, self::BYTE_RANGE_PLACEHOLDER, $offsets[8]), strlen(self::BYTE_RANGE_PLACEHOLDER));
+        $signedDocument = substr_replace($signedDocument, str_pad($byteRange, strlen(self::BYTE_RANGE_PLACEHOLDER)), (int) strpos($signedDocument, self::BYTE_RANGE_PLACEHOLDER, $offsets[$dictionary]), strlen(self::BYTE_RANGE_PLACEHOLDER));
 
         $signature = self::detachedCms($directory, substr($signedDocument, 0, $contentsStart).substr($signedDocument, $contentsEnd), $certificate, $privateKey);
         $contents = '<'.str_pad(bin2hex($signature), self::CONTENTS_HEX_LENGTH, '0').'>';
@@ -117,14 +123,87 @@ final class SyntheticSignedPdf
     }
 
     /**
+     * @param  array<int, string>  $objects
+     */
+    public static function appendRevision(string $documentPath, string $directory, string $name, array $objects, int $trailerSize = 9, string $trailerEntries = ''): string
+    {
+        $document = (string) file_get_contents($documentPath);
+        if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
+            throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
+        }
+
+        ksort($objects);
+        $update = '';
+        $offsets = [];
+        foreach ($objects as $number => $object) {
+            $offsets[$number] = strlen($document) + strlen($update);
+            $update .= "{$number} 0 obj\n{$object}\nendobj\n";
+        }
+        $xrefOffset = strlen($document) + strlen($update);
+        $update .= "xref\n0 1\n0000000000 65535 f \n";
+        foreach ($offsets as $number => $offset) {
+            $update .= "{$number} 1\n".sprintf("%010d 00000 n \n", $offset);
+        }
+        $update .= "trailer\n<< /Size {$trailerSize} /Root 1 0 R{$trailerEntries} /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, $document.$update);
+
+        return $path;
+    }
+
+    /**
+     * @param  array<int, string>  $members
+     */
+    public static function appendObjectStreamRevision(string $documentPath, string $directory, string $name, int $streamNumber, array $members, int $trailerSize): string
+    {
+        $document = (string) file_get_contents($documentPath);
+        if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
+            throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
+        }
+
+        ksort($members);
+        $header = '';
+        $body = '';
+        foreach ($members as $number => $member) {
+            $header .= "{$number} ".strlen($body).' ';
+            $body .= "{$member}\n";
+        }
+        $stream = $header.$body;
+        $streamOffset = strlen($document);
+        $update = "{$streamNumber} 0 obj\n<< /Type /ObjStm /N ".count($members).' /First '.strlen($header).' /Length '.strlen($stream)." >>\nstream\n{$stream}\nendstream\nendobj\n";
+
+        $crossReferenceNumber = $trailerSize - 1;
+        $crossReferenceOffset = $streamOffset + strlen($update);
+        $entries = [$streamNumber => [1, $streamOffset, 0], $crossReferenceNumber => [1, $crossReferenceOffset, 0]];
+        foreach (array_keys($members) as $index => $number) {
+            $entries[$number] = [2, $streamNumber, $index];
+        }
+        ksort($entries);
+        $rows = '';
+        $index = [];
+        foreach ($entries as $number => [$type, $field, $generation]) {
+            $rows .= pack('C', $type).pack('N', $field).pack('n', $generation);
+            $index[] = "{$number} 1";
+        }
+        $update .= "{$crossReferenceNumber} 0 obj\n<< /Type /XRef /Size {$trailerSize} /Root 1 0 R /Prev {$matches[1]} /W [1 4 2] /Index [".implode(' ', $index).'] /Length '.strlen($rows)." >>\nstream\n{$rows}\nendstream\nendobj\nstartxref\n{$crossReferenceOffset}\n%%EOF\n";
+
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, $document.$update);
+
+        return $path;
+    }
+
+    /**
      * @param  callable(int, int, int): string  $byteRange
      */
-    public static function rewriteFirstByteRange(string $signedPath, string $directory, string $name, callable $byteRange): string
+    public static function rewriteFirstByteRange(string $signedPath, string $directory, string $name, callable $byteRange, int $occurrence = 0): string
     {
         $document = (string) file_get_contents($signedPath);
-        if (preg_match('#/ByteRange \[0 (\d+) (\d+) (\d+)\] *#', $document, $match, PREG_OFFSET_CAPTURE) !== 1) {
+        if (preg_match_all('#/ByteRange \[0 (\d+) (\d+) (\d+)\] *#', $document, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) <= $occurrence) {
             throw new RuntimeException('No byte range was found in '.$signedPath);
         }
+        $match = $matches[$occurrence];
 
         $replacement = $byteRange((int) $match[1][0], (int) $match[2][0], (int) $match[3][0]);
         $path = "{$directory}/{$name}.pdf";

@@ -111,7 +111,7 @@
             }
         },
         "harness": {
-            "description": "The commit of this repository that the run came from and whether its working tree had changes to tracked files, read from the checkout before any attempt, or why it could not be read.",
+            "description": "The commit of this repository that the run came from and whether its working tree held files that differ from it, tracked or untracked and not ignored, read from the checkout before any attempt, or why it could not be read.",
             "oneOf": [
                 {
                     "type": "object",
@@ -143,7 +143,7 @@
                                     "properties": {
                                         "status": { "const": "modified" },
                                         "paths": {
-                                            "description": "The tracked paths that differ from the commit, staged or not, in byte order.",
+                                            "description": "The paths that differ from the commit: tracked files changed, staged or not, renamed or deleted, and untracked files that are not ignored, in byte order.",
                                             "type": "array",
                                             "minItems": 1,
                                             "uniqueItems": true,

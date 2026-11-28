@@ -307,7 +307,7 @@ final class PerformanceAnalysisTest extends TestCase
         }
         $markdown = PerformanceSummary::markdown($analysis);
         self::assertStringContainsString('**The runs do not all come from the same revision of this repository and state of its working tree**', $markdown);
-        self::assertStringContainsString('commit `'.str_repeat('8', 40).'` with changes to tracked files: `src/Run/Pilot.php` |', $markdown);
+        self::assertStringContainsString('commit `'.str_repeat('8', 40).'` with files that differ from the commit: `src/Run/Pilot.php` |', $markdown);
         self::assertStringNotContainsString('Harness: commit', $markdown);
     }
 

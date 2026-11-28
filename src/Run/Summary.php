@@ -341,7 +341,7 @@ final class Summary
             return "{$commit} with a clean working tree";
         }
 
-        return "{$commit} with changes to tracked files: ".implode(', ', array_map(static fn (string $path): string => '`'.self::inline($path).'`', $harness['working_tree']['paths']));
+        return "{$commit} with files that differ from the commit: ".implode(', ', array_map(static fn (string $path): string => '`'.self::inline($path).'`', $harness['working_tree']['paths']));
     }
 
     private static function inline(string $text): string

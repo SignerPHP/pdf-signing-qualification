@@ -119,7 +119,7 @@ final class CompareRunsCommandTest extends TestCase
 
         self::assertSame(0, $exitCode, $errorOutput);
         self::assertSame([['subject' => 'harness', 'reference' => null, 'candidate' => $candidate->run['harness']]], $this->readComparison($this->directory.'/comparison')['differences']);
-        self::assertStringContainsString('| `harness` |  | not recorded | commit `'.str_repeat('8', 40).'` with changes to tracked files: `src/Run/Pilot.php` |', $output);
+        self::assertStringContainsString('| `harness` |  | not recorded | commit `'.str_repeat('8', 40).'` with files that differ from the commit: `src/Run/Pilot.php` |', $output);
     }
 
     public function test_a_new_failure_exits_with_one(): void

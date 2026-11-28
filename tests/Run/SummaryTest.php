@@ -417,7 +417,7 @@ final class SummaryTest extends TestCase
         $unavailable = self::runRecord();
         $unavailable['harness'] = ['status' => 'unavailable', 'reason' => "Unable to read the commit of the checkout /app: git rev-parse exited with code 128:\nfatal: not a git repository"];
 
-        self::assertStringContainsString("\nHarness: commit `".str_repeat('7', 40).'` with changes to tracked files: `src/Run/Pilot.php`, `docs/a\\|b.md`.'."\n", Summary::markdown($modified, [], [], []));
+        self::assertStringContainsString("\nHarness: commit `".str_repeat('7', 40).'` with files that differ from the commit: `src/Run/Pilot.php`, `docs/a\\|b.md`.'."\n", Summary::markdown($modified, [], [], []));
         self::assertStringContainsString("\nHarness: unavailable: Unable to read the commit of the checkout /app: git rev-parse exited with code 128: fatal: not a git repository.\n", Summary::markdown($unavailable, [], [], []));
     }
 

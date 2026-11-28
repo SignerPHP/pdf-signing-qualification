@@ -12,6 +12,8 @@ final class HarnessRevision
 {
     private const float TIMEOUT_SECONDS = 30.0;
 
+    private const string PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+
     private const array REVISION_ARGUMENTS = ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'];
 
     public static function describe(CommandRunner $runner, string $checkout): array
@@ -56,6 +58,7 @@ final class HarnessRevision
     private static function git(CommandRunner $runner, string $checkout, array $arguments): CommandResult
     {
         return $runner->run([
+            'env', '-i', 'PATH='.self::PATH, 'HOME=/nonexistent',
             'sh', '-c', 'exec "$@" 2>/dev/null', 'sh',
             'git', '-c', "safe.directory={$checkout}", '-c', 'core.fsmonitor=false', '--no-optional-locks', '-C', $checkout, ...$arguments,
         ], self::TIMEOUT_SECONDS);

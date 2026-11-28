@@ -84,6 +84,25 @@ final class HarnessRevisionTest extends TestCase
         self::assertSame(['status' => 'clean'], HarnessRevision::describe(new ProcessRunner, $this->checkout)['working_tree']);
     }
 
+    public function test_git_variables_of_the_environment_do_not_select_another_checkout(): void
+    {
+        $commit = $this->git('rev-parse', 'HEAD');
+        $otherCheckout = $this->checkout.'-other';
+        mkdir($otherCheckout);
+        exec('git -C '.escapeshellarg($otherCheckout).' init -q && git -C '.escapeshellarg($otherCheckout).' -c user.name=Other -c user.email=other@example.org commit -q --allow-empty -m Other');
+        putenv("GIT_DIR={$otherCheckout}/.git");
+        putenv("GIT_WORK_TREE={$otherCheckout}");
+        try {
+            $harness = HarnessRevision::describe(new ProcessRunner, $this->checkout);
+        } finally {
+            putenv('GIT_DIR');
+            putenv('GIT_WORK_TREE');
+            exec('rm -rf '.escapeshellarg($otherCheckout));
+        }
+
+        self::assertSame(['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => $commit], 'working_tree' => ['status' => 'clean']], $harness);
+    }
+
     public function test_commit_that_moves_head_while_the_tree_is_read_makes_the_revision_unavailable(): void
     {
         $runner = new class implements CommandRunner

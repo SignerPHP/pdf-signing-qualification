@@ -54,6 +54,11 @@ final class ComparisonValidatorsTest extends TestCase
             'appended without the prior field' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-without-prior-field', keepPriorFields: false),
             'appended with bytes after the range' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-with-trailing-bytes', unsignedSuffix: "% unsigned\n"),
             'appended with a shifted gap' => SyntheticSignedPdf::shiftLastByteRangeGap($appendedToSigned, self::$directory),
+            'document timestamp appended to signed' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'timestamp-appended-to-signed', signatureType: '/DocTimeStamp'),
+            'appended to signed with an unsigned revision' => SyntheticSignedPdf::appendUnsignedRevision($appendedToSigned, self::$directory, 'appended-to-signed-unsigned-revision'),
+            'appended to signed with bytes between the revisions' => SyntheticSignedPdf::appendSignature($signed, self::$directory, 'appended-with-bytes-between-revisions', unsignedPrefix: "% unsigned\n"),
+            'appended to signed with a first range short of its revision' => SyntheticSignedPdf::rewriteFirstByteRange($appendedToSigned, self::$directory, 'first-range-short-of-its-revision', static fn (int $firstLength, int $secondOffset, int $secondLength): string => sprintf('/ByteRange [0 %d %d %d]', $firstLength, $secondOffset, $secondLength - 2)),
+            'appended to signed with a first range over the next revision' => SyntheticSignedPdf::rewriteFirstByteRange($appendedToSigned, self::$directory, 'first-range-over-the-next-revision', static fn (int $firstLength, int $secondOffset): string => sprintf('/ByteRange [0 %d %d %d]', $firstLength, $secondOffset, (int) filesize($appendedToSigned) - $secondOffset)),
         ];
     }
 
@@ -155,14 +160,15 @@ final class ComparisonValidatorsTest extends TestCase
 
     public function test_signature_lost_from_a_recovered_input_listing_is_not_judged_as_the_added_one(): void
     {
+        $input = SyntheticSignedPdf::create(self::$directory, 'signed-with-gap-suffix', unsignedGapSuffix: ' ');
+        $output = SyntheticSignedPdf::appendSignature($input, self::$directory, 'appended-to-signed-with-gap-suffix');
         $unsignedListing = AlteredListingRunner::listingOf(self::$fixtures['unsigned']);
-        $validator = self::alteredValidator(SignatureCoverageValidator::class, self::$fixtures['signed'], static fn (CommandResult $result): CommandResult => new CommandResult(3, $unsignedListing));
+        $validator = self::alteredValidator(SignatureCoverageValidator::class, $input, static fn (CommandResult $result): CommandResult => new CommandResult(3, $unsignedListing));
 
-        $observation = $validator->observe(self::subject('signed', 'appended to signed'));
+        $observation = $validator->observe(new ValidationSubject(self::ATTEMPT_ID, Artifact::describe($input), $output, $input));
 
         self::assertSame('inconclusive', $observation['verdict']);
-        $uncovered = filesize(self::$fixtures['appended to signed']) - filesize(self::$fixtures['signed']);
-        self::assertSame("Signature1: the byte range does not reach the end of the file, leaving {$uncovered} bytes uncovered, but qpdf had to recover the input, so this may be a signature of the input", $observation['evidence']['summary']);
+        self::assertSame('Signature1: the bytes the range leaves out are not the hexadecimal string of its /Contents, but qpdf had to recover the input, so this may be a signature of the input', $observation['evidence']['summary']);
         self::assertSame(['Signature1' => 'inconclusive', 'Signature2' => 'valid'], array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
     }
 
@@ -228,6 +234,69 @@ final class ComparisonValidatorsTest extends TestCase
         $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subject('signed', $output));
 
         self::assertSame($summary, $observation['evidence']['summary']);
+    }
+
+    public static function outputsAddingSeveralSignatures(): iterable
+    {
+        yield 'two approval signatures' => ['appended to signed', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
+        yield 'signature followed by a document timestamp' => ['document timestamp appended to signed', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
+        yield 'unsigned revision after the last signature' => ['appended to signed with an unsigned revision', 'valid', ['Signature1' => 'valid', 'Signature2' => 'valid']];
+        yield 'bytes after the last revision' => ['appended with bytes after the range', 'invalid', ['Signature1' => 'valid', 'Signature2' => 'invalid']];
+        yield 'bytes between the revisions' => ['appended to signed with bytes between the revisions', 'invalid', ['Signature1' => 'invalid', 'Signature2' => 'valid']];
+        yield 'earlier range short of its revision' => ['appended to signed with a first range short of its revision', 'invalid', ['Signature1' => 'invalid', 'Signature2' => 'valid']];
+        yield 'earlier range over the next revision' => ['appended to signed with a first range over the next revision', 'invalid', ['Signature1' => 'invalid', 'Signature2' => 'valid']];
+    }
+
+    /**
+     * @param  array<string, string>  $outcomes
+     */
+    #[DataProvider('outputsAddingSeveralSignatures')]
+    public function test_each_added_signature_covers_its_own_revision(string $output, string $verdict, array $outcomes): void
+    {
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subject('unsigned', $output));
+
+        self::assertSame([], (new SchemaValidator)->errors($observation, ToolValidator::OBSERVATION_SCHEMA));
+        self::assertSame($verdict, $observation['verdict'], $observation['evidence']['summary']);
+        self::assertSame($outcomes, array_column($observation['evidence']['details']['signatures'], 'outcome', 'field'));
+    }
+
+    public function test_coverage_names_the_revision_each_range_ends_at(): void
+    {
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subject('unsigned', 'appended to signed with an unsigned revision'));
+
+        $signedSize = filesize(self::$fixtures['signed']);
+        $appendedSize = filesize(self::$fixtures['appended to signed']);
+        self::assertSame([['Signature1', $signedSize], ['Signature2', $appendedSize]], array_map(
+            static fn (array $signature): array => [$signature['field'], $signature['revision_end']],
+            $observation['evidence']['details']['signatures'],
+        ));
+        self::assertSame("Signature1 covers every byte of the revision ending at byte {$signedSize} except its /Contents, Signature2 covers every byte of the revision ending at byte {$appendedSize} except its /Contents", $observation['evidence']['summary']);
+    }
+
+    public static function severalSignatureProblems(): iterable
+    {
+        yield 'bytes between the revisions' => ['appended to signed with bytes between the revisions', 'Signature1: the byte range ends at byte {signed size}, which is not the end of a revision followed by an incremental update or by the end of the file'];
+        yield 'earlier range short of its revision' => ['appended to signed with a first range short of its revision', 'Signature1: the byte range ends at byte {signed size - 2}, which is not the end of a revision followed by an incremental update or by the end of the file'];
+        yield 'earlier range over the next revision' => ['appended to signed with a first range over the next revision', 'Signature1: Signature2, the next added signature, is not in the bytes after the revision its range ends at'];
+    }
+
+    #[DataProvider('severalSignatureProblems')]
+    public function test_coverage_names_the_revision_problem(string $output, string $summary): void
+    {
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subject('unsigned', $output));
+
+        $signedSize = (int) filesize(self::$fixtures['signed']);
+        self::assertSame(strtr($summary, ['{signed size}' => (string) $signedSize, '{signed size - 2}' => (string) ($signedSize - 2)]), $observation['evidence']['summary']);
+    }
+
+    public function test_single_added_signature_must_still_reach_the_end_of_the_output(): void
+    {
+        $observation = self::validator(SignatureCoverageValidator::class)->observe(self::subject('signed', 'appended to signed with an unsigned revision'));
+
+        $uncovered = filesize(self::$fixtures['appended to signed with an unsigned revision']) - filesize(self::$fixtures['appended to signed']);
+        self::assertSame('invalid', $observation['verdict']);
+        self::assertSame("Signature2: the byte range does not reach the end of the file, leaving {$uncovered} bytes uncovered", $observation['evidence']['summary']);
+        self::assertArrayNotHasKey('revision_end', $observation['evidence']['details']['signatures'][0]);
     }
 
     public static function priorSignatureProblems(): iterable

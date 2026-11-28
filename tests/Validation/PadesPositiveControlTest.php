@@ -18,6 +18,7 @@ use SignerPHP\PdfSigningQualification\Validation\EuDssValidator;
 use SignerPHP\PdfSigningQualification\Validation\OpenSslCmsValidator;
 use SignerPHP\PdfSigningQualification\Validation\PadesStructureValidator;
 use SignerPHP\PdfSigningQualification\Validation\ProcessRunner;
+use SignerPHP\PdfSigningQualification\Validation\SignatureCoverageValidator;
 use SignerPHP\PdfSigningQualification\Validation\ToolValidator;
 use SignerPHP\PdfSigningQualification\Validation\ValidationSubject;
 
@@ -81,6 +82,7 @@ final class PadesPositiveControlTest extends TestCase
         self::assertVerdict('valid', new PadesStructureValidator(new ProcessRunner, self::clock(), null, true), $output);
         self::assertVerdict('valid', new DocumentTimestampImprintValidator(new ProcessRunner, self::clock()), $output);
         self::assertVerdict('valid', new OpenSslCmsValidator(new ProcessRunner, self::clock()), $output);
+        self::assertVerdict('valid', new SignatureCoverageValidator(new ProcessRunner, self::clock()), $output);
     }
 
     public function test_document_timestamp_whose_range_was_changed_is_invalid(): void

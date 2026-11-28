@@ -74,12 +74,13 @@ final class SyntheticSignedPdf
         return $path;
     }
 
-    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig'): string
+    public static function appendSignature(string $documentPath, string $directory, string $name, bool $keepPriorFields = true, string $unsignedSuffix = '', string $fieldName = '(Signature2)', bool $fieldInForm = true, string $signatureType = '/Sig', string $unsignedPrefix = ''): string
     {
         $document = (string) file_get_contents($documentPath);
         if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
             throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
         }
+        $document .= $unsignedPrefix;
 
         [$certificate, $privateKey] = self::generateCredentials();
         $fields = $keepPriorFields && str_contains($document, '/Fields [5 0 R]') ? '5 0 R 7 0 R' : '7 0 R';
@@ -112,6 +113,25 @@ final class SyntheticSignedPdf
 
         $path = "{$directory}/{$name}.pdf";
         file_put_contents($path, substr_replace($signedDocument, $contents, $contentsStart, strlen($contents)).$unsignedSuffix);
+
+        return $path;
+    }
+
+    public static function appendUnsignedRevision(string $documentPath, string $directory, string $name): string
+    {
+        $document = (string) file_get_contents($documentPath);
+        if (preg_match('/startxref\n(\d+)\n%%EOF\n\z/', $document, $matches) !== 1) {
+            throw new RuntimeException('The cross-reference offset was not found in '.$documentPath);
+        }
+
+        $objectOffset = strlen($document);
+        $update = "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n";
+        $xrefOffset = $objectOffset + strlen($update);
+        $update .= "xref\n0 1\n0000000000 65535 f \n2 1\n".sprintf("%010d 00000 n \n", $objectOffset);
+        $update .= "trailer\n<< /Size 9 /Root 1 0 R /Prev {$matches[1]} >>\nstartxref\n{$xrefOffset}\n%%EOF\n";
+
+        $path = "{$directory}/{$name}.pdf";
+        file_put_contents($path, $document.$update);
 
         return $path;
     }

@@ -146,7 +146,7 @@ final class ComparisonSummary
     private static function differences(array $differences): array
     {
         if ($differences === []) {
-            return ['The two runs have the same scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.'];
+            return ['The two runs have the same harness revision, scenario, implementation, implementation runtime and compatibility, analyzer revisions and policies, source configuration, expected rejections, container image and resource limits.'];
         }
 
         $lines = ['| Subject | Analyzer | Reference | Candidate |', '| ------- | -------- | --------- | --------- |'];
@@ -172,6 +172,9 @@ final class ComparisonSummary
 
     private static function value(string $subject, mixed $value): string
     {
+        if ($subject === 'harness') {
+            return Summary::harness($value);
+        }
         if ($value === null) {
             return 'absent';
         }

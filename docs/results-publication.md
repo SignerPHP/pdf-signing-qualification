@@ -40,7 +40,7 @@ The evidence shows no need to keep a history of runs: nothing reads one beyond t
 
 Searched over every record of the directories above, outside `outputs/`:
 
-- No host name, user name, home directory or address of the host. A run records the operating system of the image, the host kernel release, the CPU model, the container image id and the resource limits.
+- No host name, user name, home directory or address of the host. A run records the operating system of the image, the host kernel release, the CPU model, the container image id, the resource limits and the commit of this repository with the paths of the tracked files changed in its working tree, which are paths of the repository.
 - No private key and no password. Each run generates a self-signed certificate, its key in a PKCS#12 file and a random password, removes the file when the run ends, and replaces the password with `[redacted]` in the output it keeps from a failed attempt. Observations identify the signer's certificate by its SHA-256 only. The word `password` appears only in messages of the implementations and validators, such as `Bad user password` and `User password = ` with an empty value for an encrypted input, and in names of upstream inputs, such as `enc-XI-long-password.pdf`.
 - Paths only inside the image, such as `var/cache/inputs/files/...` in the messages of qpdf.
 - Fragments of the inputs, inside the messages of the validators, such as `Syntax Error (132234): Illegal character ')'`. The inputs are the upstream files that [`config/inputs.json`](../config/inputs.json) and [`config/main-panel/inputs.json`](../config/main-panel/inputs.json) select only under an established free license.

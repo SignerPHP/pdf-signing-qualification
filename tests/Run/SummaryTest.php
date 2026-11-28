@@ -15,6 +15,7 @@ final class SummaryTest extends TestCase
         return [
             'id' => 'run-20261031T120000Z',
             'scenario_id' => 'basic-invisible-sha256',
+            'harness' => ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('7', 40)], 'working_tree' => ['status' => 'clean']],
             'implementation' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('f', 40)]],
             'analyzers' => [
                 ['id' => 'pyhanko', 'revision' => ['kind' => 'version', 'value' => '0.29.1']],
@@ -228,6 +229,8 @@ final class SummaryTest extends TestCase
 
             Scenario `basic-invisible-sha256`, implementation `pdf-signer` at commit `ffffffffffffffffffffffffffffffffffffffff`, analyzers `pyhanko` 0.29.1 and `qpdf` 11.3.0.
 
+            Harness: commit `7777777777777777777777777777777777777777` with a clean working tree.
+
             ## Executions
 
             | Outcome | Attempts |
@@ -405,6 +408,17 @@ final class SummaryTest extends TestCase
 
         self::assertStringContainsString("**The adapter cannot run this revision of `pdf-signer`:** pdf-signer does not list --no-default-timestamp in its help, so the adapter cannot run this revision. Every attempt was still run, so each one records what happened.\n\n## Executions", $markdown);
         self::assertStringContainsString('| `qpdf:good.pdf` | `supported` | `failed` | pdf-signer exited with code 1: unknown option |', $markdown);
+    }
+
+    public function test_harness_with_changed_tracked_files_or_unread_is_stated_with_what_was_read(): void
+    {
+        $modified = self::runRecord();
+        $modified['harness']['working_tree'] = ['status' => 'modified', 'paths' => ['src/Run/Pilot.php', 'docs/a|b.md']];
+        $unavailable = self::runRecord();
+        $unavailable['harness'] = ['status' => 'unavailable', 'reason' => "Unable to read the commit of the checkout /app: git rev-parse exited with code 128:\nfatal: not a git repository"];
+
+        self::assertStringContainsString("\nHarness: commit `".str_repeat('7', 40).'` with changes to tracked files: `src/Run/Pilot.php`, `docs/a\\|b.md`.'."\n", Summary::markdown($modified, [], [], []));
+        self::assertStringContainsString("\nHarness: unavailable: Unable to read the commit of the checkout /app: git rev-parse exited with code 128: fatal: not a git repository.\n", Summary::markdown($unavailable, [], [], []));
     }
 
     public function test_compatible_revision_and_a_run_without_regression_cases_are_stated_plainly(): void

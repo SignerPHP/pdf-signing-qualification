@@ -12,6 +12,8 @@ final class Summary
 
     private const int CELL_CHARACTERS = 200;
 
+    public const string HARNESS_DIFFERENCE = '**The runs do not all come from the same revision of this repository and state of its working tree**, as each run lists, so a difference between them may come from the harness as well as from what they compare.';
+
     /**
      * @param  list<array>  $attempts
      * @param  list<array>  $observations
@@ -33,6 +35,8 @@ final class Summary
             "# Run {$run['id']}",
             '',
             "Scenario `{$run['scenario_id']}`, implementation ".self::tool($run['implementation']).', analyzers '.self::sentence(array_values(array_map(self::tool(...), $run['analyzers']))).'.',
+            '',
+            'Harness: '.self::harness($run['harness'] ?? null).'.',
             '',
             ...self::compatibility($run),
             ...self::executions($attempts),
@@ -322,6 +326,27 @@ final class Summary
     public static function tool(array $tool): string
     {
         return "`{$tool['id']}` ".self::revision($tool['revision']);
+    }
+
+    public static function harness(?array $harness): string
+    {
+        if ($harness === null) {
+            return 'not recorded';
+        }
+        if ($harness['status'] === 'unavailable') {
+            return 'unavailable: '.self::inline($harness['reason']);
+        }
+        $commit = "commit `{$harness['revision']['value']}`";
+        if ($harness['working_tree']['status'] === 'clean') {
+            return "{$commit} with a clean working tree";
+        }
+
+        return "{$commit} with changes to tracked files: ".implode(', ', array_map(static fn (string $path): string => '`'.self::inline($path).'`', $harness['working_tree']['paths']));
+    }
+
+    private static function inline(string $text): string
+    {
+        return str_replace('|', '\|', trim((string) preg_replace('/\s+/', ' ', $text)));
     }
 
     public static function revision(array $revision): string

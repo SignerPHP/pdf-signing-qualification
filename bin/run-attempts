@@ -10,6 +10,7 @@ use SignerPHP\PdfSigningQualification\Regression\RegressionConditions;
 use SignerPHP\PdfSigningQualification\Regression\RegressionReplay;
 use SignerPHP\PdfSigningQualification\Run\Environment;
 use SignerPHP\PdfSigningQualification\Run\ExpectedRejections;
+use SignerPHP\PdfSigningQualification\Run\HarnessRevision;
 use SignerPHP\PdfSigningQualification\Run\Pilot;
 use SignerPHP\PdfSigningQualification\Run\RunReport;
 use SignerPHP\PdfSigningQualification\Run\Summary;
@@ -105,6 +106,7 @@ try {
         $inputs,
         $acquisitions,
         Environment::describe(getenv(Environment::IMAGE_VARIABLE), $limits, confinement: $confinement),
+        HarnessRevision::describe(new ProcessRunner, dirname(__DIR__)),
         ['sha256' => hash('sha256', $configuration), 'byte_size' => strlen($configuration)],
         $regressionCases,
     );

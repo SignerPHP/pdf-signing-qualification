@@ -166,7 +166,29 @@ final class CompareImplementationsCommandTest extends TestCase
         [$exitCode, $output, $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
 
         self::assertSame(0, $exitCode, $errorOutput);
-        self::assertStringContainsString('| `pdf-signer` | `run-20261107T120000Z` | unavailable: no id \\| given by the host | not recorded |', $output);
+        self::assertStringContainsString('| `pdf-signer` | `run-20261107T120000Z` | commit `'.str_repeat('7', 40).'` with a clean working tree | unavailable: no id \\| given by the host | not recorded |', $output);
+        self::assertStringNotContainsString('different revisions of this repository', $output);
+    }
+
+    public function test_runs_from_other_revisions_of_the_harness_are_compared_with_the_difference_stated(): void
+    {
+        $runs = $this->writeRuns();
+        $versionTwoRun = json_decode((string) file_get_contents($runs[0].'/run.json'), true, flags: JSON_THROW_ON_ERROR);
+        $unavailableRun = json_decode((string) file_get_contents($runs[2].'/run.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($versionTwoRun);
+        self::assertIsArray($unavailableRun);
+        $versionTwoRun['schema'] = SchemaValidator::SCHEMA_PREFIX.'v2/run.schema.json';
+        unset($versionTwoRun['harness']);
+        $unavailableRun['harness'] = ['status' => 'unavailable', 'reason' => "Unable to read | the commit\nof the checkout"];
+        file_put_contents($runs[0].'/run.json', json_encode($versionTwoRun, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        file_put_contents($runs[2].'/run.json', json_encode($unavailableRun, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        [$exitCode, $output, $errorOutput] = $this->compareImplementations(...[...$runs, $this->directory.'/differential']);
+
+        self::assertSame(0, $exitCode, $errorOutput);
+        self::assertStringContainsString('| `pdf-signer` | `run-20261107T120000Z` | not recorded |', $output);
+        self::assertStringContainsString('| `jsignpdf` | `run-20261107T130000Z` | unavailable: Unable to read \\| the commit of the checkout |', $output);
+        self::assertStringContainsString('**The runs do not all come from the same revision of this repository and state of its working tree**', $output);
     }
 
     public function test_a_wrong_number_of_arguments_prints_the_usage(): void

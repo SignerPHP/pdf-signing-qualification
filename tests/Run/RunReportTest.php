@@ -50,6 +50,14 @@ final class RunReportTest extends TestCase
         return RunReport::fromDirectory(($fixture ?? self::fixture())->write($this->directory));
     }
 
+    public function test_report_states_the_harness_and_says_when_an_older_run_does_not_record_it(): void
+    {
+        self::assertStringContainsString("\n\nHarness: commit `".str_repeat('7', 40)."` with a clean working tree.\n\n", $this->report());
+
+        exec('rm -rf '.escapeshellarg($this->directory));
+        self::assertStringContainsString("\n\nHarness: not recorded.\n\n", $this->report(self::fixture()->versionTwo()));
+    }
+
     public function test_coverage_counts_every_attempt_of_each_stratum_including_the_ones_not_signed(): void
     {
         $report = $this->report();

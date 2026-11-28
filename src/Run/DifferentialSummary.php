@@ -28,15 +28,20 @@ final class DifferentialSummary
             ...RunReport::selection($comparison['selection']),
             '## Runs',
             '',
-            '| Implementation | Run | Container image | Compatibility with the adapter |',
-            '| -------------- | --- | --------------- | ------------------------------ |',
+            '| Implementation | Run | Harness | Container image | Compatibility with the adapter |',
+            '| -------------- | --- | ------- | --------------- | ------------------------------ |',
         ];
+        $harnesses = [];
         foreach ([$first, $second] as $side) {
             foreach ($side['runs'] as $run) {
+                $harnesses[] = $run['harness'] ?? null;
                 $image = $run['container_image']['status'] === 'available' ? "`{$run['container_image']['id']}`" : 'unavailable: '.self::cell($run['container_image']['reason']);
                 $compatibility = $run['implementation_compatibility'] === null ? 'not recorded' : "`{$run['implementation_compatibility']['status']}`";
-                $lines[] = "| `{$side['implementation']['id']}` | `{$run['run_id']}` | {$image} | {$compatibility} |";
+                $lines[] = "| `{$side['implementation']['id']}` | `{$run['run_id']}` | ".Summary::harness($run['harness'] ?? null)." | {$image} | {$compatibility} |";
             }
+        }
+        if (count(array_unique(array_map(serialize(...), $harnesses))) > 1) {
+            array_push($lines, '', Summary::HARNESS_DIFFERENCE);
         }
 
         $lines = [

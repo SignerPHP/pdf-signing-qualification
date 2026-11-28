@@ -18,7 +18,7 @@ RUN set -eux; \
     done > /etc/apt/sources.list.d/debian.sources; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        git \
+        git=1:2.39.5-0+deb12u3 \
         unzip \
         diffutils=1:3.8-4 \
         openssl=3.0.22-1~deb12u2 \

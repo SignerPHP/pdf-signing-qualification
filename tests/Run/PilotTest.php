@@ -29,6 +29,8 @@ use SignerPHP\PdfSigningQualification\Validation\ValidationPanel;
 
 final class PilotTest extends TestCase
 {
+    private const array HARNESS = ['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => '7777777777777777777777777777777777777777'], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]];
+
     private const string SCENARIO_DIRECTORY = __DIR__.'/../../config/scenarios';
 
     private string $directory;
@@ -99,7 +101,7 @@ final class PilotTest extends TestCase
         $scenario = json_decode((string) file_get_contents(self::SCENARIO_DIRECTORY.'/basic-invisible-sha256.json'), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($scenario);
 
-        return $pilot->run('run-pilot', $scenario, $inputs, $acquisitions, Environment::describe(false, new ResourceLimits), ['sha256' => str_repeat('b', 64), 'byte_size' => 1]);
+        return $pilot->run('run-pilot', $scenario, $inputs, $acquisitions, Environment::describe(false, new ResourceLimits), self::HARNESS, ['sha256' => str_repeat('b', 64), 'byte_size' => 1]);
     }
 
     public function test_available_input_gets_a_baseline_even_when_the_scenario_is_unsupported(): void
@@ -112,6 +114,7 @@ final class PilotTest extends TestCase
         self::assertSame([], $records['measurements']);
         self::assertSame(['local:unsigned.pdf'], array_column($records['baselines'], 'source_id'));
         self::assertSame(['valid'], array_column($records['baselines'], 'verdict'));
+        self::assertSame(self::HARNESS, $records['run']['harness']);
     }
 
     public function test_refusal_under_a_scenario_that_expects_one_is_an_expected_rejection(): void
@@ -133,7 +136,7 @@ final class PilotTest extends TestCase
                 $this->directory.'/cache',
                 $clock,
             );
-            $records = $pilot->run('run-pilot', $scenario, $inputs, $acquisitions, Environment::describe(false, new ResourceLimits), ['sha256' => str_repeat('b', 64), 'byte_size' => 1]);
+            $records = $pilot->run('run-pilot', $scenario, $inputs, $acquisitions, Environment::describe(false, new ResourceLimits), self::HARNESS, ['sha256' => str_repeat('b', 64), 'byte_size' => 1]);
         } finally {
             $pki->stop();
         }

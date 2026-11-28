@@ -227,6 +227,10 @@
                             "implementation_id": { "$ref": "common.schema.json#/$defs/identifier" },
                             "role": { "enum": ["calibration", "warm_up", "measured"] },
                             "run_id": { "$ref": "common.schema.json#/$defs/identifier" },
+                            "harness": {
+                                "description": "The revision of this repository and the state of its working tree that the run records, or null for a run that predates that record. An analysis written before it has none.",
+                                "oneOf": [{ "$ref": "../v3/run.schema.json#/properties/harness" }, { "type": "null" }]
+                            },
                             "started_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
                             "finished_at": { "$ref": "common.schema.json#/$defs/utcTimestamp" },
                             "medians": { "type": "object", "additionalProperties": { "type": ["number", "null"] } },

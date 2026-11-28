@@ -283,6 +283,7 @@ final class RunComparison
         };
 
         $compare('scenario', $reference->run['scenario_id'], $candidate->run['scenario_id']);
+        $compare('harness', $reference->run['harness'] ?? null, $candidate->run['harness'] ?? null);
         $compare('implementation', $reference->run['implementation'], $candidate->run['implementation']);
         $compare('implementation_runtime', $reference->run['implementation_runtime'] ?? null, $candidate->run['implementation_runtime'] ?? null);
         $compare('implementation_compatibility', $reference->run['implementation_compatibility'] ?? null, $candidate->run['implementation_compatibility'] ?? null);

@@ -327,10 +327,12 @@ final class RunComparisonTest extends TestCase
         $candidate->run['environment']['confinement'] = ['mechanism' => 'landlock', 'landlock_abi' => 11, 'readable_directories' => ['/etc', '/usr'], 'writable_paths' => ['/dev/null']];
         $candidate->run['implementation_runtime'] = ['engine' => 'OpenPDF'];
         $candidate->compatibility(['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']);
+        $candidate->harness(['status' => 'available', 'revision' => ['kind' => 'commit', 'value' => str_repeat('8', 40)], 'working_tree' => ['status' => 'modified', 'paths' => ['src/Run/Pilot.php']]]);
 
         $comparison = self::compare($reference, $candidate);
 
         self::assertSame([
+            ['subject' => 'harness', 'reference' => $reference->run['harness'], 'candidate' => $candidate->run['harness']],
             ['subject' => 'implementation', 'reference' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('a', 40)]], 'candidate' => ['id' => 'pdf-signer', 'revision' => ['kind' => 'commit', 'value' => str_repeat('b', 40)]]],
             ['subject' => 'implementation_runtime', 'reference' => null, 'candidate' => ['engine' => 'OpenPDF']],
             ['subject' => 'implementation_compatibility', 'reference' => null, 'candidate' => ['status' => 'incompatible', 'reason' => 'pdf-signer does not list --no-default-timestamp in its help']],

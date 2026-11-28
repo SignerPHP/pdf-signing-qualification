@@ -38,6 +38,7 @@ final class PerformanceSummary
             '',
             "Host CPU: {$cpuModel}. Container image: {$image}. Protocol SHA-256 `{$analysis['protocol']['sha256']}`.",
             '',
+            ...self::harness($analysis['sessions']),
             "Every metric is measured on the process tree of the attempt, from the start of the implementation's command to its end, so it includes the startup and setup of each implementation: the PHP process of `pdf-signer`, and for JSignPdf the PHP script that drives it and the JVM it starts. The fixed-cost reference below gives that cost on a minimal document.",
             '',
             '## Eligibility',
@@ -177,16 +178,30 @@ final class PerformanceSummary
             '',
             'The medians are over the eligible documents of each run, warm-up runs included, so a drift along the session shows here.',
             '',
-            '| Run | Implementation | Role | Started | Wall time | CPU time | Peak memory | CPUs | Governors | Boost | Load, 1 min | Violations |',
-            '| --- | -------------- | ---- | ------- | --------: | -------: | ----------: | ---- | --------- | ----- | ----------: | ---------: |',
+            '| Run | Implementation | Role | Started | Wall time | CPU time | Peak memory | CPUs | Governors | Boost | Load, 1 min | Violations | Harness |',
+            '| --- | -------------- | ---- | ------- | --------: | -------: | ----------: | ---- | --------- | ----- | ----------: | ---------: | ------- |',
         ];
         foreach ($session['runs'] as $run) {
             $medians = array_map(static fn (string $metric): string => $run['medians'][$metric] === null ? 'n/a' : self::value($metric, $run['medians'][$metric]), array_keys(self::METRIC_NAMES));
             $controls = $run['controls'];
-            $lines[] = "| `{$run['label']}` | `{$run['implementation_id']}` | {$run['role']} | {$run['started_at']} | ".implode(' | ', $medians).' | '.($controls['cpuset'] ?? 'unavailable').' | '.implode(', ', $controls['scaling_governors'])." | {$controls['boost']} | ".($controls['load_average'] === null ? 'unavailable' : self::number($controls['load_average'][0], 2)).' | '.count($controls['violations']).' |';
+            $lines[] = "| `{$run['label']}` | `{$run['implementation_id']}` | {$run['role']} | {$run['started_at']} | ".implode(' | ', $medians).' | '.($controls['cpuset'] ?? 'unavailable').' | '.implode(', ', $controls['scaling_governors'])." | {$controls['boost']} | ".($controls['load_average'] === null ? 'unavailable' : self::number($controls['load_average'][0], 2)).' | '.count($controls['violations']).' | '.Summary::harness($run['harness'] ?? null).' |';
         }
 
         return $lines;
+    }
+
+    /**
+     * @param  list<array>  $sessions
+     * @return list<string>
+     */
+    private static function harness(array $sessions): array
+    {
+        $harnesses = array_map(static fn (array $run): ?array => $run['harness'] ?? null, array_merge(...array_column($sessions, 'runs')));
+        if (count(array_unique(array_map(serialize(...), $harnesses))) > 1) {
+            return [Summary::HARNESS_DIFFERENCE, ''];
+        }
+
+        return ['Harness: '.Summary::harness($harnesses[0] ?? null).'.', ''];
     }
 
     private static function estimate(string $metric, array $distribution, bool $ratio = false): string
